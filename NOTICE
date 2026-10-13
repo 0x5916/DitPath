@@ -1,0 +1,10 @@
+DitPath
+Copyright 2026 Alan
+
+DitPath's original code and documentation are licensed under the Apache
+License, Version 2.0. See LICENSE.md for the license terms.
+
+Third-party materials retain their own licenses and notices, including
+the PGTune port in db/pgtune.sh:
+Copyright (c) 2014 Oleksii Vasyliev
+MIT License; see db/PGTUNE-LICENSE.

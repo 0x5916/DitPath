@@ -1,0 +1,13 @@
+.git
+.gitignore
+.idea
+.vscode
+.env
+*.log
+tmp/
+dist/
+bin/
+coverage/
+postgres_data/
+docker-compose*.yaml
+README*

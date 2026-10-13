@@ -1,0 +1,1200 @@
+@import 'tailwindcss';
+@import './lib/styles/layout.css';
+
+:root {
+  color-scheme: dark;
+
+  --bg-base: #17140f;
+  --bg-surface: #1f1b14;
+  --bg-inset: #272218;
+
+  --border: #37312a;
+  --border-subtle: #463e33;
+  /* Edge of a card/panel surface. Separate from `--border` so flat cards stay
+     legible in light mode without strengthening inputs, navbar or footer. */
+  --border-card: #35302a;
+  /* Form-control edges need 3:1 against the surface they sit on (WCAG 1.4.11),
+     so controls get a stronger rule than decorative hairlines. */
+  --border-control: #7d7365;
+
+  --text-primary: #f2ede3;
+  --text-secondary: #cdc4b4;
+  --text-muted: #aea496;
+  --text-label: #bfb6a5;
+
+  /* Signal amber. One accent for the whole product: interactive surfaces, the
+     playhead, the active lesson, focus. Status colours below stay semantic —
+     green means correct, never "brand". */
+  --accent: #f2a33c;
+  --accent-cta: #e8952f;
+  --accent-cta-h: #f2a33c;
+  --danger: #e0705c;
+  /* Filled accent surfaces carry a dark-on-amber label; white on #e8952f only
+     reaches ~2.2:1. */
+  --on-accent: #211603;
+
+  --result-good-bg: #14251a;
+  --result-bad-bg: #2a1410;
+
+  /* Semantic status roles. The result diff, verified/accuracy states and inline
+     banners all read from these; components must not hard-code status hexes.
+     The light theme re-tunes them for contrast on paper. */
+  --status-good: #63c08d;
+  --status-ok: #d9a216;
+  --status-bad: #e0705c;
+  --status-extra: #8fb0e8;
+  /* Matching washes for pills, banners and the score hero. */
+  --status-good-tint: color-mix(in srgb, var(--status-good) 15%, transparent);
+  --status-ok-tint: color-mix(in srgb, var(--status-ok) 15%, transparent);
+  --status-bad-tint: color-mix(in srgb, var(--status-bad) 15%, transparent);
+  --status-extra-tint: color-mix(in srgb, var(--status-extra) 15%, transparent);
+
+  /* DitPath learning-specific semantic aliases */
+  --learning-current: var(--accent);
+  --learning-stable: var(--status-good);
+  --learning-review: var(--status-ok);
+  --learning-error: var(--status-bad);
+  --learning-info: var(--status-extra);
+  --session-max-width: 42rem;
+  --answer-target-min: 3rem;
+
+  /* Mostly rectangular surfaces: 2px chips, 3px controls, 5px panels, 6px the
+     largest sheets. Pills are reserved for dots. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+
+  /* Elevation is reserved for surfaces that actually stack above the page.
+     Static cards and panels are flat (see `.card` / `.panel` below). */
+  --shadow-menu: 0 2px 10px rgba(0, 0, 0, 0.45);
+  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  --focus-ring: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+
+  /* 4px rhythm. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --nav-control-height: 2.75rem;
+  --max-width-container: 64rem;
+  /* 46rem keeps body copy inside the ~75-char readable-line-length sweet spot
+     while trimming a bit of the dead space `.page-narrow` pages (About,
+     Settings) leave on very wide desktop viewports. */
+  --max-width-narrow: 46rem;
+
+  /* Page rhythm. `.page-content` owns the gap above the first content block and
+     below the last one; pages must not set their own vertical padding, or the
+     same content lands at a different height on every route. `--section-gap`
+     separates a page's major sections, `--block-gap` separates sibling blocks
+     inside one. */
+  /* Below the navbar. Keep it under the navbar's own height (~3.25rem), or the
+     empty space above the first line reads as heavier than the chrome itself. */
+  --page-top: 2.5rem;
+  /* Phones have no top bar at all, so this gap is not separating content from
+     anything: it only clears the status bar / notch and lets the first line
+     breathe. It is added to `env(safe-area-inset-top)`, never replaced by it. */
+  --page-top-phone: 1.25rem;
+  --page-bottom: 3.5rem;
+  --section-gap: 2.5rem;
+  --block-gap: 1.5rem;
+  /* Height of the phone tab bar, reserved as bottom clearance by `.page-content`. */
+  --bottom-nav-clearance: 4.25rem;
+
+  /* Type scale: size + unitless leading pairs. Unitless so the ratio survives
+     the responsive size changes (rem leading broke when a heading resized).
+     Sizes are rem-based so the whole page still scales with the user's browser
+     font size. */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif;
+  --font-home: 'Avenir Next', Avenir, 'Trebuchet MS', var(--font-ui);
+  /* Morse text, timers, WPM/Hz readouts, lesson numbers, call signs. */
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+
+  --text-xs: 0.75rem; /* meta, eyebrows, control labels */
+  --text-sm: 0.875rem; /* UI text, secondary copy */
+  --text-base: 1rem; /* body prose */
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem; /* .section-title */
+  --text-2xl: 1.75rem; /* .page-title */
+  --text-3xl: 2.125rem; /* display: masthead only */
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.72;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg-base: #f5f1e8;
+    --bg-surface: #fbf9f3;
+    --bg-inset: #ede8dc;
+    --border: #dcd5c6;
+    --border-subtle: #cfc7b5;
+    --border-card: #d8d1c1;
+    --border-control: #867c66;
+    --text-primary: #201d18;
+    --text-secondary: #4c463c;
+    --text-muted: #605849;
+    --text-label: #57503f;
+    --accent: #a94c08;
+    --accent-cta: #a24a08;
+    --accent-cta-h: #8f4107;
+    --danger: #b42318;
+    --on-accent: #fff8ef;
+    --status-good: #1e7a46;
+    --status-ok: #8a5a00;
+    --status-bad: #b42318;
+    --status-extra: #3f5e9c;
+    --result-good-bg: #edf3e7;
+    --result-bad-bg: #f8eae3;
+    --shadow-menu: 0 2px 10px rgba(32, 25, 14, 0.12);
+    --shadow-overlay: 0 12px 32px rgba(32, 25, 14, 0.18);
+  }
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-base: #f5f1e8;
+  --bg-surface: #fbf9f3;
+  --bg-inset: #ede8dc;
+  --border: #dcd5c6;
+  --border-subtle: #cfc7b5;
+  --border-card: #d8d1c1;
+  --border-control: #867c66;
+  --text-primary: #201d18;
+  --text-secondary: #4c463c;
+  --text-muted: #605849;
+  --text-label: #57503f;
+  --accent: #a94c08;
+  --accent-cta: #a24a08;
+  --accent-cta-h: #8f4107;
+  --danger: #b42318;
+  --on-accent: #fff8ef;
+  --status-good: #1e7a46;
+  --status-ok: #8a5a00;
+  --status-bad: #b42318;
+  --status-extra: #3f5e9c;
+  --result-good-bg: #edf3e7;
+  --result-bad-bg: #f8eae3;
+  --shadow-menu: 0 2px 10px rgba(32, 25, 14, 0.12);
+  --shadow-overlay: 0 12px 32px rgba(32, 25, 14, 0.18);
+}
+
+/* No `[data-theme='dark']` block is needed: the `:root` values above are the dark
+   palette, and the light overrides only apply when the theme is `light` (explicit)
+   or `auto` while the system prefers light. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: var(--leading-normal);
+  transition:
+    background-color var(--transition-base),
+    color var(--transition-base);
+}
+
+/* One visual primitive, two semantic names:
+   - `.card`  — a browsable, independent unit that belongs to a peer group
+                (a link card, the auth form).
+   - `.panel` — a standalone container for sequential or dense content
+                (trainer tool panels, data visualisations, settings groups).
+   Both are flat: surface + hairline border. Elevation belongs only to things
+   that stack above the page (`--shadow-menu` / `--shadow-overlay`), so a
+   static card must never react to hover — that would be a false affordance.
+   Prefer `.row-list` over a field of cards whenever the content is a list. */
+.card,
+.card-sm,
+.panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  min-width: 0;
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.card,
+.panel {
+  padding: var(--space-6);
+}
+
+.card-sm {
+  padding: var(--space-4);
+}
+
+/* Ledger sections use whitespace between groups and a rule beneath each title. */
+.panel--ledger {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.panel--ledger + .panel--ledger {
+  margin-top: var(--section-gap);
+}
+
+/* Heading for a card/panel's own content. `.card-title` heads the text;
+   `.card-label` is the quiet caps label above it. */
+.card-title {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* One caps-label recipe for every surface — a card, a trainer panel, a metric
+   readout. Only the margin differs: the surface that owns its own rhythm adds
+   none, so `.panel-label` and `.metric-label` stay margin-free. */
+.card-label,
+.panel-label,
+.metric-label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-label {
+  line-height: var(--leading-snug);
+  margin-bottom: 0.75rem;
+}
+
+/* Inline notice (guest prompts, hints): an inset block, never a card. */
+.notice {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background-color: var(--bg-inset);
+}
+
+/* Empty and error states read as text, not as illustration. `.state-block` is
+   the message itself; `.state-error` is the same shape for the states whose
+   children are controls (an alert plus a retry). */
+.state-block {
+  padding: var(--space-8) 0;
+  max-width: var(--max-width-narrow);
+}
+
+.state-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.state-note {
+  margin: 0 0 var(--space-4);
+}
+
+.state-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+/* Rule between two parts of the same section (never between sections: those
+   use `--section-gap`, otherwise the gap and the rule stack up). */
+.divider {
+  border-color: var(--border);
+  margin-top: var(--block-gap);
+  margin-bottom: var(--block-gap);
+}
+
+/* Numbered step list — home "how it works", about "how the method works". */
+.step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-xs);
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1rem;
+}
+
+.step-title {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+/* Headings carry no margin: the page or the container owns the rhythm, so a
+   heading can move between contexts without bringing spacing with it.
+   `.page-title` stays neutral ink — page identity comes from the eyebrow above
+   it and the rule under the masthead, not from colouring the heading. */
+.page-title {
+  color: var(--text-primary);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+/* Small label above a page/section title. The 2px rule is the timing-line
+   motif that runs through the trainer and the forum mastheads. */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 1.25rem;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* Back link for pages nested under a hub (forum thread, trainer): replaces a
+   masthead label with a path back to the parent instead of a static tag. */
+.crumb-nav {
+  margin-bottom: var(--space-6);
+}
+
+.crumb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* Pads the back link into a full-size target; the matching negative margin
+     keeps it sitting exactly where the text was. */
+  padding-block: 0.65rem;
+  margin-block: -0.65rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.crumb-link:hover {
+  color: var(--accent);
+}
+
+/* Section headings use the same quiet divider as panel headings. */
+.section-title {
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Level three steps down by size and weight alone. Its rule was pixel-identical
+   to `.section-title`'s, so it drew no boundary the section rule had not already
+   drawn — it only striped the page. The type step carries the level instead. */
+.sub-title {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  /* The rule used to close off the block above. The section is a flex column
+     with no gap, so the heading needs its own top margin now. */
+  margin: var(--space-6) 0 var(--space-2);
+}
+
+.body-text {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+/* Long-form reading (about, home prose): the one place body copy steps up to
+   16px, because 14px is tuned for UI text, not for paragraphs. */
+.body-text--prose {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+
+/* Reference copy set as a quote: the mono line the learner's copy is measured
+   against, on the trainer's checked copy and in the result overlay. */
+.quote-text {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.label-text {
+  color: var(--text-label);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+.link {
+  color: var(--accent);
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* Buttons are inline by default: the action decides its own width. Hover is a
+   colour step only — no lift, no glow. The base below carries the control
+   frame; each variant only sets its size, colour and hover step. */
+.btn-primary,
+.btn-ghost,
+.btn-cta,
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+/* The two text-sized buttons share a footprint, so an action row that mixes
+   them lines up on one height. */
+.btn-primary,
+.btn-ghost {
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.btn-primary {
+  font-weight: 600;
+  border: 1px solid transparent;
+  background-color: var(--accent-cta);
+  color: var(--on-accent);
+  transition: background-color var(--transition-fast);
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-cta-h);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Compact variant used by the settings save/verification buttons (auto width
+   on desktop, full width on phones). */
+.settings-btn-compact {
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  font-size: var(--text-sm);
+  width: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .settings-btn-compact {
+    width: 100%;
+  }
+}
+
+/* Secondary: the default quiet action. */
+.btn-ghost {
+  font-weight: 500;
+  border: 1px solid var(--border-control);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+
+/* Large primary action (mastheads and end-of-article CTAs). */
+.btn-cta {
+  gap: 0.5rem;
+  min-height: 2.875rem;
+  padding: 0 1.75rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  border: 1px solid transparent;
+  background-color: var(--accent-cta);
+  color: var(--on-accent);
+  transition: background-color 0.15s;
+}
+
+.btn-cta:hover {
+  background-color: var(--accent-cta-h);
+}
+
+/* Quiet row action: text-like controls attached to a row or post (Reply,
+   Delete, Cancel). Unbordered and quiet at rest; danger only on hover/focus,
+   so a destructive action never dominates until it is used. */
+.action-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.45rem;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.action-quiet:hover,
+.action-quiet:focus-visible {
+  color: var(--text-primary);
+  background-color: var(--bg-inset);
+}
+
+.action-quiet.is-danger:hover,
+.action-quiet.is-danger:focus-visible {
+  color: var(--danger);
+}
+
+.action-quiet:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* Segmented picker: one current option among a few (heatmap years, trainer
+   modes). Quiet option chrome — the selected item steps the accent edge and
+   ink, never a filled control. A label may wrap a visually hidden radio; the
+   checked and focused states pair with `input:checked + .segmented-item` and
+   `input:focus-visible + .segmented-item`. */
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.segmented-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.segmented-item:hover {
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.segmented-item[aria-pressed='true'],
+.segmented input:checked + .segmented-item {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.segmented input:focus-visible + .segmented-item {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) 0.7rem;
+  font-size: var(--text-sm);
+  line-height: 1.35rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-control);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.textarea {
+  resize: none;
+  font-family: var(--font-mono);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--border-subtle);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* The halo is for keyboard focus only: clicking a field should not flash a ring. */
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+}
+
+select.input,
+select.select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) calc(50% - 2px),
+    calc(100% - 0.7rem) calc(50% - 2px);
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem;
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+}
+
+/* Vertical form layout shared by the login/register cards. */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Form field: an always-visible label above its control, optional hint below. */
+.field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.3rem;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
+/* Composer: the new-thread panel and the inline reply boxes are one form
+   shape, so a thread and its answers do not look like two different products.
+   `.is-inline` is the compact variant used when answering one comment. */
+.composer-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.composer-form.is-inline {
+  gap: var(--space-3);
+}
+
+.composer-textarea {
+  min-height: 8rem;
+  font-family: var(--font-ui);
+  line-height: var(--leading-normal);
+  resize: vertical;
+  /* Keep the focused box clear of the sticky header and the phone tab bar. */
+  scroll-margin-block: 5rem;
+}
+
+.composer-textarea.is-inline {
+  min-height: 5rem;
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Unverified-posting gate: a notice plus the settings link that clears it. */
+.gate-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.gate-note {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .composer-form,
+  .composer-form.is-inline {
+    gap: var(--space-3);
+  }
+
+  .composer-textarea {
+    min-height: 7rem;
+  }
+
+  .composer-textarea.is-inline {
+    min-height: 4.75rem;
+  }
+
+  .composer-actions button {
+    min-width: 0;
+  }
+}
+
+.diff-legend {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.diff-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.8;
+}
+
+.diff-token {
+  display: inline-block;
+  padding: 0.08rem 0.35rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.diff-correct {
+  background: var(--status-good-tint);
+  color: var(--status-good);
+}
+
+.diff-sub {
+  background: var(--status-ok-tint);
+  color: var(--status-ok);
+}
+
+.diff-missing {
+  background: var(--status-bad-tint);
+  color: var(--status-bad);
+  text-decoration: line-through;
+}
+
+.diff-extra {
+  background: var(--status-extra-tint);
+  color: var(--status-extra);
+}
+
+.diff-expected {
+  font-size: var(--text-xs);
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media print {
+  .navbar,
+  .footer,
+  button,
+  .btn-primary,
+  .btn-ghost,
+  .btn-cta {
+    display: none !important;
+  }
+
+  .page-wrapper {
+    background: white !important;
+  }
+
+  .card,
+  .card-sm,
+  .panel {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .card,
+  .card-sm,
+  .panel {
+    border-width: 2px;
+  }
+
+  /* The ledger's single rule thickens with the card borders. */
+  .panel--ledger {
+    border-top-width: 2px;
+  }
+
+  .btn-primary,
+  .btn-cta {
+    border: 2px solid currentColor;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Signal Workshop primitives
+   --------------------------------------------------------------------------- */
+
+/* Visually hidden, still announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Chip: compact rectangular label (category, call sign, status word). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Operator call sign: set in the mono face beside a display name. */
+.callsign {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Quiet metadata row: author, date, counts and status words under a title —
+   the same supporting line on the forum list, a thread and the profile. */
+.meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Forum category label: small caps with the amber dot, on the thread list and
+   the thread page alike. */
+.thread-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.thread-cat .chip-dot {
+  background: var(--accent);
+}
+
+/* Metric: label + monospace value readout (profile stats, session strip). The
+   label itself is the shared caps label above. */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+/* Whole-row link lists rely on whitespace; section headings carry the rules.
+   `:where()` keeps the reset at zero specificity so it still cancels the UA
+   list margin without also cancelling the page rhythm's `--block-gap` when a
+   list is a page's own child (source order would otherwise decide it). */
+:where(.row-list) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row-list a.row-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.row-link {
+  display: block;
+  padding: var(--space-4) var(--space-2);
+  transition: background-color var(--transition-fast);
+}
+
+/* Whole-row links read as one target: the row floors and runs the 2px amber
+   edge on hover and keyboard focus, matching the row-list's link treatment. */
+.row-link:hover,
+.row-link:focus-visible {
+  background-color: var(--bg-inset);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.row-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Skeleton: reserved space for loading lists so nothing shifts when data lands.
+   Sized by the consumer; the pulse is neutralised by prefers-reduced-motion. */
+.skeleton {
+  background-color: var(--bg-inset);
+  border-radius: var(--radius-xs);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+/* Loading rows: one list item and its parts, shared by the forum list and the
+   thread page so a pending page does not change shape between routes. */
+.skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: var(--space-2);
+}
+
+.skeleton-title {
+  height: 1.15rem;
+  width: min(28rem, 80%);
+}
+
+.skeleton-line {
+  height: 0.8rem;
+  width: 100%;
+}
+
+.skeleton-meta {
+  height: 0.8rem;
+  width: min(18rem, 60%);
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Skip link: the first tab stop, hidden until it takes focus. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--bg-surface);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 0 0 var(--radius-sm) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* Icon button: square, hairline, for transport and toolbar controls. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  background-color: var(--bg-inset);
+}
+
+.btn-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Touch devices get 44px controls regardless of the visual size tier. */
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-ghost,
+  .btn-cta,
+  .action-quiet,
+  .input,
+  .select {
+    min-height: 2.75rem;
+  }
+
+  .btn-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

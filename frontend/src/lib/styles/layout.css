@@ -1,0 +1,451 @@
+/* Layout shell */
+.page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: clip;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  transition:
+    background-color var(--transition-base),
+    color var(--transition-base);
+}
+
+.page-content {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: var(--max-width-container);
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  /* The top and bottom gaps are owned here so every page starts and ends at the
+     same height. Do not add a page-level `padding-top`/`padding-bottom` — see
+     `--page-top` and `--page-bottom`, and use `.page-stack` for inter-block
+     rhythm. */
+  padding: var(--page-top) var(--space-4) var(--page-bottom);
+}
+
+.page-narrow {
+  max-width: var(--max-width-narrow);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Vertical rhythm for a page's own children. Width-free on purpose: pair it
+   with whichever width fits the content (`.page-narrow` or the default
+   container) instead of taking the rhythm as a side effect of the width. */
+.page-narrow > * + *,
+.page-stack > * + * {
+  margin-top: var(--block-gap);
+}
+
+/* Navigation */
+.navbar {
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding-top: env(safe-area-inset-top);
+  background-color: var(--bg-surface);
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+  overflow: visible;
+}
+
+.navbar-inner {
+  max-width: var(--max-width-container);
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.55rem var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-brand {
+  display: flex;
+  min-height: var(--nav-control-height);
+  align-items: center;
+  gap: 0.5rem;
+  /* Pads the wordmark up to a comfortable target; the negative margin keeps the
+     bar's own height and the mark's position unchanged. */
+  padding-block: 0.4rem;
+  margin-block: -0.4rem;
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.4rem;
+  letter-spacing: 0.01em;
+  transition: color 0.15s;
+}
+
+.navbar-brand:hover {
+  color: var(--accent);
+}
+
+/* Share source artwork; the build fingerprints updates and the accent follows the theme. */
+.navbar-mark {
+  display: block;
+  flex-shrink: 0;
+  width: var(--space-8);
+  height: var(--space-8);
+  background-color: var(--accent);
+  mask: url('../assets/favicon.svg') center / contain no-repeat;
+}
+
+/* The desktop cluster carries both classes, so the hide rule is not order
+   dependent against `.navbar-right { display: flex }`. */
+.navbar-right.navbar-desktop {
+  display: none;
+}
+
+@media (min-width: 800px) {
+  .navbar-right.navbar-desktop {
+    display: flex;
+  }
+}
+
+.navbar-link {
+  display: inline-flex;
+  align-items: center;
+  height: var(--nav-control-height);
+  box-sizing: border-box;
+  line-height: 1.25rem;
+  padding: 0 0.35rem;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+
+/* One control treatment for everything clickable in the top bar: a
+   secondary-ink label over an amber rule that grows from the left. The rule is
+   an absolutely positioned child, so it needs the control itself as its
+   containing block — the sticky `.navbar` is the nearest positioned ancestor
+   otherwise, which paints the rule across the whole bar. Declared once, here,
+   instead of relying on every control to remember it. */
+.navbar-link,
+.navbar-user-btn,
+.theme-icon-btn {
+  position: relative;
+}
+
+.navbar-link::after,
+.navbar-user-btn::after,
+.theme-icon-btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.2rem;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.18s ease;
+}
+
+/* The rule shows on hover and on keyboard focus, and stays put while a menu is
+   open so its trigger still reads as active. The active route keeps it in
+   place permanently. */
+.navbar-link:hover,
+.navbar-link:focus-visible,
+.navbar-user-btn:hover,
+.navbar-user-btn:focus-visible,
+.navbar-user-btn[aria-expanded='true'],
+.theme-icon-btn:hover,
+.theme-icon-btn:focus-visible {
+  color: var(--text-primary);
+}
+
+.navbar-link:hover::after,
+.navbar-link:focus-visible::after,
+.navbar-user-btn:hover::after,
+.navbar-user-btn:focus-visible::after,
+.navbar-user-btn[aria-expanded='true']::after,
+.theme-icon-btn:hover::after,
+.theme-icon-btn:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.navbar-link.active {
+  color: var(--accent);
+}
+
+.navbar-link.active::after {
+  transform: scaleX(1);
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.navbar-divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border-subtle);
+  margin: 0 0.35rem;
+}
+
+.user-menu-wrapper {
+  position: relative;
+}
+
+.navbar-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: var(--nav-control-height);
+  box-sizing: border-box;
+  line-height: 1.25rem;
+  padding: 0 0.35rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  min-width: 10rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  z-index: 100;
+  overflow: hidden;
+  padding: var(--space-1);
+}
+
+.user-dropdown-item {
+  display: flex;
+  min-height: var(--nav-control-height);
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.user-dropdown-item:hover {
+  background: var(--bg-inset);
+  color: var(--text-primary);
+}
+
+/* The menu item's own label and icon are one target. */
+.user-dropdown-item svg {
+  pointer-events: none;
+}
+
+.theme-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--nav-control-height);
+  box-sizing: border-box;
+  line-height: 1;
+  min-width: 3rem;
+  padding: 0 0.35rem;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+/* Mobile bottom navigation bar (primary destinations) */
+.bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 45;
+  display: none;
+  align-items: stretch;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base),
+    transform var(--transition-base) var(--ease-smooth);
+}
+
+@media (max-width: 799px) {
+  .bottom-nav {
+    display: flex;
+  }
+
+  /* Give main content room to scroll clear of the fixed bar */
+  .page-content {
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--bottom-nav-clearance));
+  }
+
+  /* Hide the bar while the soft keyboard is open (input/textarea focus) */
+  body.keyboard-open .bottom-nav {
+    transform: translateY(100%);
+  }
+
+  /* Narrow screens navigate from the tab bar and the
+     "More" page. Content takes over the notch padding the navbar used to hold. */
+  .navbar {
+    display: none;
+  }
+
+  /* `calc` on top of the safe area, not `max` against it: `max()` let a notch
+     inset override the gap, so the same pixel value gave 56px of blank in a
+     Safari tab and ~9px below the status bar when installed. */
+  .page-content {
+    padding-top: calc(env(safe-area-inset-top) + var(--page-top-phone));
+  }
+}
+
+/* The "More" tab is a link like the rest, so no button reset is needed here. */
+.bottom-nav-item {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  height: 3.25rem;
+  padding: 0.3rem 0.15rem;
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+
+.bottom-nav-item:hover {
+  color: var(--text-secondary);
+}
+
+.bottom-nav-item.active {
+  color: var(--accent);
+}
+
+.bottom-nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2.5rem;
+  height: 2px;
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--accent);
+}
+
+.bottom-nav-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.bottom-nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+/* Footer */
+.footer {
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  padding: 0.7rem var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 1rem;
+  text-align: center;
+  font-size: var(--text-sm);
+  line-height: 1.2rem;
+  color: var(--text-muted);
+  transition:
+    background-color var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.footer-links {
+  display: inline-flex;
+  gap: 1rem;
+}
+
+.footer-link {
+  /* Footer links sit 1rem apart, so the padding stays inside that gap: the
+     negative margin keeps the row's spacing and alignment unchanged. */
+  padding: 0.7rem 0.4rem;
+  margin: -0.7rem -0.4rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+@media (max-width: 799px) {
+  /* The fixed bottom nav already labels the app on narrow screens. */
+  .footer {
+    display: none;
+  }
+}
+
+/* Icon helpers */
+.nav-label-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* Prevent SVG icons from capturing touch events */
+.navbar-link svg,
+.navbar-user-btn svg,
+.theme-icon-btn svg,
+.btn-icon svg,
+.btn-primary svg,
+.btn-ghost svg {
+  pointer-events: none;
+}

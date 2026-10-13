@@ -1,0 +1,204 @@
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/18/docker
+      # Read by db/tune.sh, which derives the server settings from the resources this
+      # container actually has before PostgreSQL starts. All optional; see example.env
+      # and the "PostgreSQL resource tuning" section of DEPLOYMENT.md.
+      POSTGRES_MEMORY_LIMIT: ${POSTGRES_MEMORY_LIMIT:-0}
+      POSTGRES_CPU_LIMIT: ${POSTGRES_CPU_LIMIT:-0}
+      POSTGRES_TUNE_MODE: ${POSTGRES_TUNE_MODE:-}
+      POSTGRES_TUNE_PROFILE: ${POSTGRES_TUNE_PROFILE:-}
+      POSTGRES_TUNE_STORAGE: ${POSTGRES_TUNE_STORAGE:-}
+      POSTGRES_TUNE_DB_SIZE: ${POSTGRES_TUNE_DB_SIZE:-}
+      POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-}
+      POSTGRES_SHM_SIZE: ${POSTGRES_SHM_SIZE:-${OPENCW_POSTGRES_SHM_SIZE:-2gb}}
+      POSTGRES_HOST_MEMORY_SHARE: ${POSTGRES_HOST_MEMORY_SHARE:-50}
+      POSTGRES_TUNE_DISABLE: ${POSTGRES_TUNE_DISABLE:-0}
+      POSTGRES_TUNE_EXTRA: ${POSTGRES_TUNE_EXTRA:-}
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_PATH:-./data/postgres}
+        target: /var/lib/postgresql
+        bind:
+          create_host_path: true
+      # Mounted rather than baked into a derived image, so `docker compose pull` and
+      # the image snapshots in scripts/update.sh keep working on postgres itself.
+      - type: bind
+        source: ./db/tune.sh
+        target: /usr/local/bin/opencw-pg-tune.sh
+        read_only: true
+      - type: bind
+        source: ./db/pgtune.sh
+        target: /usr/local/bin/pgtune.sh
+        read_only: true
+    # The tuner derives the settings and then hands off to the image's own entrypoint,
+    # so initdb, pg_hba.conf and /docker-entrypoint-initdb.d behave exactly as before.
+    entrypoint: ["/bin/sh", "/usr/local/bin/opencw-pg-tune.sh"]
+    command: ["postgres"]
+    # Optional hard ceilings: 0 means "no limit". When set, they are also the tuner's
+    # memory and CPU budget, so declaring them is the reliable way to size the database on
+    # an LXC or nested-container host, where /proc/meminfo reports the physical machine.
+    # Keep shm_size below the memory limit: /dev/shm is charged to the memory limit.
+    mem_limit: ${POSTGRES_MEMORY_LIMIT:-0}
+    cpus: ${POSTGRES_CPU_LIMIT:-0}
+    # Operational scripts calculate the PGTune-mode capacity before creation.
+    shm_size: ${POSTGRES_SHM_SIZE:-${OPENCW_POSTGRES_SHM_SIZE:-2gb}}
+    # Cap the log files. Nothing else truncates them and they live in Docker's data root,
+    # so an unattended host would otherwise fill its disk. 10 MB x 3 per container.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_API_BASE: ${PUBLIC_API_BASE}
+    restart: unless-stopped
+    # With a Cloudflare Tunnel (or a local reverse proxy) this can be narrowed to
+    # 127.0.0.1:3000:80. Keep the mapping either way: deploy.sh, update.sh and status.sh
+    # probe 127.0.0.1:3000.
+    ports:
+      - "3000:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      # 127.0.0.1 rather than localhost: nginx listens on IPv4 only, while `localhost`
+      # resolves to ::1 first inside the container, which reports a healthy frontend as
+      # unhealthy. The deploy/update/status probes use 127.0.0.1 for the same reason.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      READ_TIMEOUT: ${READ_TIMEOUT:-15s}
+      READ_HEADER_TIMEOUT: ${READ_HEADER_TIMEOUT:-5s}
+      WRITE_TIMEOUT: ${WRITE_TIMEOUT:-30s}
+      IDLE_TIMEOUT: ${IDLE_TIMEOUT:-120s}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-20s}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-25}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-5}
+      DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME:-30m}
+      DB_CONN_MAX_IDLE_TIME: ${DB_CONN_MAX_IDLE_TIME:-5m}
+    ports:
+      - "8080:8080"
+    # No healthcheck: the image is distroless, so there is no shell or HTTP client inside it
+    # to run one with. `make status` and deploy.sh probe /v1/health from the host instead.
+    # Narrow to 127.0.0.1:8080:8080 with a tunnel or local proxy, but keep the mapping.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # One-shot renderer: turns the credentials in .env into pgAdmin's server definition and
+  # .pgpass, then exits. Runs before pgadmin on every `docker compose up -d`.
+  pgadmin-config:
+    image: dpage/pgadmin4:9.18.0
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    environment:
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+    command: ["exec /venv/bin/python3 /usr/local/bin/opencw-pgadmin-config.py"]
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./scripts/render-pgadmin.py:/usr/local/bin/opencw-pgadmin-config.py:ro
+
+  pgadmin:
+    image: dpage/pgadmin4:9.18.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      pgadmin-config:
+        condition: service_completed_successfully
+    ports:
+      # Loopback only. Public access is through the Cloudflare tunnel at
+      # https://pgadmin.opencw.net, guarded by a Zero Trust Access policy.
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_DISABLE_POSTFIX: "True"
+      PGADMIN_SERVER_JSON_FILE: /var/lib/pgadmin/servers.json
+      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PORT_COUNT: "1"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /venv/bin/python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:80/misc/ping')"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --protocol ${CLOUDFLARED_PROTOCOL:-quic} run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    depends_on:
+      - backend
+      - frontend
+      - pgadmin
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgadmin_data:

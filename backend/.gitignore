@@ -1,0 +1,67 @@
+# ========================
+# Go
+# ========================
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+__debug*
+
+# Test & coverage
+*.test
+*.out
+*.coverprofile
+profile.cov
+coverage.*
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# Go compiled files
+bin/
+
+# ========================
+# Environment
+# ========================
+.env*
+!example.env
+
+# ========================
+# IDE / Editor
+# ========================
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Build output
+# ========================
+dist/
+build/
+
+# ========================
+# Production
+# ========================
+opencw-backend
+*.sql
+*.sql.gz
+backups/
+logs/
+*.log
+
