@@ -1,5 +1,6 @@
 <script lang="ts">
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
+  import { dialogFocusables, dialogFocusTarget } from '../dialog-focus';
 
   interface Props {
     isOpen: boolean;
@@ -18,6 +19,7 @@
   }: Props = $props();
 
   let dialogEl = $state<HTMLDialogElement | null>(null);
+  const dialogId = $props.id();
 
   $effect(() => {
     if (!dialogEl) return;
@@ -43,17 +45,20 @@
 
   function handleKeydown(event: KeyboardEvent) {
     event.stopPropagation();
+    if (event.key === 'Escape' && (event.repeat || event.isComposing || event.keyCode === 229)) {
+      event.preventDefault();
+      return;
+    }
     if (event.key !== 'Tab' || !dialogEl) return;
-    const buttons = dialogEl.querySelectorAll<HTMLButtonElement>('button');
-    const first = buttons[0];
-    const last = buttons[buttons.length - 1];
-    const active = dialogEl.ownerDocument.activeElement;
-    if (event.shiftKey && (active === first || active === dialogEl)) {
+    const target = dialogFocusTarget(
+      dialogFocusables(dialogEl),
+      dialogEl.ownerDocument.activeElement as HTMLElement | null,
+      event.shiftKey,
+      dialogEl
+    );
+    if (target) {
       event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && (active === last || active === dialogEl)) {
-      event.preventDefault();
-      first?.focus();
+      target.focus();
     }
   }
 </script>
@@ -61,8 +66,8 @@
 <dialog
   class="dialog-card"
   role="alertdialog"
-  aria-labelledby="dialog-title"
-  aria-describedby="dialog-desc"
+  aria-labelledby={`${dialogId}-title`}
+  aria-describedby={`${dialogId}-description`}
   bind:this={dialogEl}
   oncancel={(event) => {
     event.preventDefault();
@@ -71,14 +76,14 @@
   onclick={handleBackdropClick}
   onkeydown={handleKeydown}
 >
-  <h2 id="dialog-title" class="section-title">Leave session?</h2>
-  <p id="dialog-desc" class="dialog-text">
+  <h2 id={`${dialogId}-title`} class="section-title">{m.lesson_exit_title()}</h2>
+  <p id={`${dialogId}-description`} class="dialog-text">
     {m.learn_exit_description()}
   </p>
 
   <div class="dialog-actions">
-    <button type="button" class="btn-primary" onclick={onCancel}> Resume practice </button>
-    <button type="button" class="btn-ghost" onclick={onConfirm}> Exit </button>
+    <button type="button" class="btn-primary" onclick={onCancel}>{m.lesson_resume()}</button>
+    <button type="button" class="btn-ghost" onclick={onConfirm}>{m.lesson_exit()}</button>
   </div>
 </dialog>
 
@@ -121,8 +126,14 @@
 
   .dialog-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-3);
     margin-top: var(--space-2);
+  }
+
+  .dialog-actions button {
+    flex: 1 1 auto;
+    min-height: var(--answer-target-min, 3rem);
   }
 </style>

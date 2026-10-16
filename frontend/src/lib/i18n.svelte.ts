@@ -1,5 +1,5 @@
-import { baseLocale, locales, localizeHref, overwriteGetLocale } from '$lib/paraglide/runtime';
-import { migrateLegacyPreferences } from '$lib/cookies';
+import { baseLocale, locales, localizeHref, overwriteGetLocale } from '#lib/paraglide/runtime.js';
+import { migrateLegacyPreferences } from '#lib/cookies.ts';
 import {
   LOCALE_PREFERENCE_STORAGE_KEY,
   matchLocaleCandidate,
@@ -7,7 +7,7 @@ import {
   detectLocaleFromAcceptedLanguages,
   type Locale,
   type LocalePreference
-} from '$lib/locale';
+} from '#lib/locale.ts';
 
 export const lang = $state<{ value: Locale }>({ value: baseLocale as Locale });
 export const langPreference = $state<{ value: LocalePreference }>({ value: 'auto' });

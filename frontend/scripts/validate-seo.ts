@@ -84,7 +84,7 @@ function validateMetadata(): CheckResult[] {
 async function validateSitemap(): Promise<CheckResult[]> {
   const checks: CheckResult[] = [];
   // The sitemap is built for the configured origin (PRERENDER_ORIGIN, matching
-  // svelte.config.js) rather than a hard-coded production host.
+  // kit-options.js) rather than a hard-coded production host.
   const origin = process.env.PRERENDER_ORIGIN ?? 'https://opencw.net';
   const generatedUrls = buildSitemapUrlSet(origin, locales);
   const urlSet = new Set(generatedUrls);

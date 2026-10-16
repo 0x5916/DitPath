@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { X } from '@lucide/svelte';
-  import { scoreGrade, type DiffToken } from '$lib/score';
-  import { percentage } from '$lib/format';
-  import * as m from '$lib/paraglide/messages';
+  import { X, Check, Minus, Plus } from '@lucide/svelte';
+  import { dialogFocusables, dialogFocusTarget } from './dialog-focus';
+  import { scoreGrade, type DiffToken } from '#lib/score.ts';
+  import { percentage } from '#lib/format.ts';
+  import * as m from '#lib/paraglide/messages.js';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -40,7 +41,7 @@
   let grade = $derived(scoreGrade(result));
   let scoreText = $derived(
     grade === 'good'
-      ? m.trainer_score_great()
+      ? m.practice_score_great()
       : grade === 'ok'
         ? m.trainer_score_good()
         : m.trainer_score_bad()
@@ -49,41 +50,36 @@
 
   let panelRef = $state<HTMLDivElement | null>(null);
   let restoreFocusTo: HTMLElement | null = null;
-
-  function focusable(): HTMLElement[] {
-    if (!panelRef) return [];
-    return Array.from(
-      panelRef.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((el) => !el.hasAttribute('disabled'));
-  }
+  const titleId = $props.id();
 
   /**
    * Keep Tab inside the panel and close on Escape, returning focus to whatever
-   * opened it. The background stays inert to keyboard users without `inert`
-   * support games: nothing else is reachable while the loop below is active.
+   * opened it. Native Space/Enter activation stays on the focused control.
    */
   function onPanelKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
+    event.stopPropagation();
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    if (
+      event.key === 'Escape' &&
+      !event.repeat &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey
+    ) {
       event.preventDefault();
       onClose();
       return;
     }
-    if (event.key !== 'Tab') return;
-
-    const items = focusable();
-    if (items.length === 0) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = document.activeElement;
-
-    if (event.shiftKey && active === first) {
+    if (event.key !== 'Tab' || !panelRef) return;
+    const target = dialogFocusTarget(
+      dialogFocusables(panelRef),
+      document.activeElement as HTMLElement | null,
+      event.shiftKey,
+      panelRef
+    );
+    if (target) {
       event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
+      target.focus();
     }
   }
 
@@ -96,7 +92,15 @@
     // Focus the panel itself: it is labelled by the dialog title, so screen
     // readers announce the dialog name before the learner moves on.
     panelRef?.focus();
-    return () => restoreFocusTo?.focus();
+    function containFocus(event: FocusEvent) {
+      if (panelRef && event.target instanceof Node && !panelRef.contains(event.target))
+        panelRef.focus();
+    }
+    document.addEventListener('focusin', containFocus);
+    return () => {
+      document.removeEventListener('focusin', containFocus);
+      if (restoreFocusTo?.isConnected) restoreFocusTo.focus({ preventScroll: true });
+    };
   });
 </script>
 
@@ -106,12 +110,12 @@
     bind:this={panelRef}
     role="dialog"
     aria-modal="true"
-    aria-labelledby="overlay-title"
+    aria-labelledby={titleId}
     tabindex="-1"
     onkeydown={onPanelKeydown}
   >
     <header class="overlay-head">
-      <h2 id="overlay-title" class="overlay-title">{m.trainer_result_title()}</h2>
+      <h2 id={titleId} class="overlay-title">{m.trainer_result_title()}</h2>
       <button
         class="overlay-close btn-icon"
         type="button"
@@ -126,7 +130,7 @@
       <p class="overlay-pct">{pct}</p>
       <div class="overlay-score-body">
         <p class="overlay-grade">{scoreText}</p>
-        <p class="overlay-rule">{m.trainer_result_lesson({ lesson: String(lessonNum) })}</p>
+        <p class="overlay-rule">{m.practice_result_lesson({ lesson: String(lessonNum) })}</p>
       </div>
     </div>
 
@@ -142,25 +146,55 @@
       <div class="diff-tokens overlay-diff-tokens">
         {#each diffTokens as tok, i (i)}
           {#if tok.type === 'correct'}
-            <span class="diff-token diff-correct">{tok.ref}</span>
+            <span
+              class="diff-token diff-correct"
+              role="img"
+              aria-label={m.practice_diff_correct({ text: tok.ref })}
+            >
+              <Check size={12} aria-hidden="true" />{tok.ref}
+            </span>
           {:else if tok.type === 'substitution'}
-            <span class="diff-token diff-sub" title={m.overlay_diff_expected({ char: tok.ref })}
-              >{tok.inp}<span class="diff-expected"> ({tok.ref})</span></span
+            <span
+              class="diff-token diff-sub"
+              role="img"
+              title={m.overlay_diff_expected({ char: tok.ref })}
+              aria-label={m.practice_diff_substitution({ entered: tok.inp, expected: tok.ref })}
+              ><X size={12} aria-hidden="true" />{tok.inp}<span class="diff-expected">
+                ({tok.ref})</span
+              ></span
             >
           {:else if tok.type === 'missing'}
-            <span class="diff-token diff-missing" title={m.overlay_diff_expected({ char: tok.ref })}
-              >{tok.ref}</span
+            <span
+              class="diff-token diff-missing"
+              role="img"
+              title={m.overlay_diff_expected({ char: tok.ref })}
+              aria-label={m.practice_diff_missing({ text: tok.ref })}
+              ><Minus size={12} aria-hidden="true" />{tok.ref}</span
             >
           {:else if tok.type === 'extra'}
-            <span class="diff-token diff-extra">{tok.inp}</span>
+            <span
+              class="diff-token diff-extra"
+              role="img"
+              aria-label={m.practice_diff_extra({ text: tok.inp })}
+            >
+              <Plus size={12} aria-hidden="true" />{tok.inp}
+            </span>
           {/if}
         {/each}
       </div>
       <div class="diff-legend">
-        <span class="diff-token diff-correct">{m.trainer_diff_legend_correct()}</span>
-        <span class="diff-token diff-sub">{m.trainer_diff_legend_sub()}</span>
-        <span class="diff-token diff-missing">{m.trainer_diff_legend_missing()}</span>
-        <span class="diff-token diff-extra">{m.trainer_diff_legend_extra()}</span>
+        <span class="diff-token diff-correct"
+          ><Check size={12} aria-hidden="true" />{m.trainer_diff_legend_correct()}</span
+        >
+        <span class="diff-token diff-sub"
+          ><X size={12} aria-hidden="true" />{m.trainer_diff_legend_sub()}</span
+        >
+        <span class="diff-token diff-missing"
+          ><Minus size={12} aria-hidden="true" />{m.trainer_diff_legend_missing()}</span
+        >
+        <span class="diff-token diff-extra"
+          ><Plus size={12} aria-hidden="true" />{m.trainer_diff_legend_extra()}</span
+        >
       </div>
     </section>
 
@@ -322,6 +356,18 @@
     gap: var(--space-2);
     padding: var(--space-3) var(--space-5) var(--space-5);
     border-top: 1px solid var(--border);
+  }
+
+  .diff-token {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .overlay-actions button,
+  .overlay-close {
+    min-width: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min, 3rem);
   }
 
   @media (max-width: 640px) {

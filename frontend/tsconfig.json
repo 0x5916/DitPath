@@ -1,7 +1,10 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
+  "extends": "$app/tsconfig",
+  "include": ["src", "test", "tests", "*"],
+  "exclude": ["node_modules", "src/service-worker", "src/service-worker.ts"],
   "compilerOptions": {
-    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "allowJs": true,
     "checkJs": true,
     "esModuleInterop": true,
@@ -12,12 +15,9 @@
     "strict": true,
     // TypeScript 6 defaults "types" to []; the app + scripts checks need Node
     // builtins (vite.config.ts imports scripts/paraglide-options.ts -> node:fs).
-    "types": ["node"],
+    "types": ["$app/types", "node"],
     "moduleResolution": "bundler"
   }
-  // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
-  // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
-  //
-  // To make changes to top-level options such as include and exclude, we recommend extending
-  // the generated config; see https://svelte.dev/docs/kit/configuration#typescript
+  // #lib is declared with Node subpath imports in package.json.
+  // The worker has its own project extending $app/tsconfig/service-worker.
 }

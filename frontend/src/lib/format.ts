@@ -1,18 +1,29 @@
-import { LESSONS } from '$lib/morse';
-import { scoreGrade } from '$lib/score';
-import * as m from '$lib/paraglide/messages';
+import { LESSONS } from '#lib/morse.ts';
+import { scoreGrade } from '#lib/score.ts';
+import * as m from '#lib/paraglide/messages.js';
+import { getLocale } from '#lib/paraglide/runtime.js';
 
-const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric'
-});
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function dateFormatter(): Intl.DateTimeFormat {
+  const locale = getLocale();
+  let formatter = dateFormatters.get(locale);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+    dateFormatters.set(locale, formatter);
+  }
+  return formatter;
+}
 
 /** Format an ISO timestamp as a short local date, e.g. "Sep 17, 2026". */
 export function formatDate(value?: string): string {
   if (!value) return '';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : DATE_FORMATTER.format(date);
+  return Number.isNaN(date.getTime()) ? '' : dateFormatter().format(date);
 }
 
 /** Display name for a forum author, falling back to a localized community label. */

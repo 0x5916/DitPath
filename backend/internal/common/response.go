@@ -127,16 +127,34 @@ type ForumThreadListResponse struct {
 // with visible descendants are returned as tombstones: is_deleted=true with
 // null body/author.
 type ForumReplyResponse struct {
-	ID        uuid.UUID            `json:"id"`
-	ParentID  *uuid.UUID           `json:"parent_id"`
-	Body      *string              `json:"body"`
-	Author    *ForumAuthorResponse `json:"author"`
-	IsDeleted bool                 `json:"is_deleted"`
-	CreatedAt time.Time            `json:"created_at"`
-	Children  []ForumReplyResponse `json:"children"`
+	ID            uuid.UUID            `json:"id"`
+	ParentID      *uuid.UUID           `json:"parent_id"`
+	Body          *string              `json:"body"`
+	Author        *ForumAuthorResponse `json:"author"`
+	IsDeleted     bool                 `json:"is_deleted"`
+	CreatedAt     time.Time            `json:"created_at"`
+	Children      []ForumReplyResponse `json:"children"`
+	ParentContext *ForumParentContext  `json:"parent_context,omitempty"`
 }
 
 type ForumReplyListResponse struct {
-	Data  []ForumReplyResponse `json:"data"`
-	Total int64                `json:"total"`
+	Data       []ForumReplyResponse `json:"data"`
+	Total      int64                `json:"total"`
+	TotalRows  int64                `json:"total_rows"`
+	Limit      int                  `json:"limit"`
+	NextCursor *string              `json:"next_cursor"`
+}
+
+// ProgressDayResponse is a complete UTC-day count for a requested calendar year.
+type ProgressDayResponse struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+// ForumParentContext provides bounded context even when the parent is on an
+// earlier page. Deleted parents expose neither their body nor author.
+type ForumParentContext struct {
+	Author    *ForumAuthorResponse `json:"author"`
+	Body      *string              `json:"body"`
+	IsDeleted bool                 `json:"is_deleted"`
 }

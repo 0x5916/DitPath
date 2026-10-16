@@ -4,7 +4,7 @@ The root [AGENTS.md](../AGENTS.md) also applies. This file retains frontend impl
 
 ## Architecture and browser isolation
 
-- Preserve SvelteKit 5 and `adapter-static`. Known pages are prerendered for five locales; `/forum/[id]` is the client-rendered fallback exception. Production has no SvelteKit server runtime.
+- Preserve SvelteKit 3 with Svelte 5 and `adapter-static`. Known pages are prerendered for five locales; `/forum/[id]` is the client-rendered fallback exception. Production has no SvelteKit server runtime.
 - Guard `window`, `document`, `localStorage`, `indexedDB`, and Web Audio access with `browser` checks or `onMount`. Never execute browser APIs at module top-level or during prerender.
 - `src/lib/training/` contains pure TypeScript curriculum, timing, lesson building, scoring, mastery, scheduling, and state machines. These domain modules must not depend on Svelte, DOM, or storage.
 - The existing `training/v2/session-controller.svelte.ts` is an explicit orchestration exception: it uses Svelte runes and injected audio/repository ports. Keep domain calculations in the pure modules and browser resource creation in the route/audio/data layers.

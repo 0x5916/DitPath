@@ -19,7 +19,8 @@ export function acceptsSessionShortcut(event: KeyboardEvent, allowButtonTarget =
   if (!acceptsKeyEvent(event)) return false;
   const target = event.target as Element | null;
   if (target?.closest?.('dialog[open], [aria-modal="true"]')) return false;
-  const selector = 'input, textarea, select, a, [contenteditable]:not([contenteditable="false"])';
+  const selector =
+    'input, textarea, select, a, summary, [contenteditable]:not([contenteditable="false"])';
   return !target?.closest?.(allowButtonTarget ? selector : `${selector}, button`);
 }
 

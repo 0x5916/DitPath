@@ -36,6 +36,7 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
 
   return new Promise((resolve, reject) => {
     const request = factory.open(TRAINING_DB_NAME, TRAINING_DB_VERSION);
+    let abandoned = false;
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = request.result;
@@ -44,6 +45,11 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
 
     request.onsuccess = () => {
       const db = request.result;
+      // A blocked request cannot be cancelled and may still open after rejection.
+      if (abandoned) {
+        db.close();
+        return;
+      }
       // Close automatically if another tab or version requests an upgrade
       db.onversionchange = () => {
         db.close();
@@ -56,6 +62,7 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
     };
 
     request.onblocked = () => {
+      abandoned = true;
       reject(new Error('IndexedDB database upgrade blocked by active connection'));
     };
   });
@@ -73,6 +80,8 @@ export function reqToPromise<T>(request: IDBRequest<T>): Promise<T> {
 
 /**
  * Executes a scoped transaction across one or more stores.
+ * Only await IndexedDB requests inside fn; unrelated async work can allow an
+ * idle transaction to commit before the callback finishes.
  */
 export async function withTransaction<T>(
   db: IDBDatabase,
@@ -82,6 +91,16 @@ export async function withTransaction<T>(
 ): Promise<T> {
   const names = Array.isArray(storeNames) ? storeNames : [storeNames];
   const tx = db.transaction(names, mode);
+  // Observe the terminal event immediately, even while the callback is pending.
+  // An outcome rather than a rejected promise avoids unhandled abort rejections.
+  const finished = new Promise<DOMException | null>((resolve) => {
+    tx.addEventListener('complete', () => resolve(null), { once: true });
+    tx.addEventListener(
+      'abort',
+      () => resolve(tx.error ?? new DOMException('IndexedDB transaction aborted', 'AbortError')),
+      { once: true }
+    );
+  });
 
   const storeMap: Record<string, IDBObjectStore> = {};
   for (const name of names) {
@@ -90,6 +109,8 @@ export async function withTransaction<T>(
 
   try {
     const result = await fn(storeMap, tx);
+    const error = await finished;
+    if (error) throw error;
     return result;
   } catch (err) {
     try {
@@ -97,6 +118,7 @@ export async function withTransaction<T>(
     } catch {
       // Ignore if transaction already settled
     }
+    await finished;
     throw err;
   }
 }
@@ -104,14 +126,19 @@ export async function withTransaction<T>(
 /**
  * Deletes the database (used in testing and explicit user data reset).
  */
-export function deleteTrainingDb(customFactory?: IDBFactory): Promise<void> {
+export function deleteTrainingDb(
+  customFactory?: IDBFactory,
+  onBlocked?: () => void
+): Promise<void> {
   const factory = getIndexedDbFactory(customFactory);
 
   return new Promise((resolve, reject) => {
     const request = factory.deleteDatabase(TRAINING_DB_NAME);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error ?? new Error('Failed to delete database'));
-    request.onblocked = () => reject(new Error('Database deletion blocked'));
+    // Deletion requests cannot be cancelled. A blocked request can still succeed
+    // after another tab closes, so report completion only on the terminal event.
+    request.onblocked = () => onBlocked?.();
   });
 }
 

@@ -1,17 +1,18 @@
+import { assertAuthSessionCurrent, getAuthSession } from '#lib/auth.ts';
 import {
   getSettings,
   saveCWSettings,
   savePageSettings,
   type CWSettings,
   type PageSettings
-} from '$lib/api';
-import { isLocale } from '$lib/paraglide/runtime';
+} from '#lib/api.ts';
+import { isLocale } from '#lib/paraglide/runtime.js';
 import {
   LOCALE_PREFERENCE_STORAGE_KEY,
   normalizeLocalePreference,
   type LocalePreference
-} from '$lib/locale';
-import { CW_STORAGE_KEYS } from '$lib/storageKeys';
+} from '#lib/locale.ts';
+import { CW_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 export type { CWSettings, PageSettings };
 
@@ -135,7 +136,7 @@ export function saveClientCwSettings(settings: CWSettings): CWSettings {
  *
  * Page settings cover what syncs across devices (interface language and the
  * current lesson). The theme is deliberately absent: it is a device-local
- * preference owned by `$lib/theme.ts`.
+ * preference owned by `#lib/theme.ts`.
  */
 export function readClientPageSettings(
   currentLesson: number,
@@ -181,11 +182,15 @@ export function applyClientPageSettings(
 }
 
 export async function syncSettingsToServer(cw: CWSettings, page: PageSettings): Promise<void> {
+  const session = getAuthSession();
   await Promise.all([saveCWSettings(cw), savePageSettings(page)]);
+  assertAuthSessionCurrent(session);
 }
 
 export async function restoreSettingsFromServer(): Promise<{ cw: CWSettings; page: PageSettings }> {
+  const session = getAuthSession();
   const settings = await getSettings();
+  assertAuthSessionCurrent(session);
   return { cw: settings.cw_settings, page: settings.page_settings };
 }
 
@@ -196,7 +201,9 @@ export async function reconcileSettingsWithServer(args: {
 }): Promise<void> {
   if (typeof localStorage === 'undefined') return;
 
+  const session = getAuthSession();
   const settings = await getSettings();
+  assertAuthSessionCurrent(session);
 
   const serverCw = normalizeClientCwSettings(settings.cw_settings);
   const serverPage: PageSettings = {
@@ -205,19 +212,12 @@ export async function reconcileSettingsWithServer(args: {
   };
 
   const localCw = readClientCwSettings();
-  const localPage = readClientPageSettings(
-    readStoredLesson(args.maxLesson),
-    args.maxLesson,
-    args.fallbackLanguagePreference
-  );
-
   const serverCwUpdatedAt = parseUpdatedAt(settings.cw_settings.updated_at);
   const localCwUpdatedAt = readLocalUpdatedAt(CW_SETTINGS_UPDATED_AT_STORAGE_KEY);
-  const serverPageUpdatedAt = parseUpdatedAt(settings.page_settings.updated_at);
-  const localPageUpdatedAt = readLocalUpdatedAt(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY);
 
   if (localCwUpdatedAt > serverCwUpdatedAt) {
     await saveCWSettings(localCw);
+    assertAuthSessionCurrent(session);
   } else if (serverCwUpdatedAt > localCwUpdatedAt) {
     saveClientCwSettings(serverCw);
     if (settings.cw_settings.updated_at && serverCwUpdatedAt > 0) {
@@ -225,8 +225,18 @@ export async function reconcileSettingsWithServer(args: {
     }
   }
 
+  const localPage = readClientPageSettings(
+    readStoredLesson(args.maxLesson),
+    args.maxLesson,
+    args.fallbackLanguagePreference
+  );
+
+  const serverPageUpdatedAt = parseUpdatedAt(settings.page_settings.updated_at);
+  const localPageUpdatedAt = readLocalUpdatedAt(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY);
+
   if (localPageUpdatedAt > serverPageUpdatedAt) {
     await savePageSettings(localPage);
+    assertAuthSessionCurrent(session);
   } else if (serverPageUpdatedAt > localPageUpdatedAt) {
     applyClientPageSettings(serverPage, args.maxLesson, args.onLocale, { navigate: false });
     if (settings.page_settings.updated_at && serverPageUpdatedAt > 0) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SCORE_GOOD, SCORE_OK, diffWords, score, scoreGrade } from '$lib/score';
+import { SCORE_GOOD, SCORE_OK, diffWords, score, scoreGrade } from '#lib/score.ts';
 
 describe('scoreGrade', () => {
   it('maps accuracy to the shared grade thresholds', () => {

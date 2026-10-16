@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { createSessionScope } from '#lib/session-scope.ts';
   import { goto } from '$app/navigation';
   import {
     House,
@@ -13,18 +14,19 @@
     User,
     UserPlus
   } from '@lucide/svelte';
-  import { logout, user } from '$lib/auth';
-  import { applyPageLanguagePreference } from '$lib/cwSync';
-  import { localizedHref as href, setLangPreference, langPreference } from '$lib/i18n.svelte';
-  import { getLocaleLongLabel } from '$lib/locale';
-  import { locales } from '$lib/paraglide/runtime';
-  import { readStoredTheme, setTheme, type Theme } from '$lib/theme';
-  import * as m from '$lib/paraglide/messages';
-  import type { LocalePreference } from '$lib/i18n.svelte';
+  import { logout, user } from '#lib/auth.ts';
+  import { applyPageLanguagePreference } from '#lib/cwSync.ts';
+  import { localizedHref as href, setLangPreference, langPreference } from '#lib/i18n.svelte.ts';
+  import { getLocaleLongLabel } from '#lib/locale.ts';
+  import { locales } from '#lib/paraglide/runtime.js';
+  import { readStoredTheme, setTheme, type Theme } from '#lib/theme.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import type { LocalePreference } from '#lib/i18n.svelte.ts';
 
-  // Mirrors the `max-width: 639px` block in layout.css, where the top bar and the
-  // tab bar hand over to each other.
-  const DESKTOP_QUERY = '(min-width: 640px)';
+  // Match the desktop navigation breakpoint in layout.css.
+  const DESKTOP_QUERY = '(min-width: 800px)';
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
 
   let theme = $state<Theme>('auto');
   let language = $state<LocalePreference>('auto');
@@ -34,15 +36,13 @@
   onMount(() => {
     theme = readStoredTheme();
     language = langPreference.value;
-  });
-
-  // This is a phone-only surface: on desktop every entry below already lives in
-  // the top bar, so send the visitor to the settings page instead.
-  $effect(() => {
-    if (typeof window === 'undefined') return;
-    if (window.matchMedia(DESKTOP_QUERY).matches) {
-      void goto(href('/settings'), { replaceState: true });
-    }
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const redirectOnDesktop = () => {
+      if (desktop.matches) void goto(href('/settings'), { replace: true });
+    };
+    redirectOnDesktop();
+    desktop.addEventListener('change', redirectOnDesktop);
+    return () => desktop.removeEventListener('change', redirectOnDesktop);
   });
 
   // Theme is device-local, so it does not touch the synced page-settings timestamp.
@@ -56,8 +56,10 @@
   }
 
   async function handleLogout() {
-    await logout();
-    await goto(href('/'));
+    const pending = logout();
+    const current = scope.capture();
+    await pending;
+    if (current()) await goto(href('/'));
   }
 </script>
 

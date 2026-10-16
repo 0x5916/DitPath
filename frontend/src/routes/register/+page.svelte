@@ -1,12 +1,17 @@
 <script lang="ts">
-  import { register, user } from '$lib/auth';
-  import { localizeApiError } from '$lib/errorLocalization';
+  import { onDestroy } from 'svelte';
+  import { createSessionScope } from '#lib/session-scope.ts';
+  import { register, user, AuthStorageError, isAuthSessionCurrent } from '#lib/auth.ts';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
-  import AuthCard from '$lib/components/AuthCard.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import PasswordInput from '$lib/components/PasswordInput.svelte';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import AuthCard from '#lib/components/AuthCard.svelte';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import PasswordInput from '#lib/components/PasswordInput.svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
+
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
 
   let username = $state('');
   let email = $state('');
@@ -19,12 +24,14 @@
   // showing a registration form for a new account they don't need.
   $effect(() => {
     if ($user) {
-      void goto(localizedHref('/'), { replaceState: true });
+      void goto(localizedHref('/'), { replace: true });
     }
   });
 
   async function handleRegister(e: SubmitEvent) {
     e.preventDefault();
+    if (loading) return;
+    let current = scope.begin();
     err = '';
 
     if (password !== confirmPassword) {
@@ -35,11 +42,18 @@
     loading = true;
     try {
       await register(username, email, password);
-      await goto(localizedHref('/'));
     } catch (error) {
+      if (
+        error instanceof AuthStorageError &&
+        error.session &&
+        isAuthSessionCurrent(error.session)
+      ) {
+        current = scope.capture();
+      }
+      if (!current() || (error instanceof Error && error.name === 'AbortError')) return;
       err = localizeApiError(error, () => m.register_error_unknown());
     } finally {
-      loading = false;
+      if (current()) loading = false;
     }
   }
 </script>

@@ -52,6 +52,8 @@ export interface SessionControllerDependencies {
   freqHz?: number;
 }
 
+export type SessionPersistenceStatus = 'saving' | 'saved' | 'failed';
+
 export class GuidedSessionController {
   #clock: () => number;
   #nowIso: () => string;
@@ -63,6 +65,10 @@ export class GuidedSessionController {
   #volume: number;
   #audioUnsubscribe: (() => void) | null = null;
   #disposed = false;
+  #persistenceQueue: (() => Promise<void>)[] = [];
+  #persistenceRun: Promise<void> | null = null;
+  #initialRecord: TrainingSessionRecord | null = null;
+  #disposePromise: Promise<void> | null = null;
 
   // Svelte 5 reactive state
   state = $state<GuidedSessionState>({
@@ -82,6 +88,7 @@ export class GuidedSessionController {
   });
 
   persistenceError = $state<string | null>(null);
+  persistenceStatus = $state<SessionPersistenceStatus>('saving');
   feedbackCharacter = $state<string | null>(null);
   feedbackAudioError = $state<string | null>(null);
 
@@ -181,15 +188,37 @@ export class GuidedSessionController {
           break;
         }
         case 'record-attempt': {
-          this.#persistAttempt(effect.attempt);
+          const { sessionId, attempts } = this.state;
+          const completedPromptCount = attempts.length;
+          this.#enqueuePersistence(async () => {
+            await this.#attemptRepo.saveAttempt(effect.attempt);
+            await this.#sessionRepo.updateSessionProgress(sessionId, completedPromptCount);
+          });
           break;
         }
         case 'session-complete': {
-          this.#persistSessionCompletion(effect.summary.sessionId);
+          const { sessionId, completedAt, totalAttempts } = effect.summary;
+          this.#enqueuePersistence(() =>
+            this.#sessionRepo.updateSessionProgress(
+              sessionId,
+              totalAttempts,
+              'completed',
+              completedAt
+            )
+          );
           break;
         }
         case 'session-abandoned': {
-          this.#persistSessionAbandon(effect.sessionId);
+          const completedPromptCount = this.state.attempts.length;
+          const completedAt = this.#nowIso();
+          this.#enqueuePersistence(() =>
+            this.#sessionRepo.updateSessionProgress(
+              effect.sessionId,
+              completedPromptCount,
+              'abandoned',
+              completedAt
+            )
+          );
           break;
         }
       }
@@ -219,75 +248,80 @@ export class GuidedSessionController {
     }
   }
 
-  async #persistAttempt(attempt: AttemptEvent): Promise<void> {
-    try {
-      await this.#attemptRepo.saveAttempt(attempt);
-      await this.#sessionRepo.updateSessionProgress(
-        this.state.sessionId,
-        this.state.attempts.length
-      );
-      this.persistenceError = null;
-    } catch (err) {
-      // Persistence error surfaced without breaking in-memory session progression
-      this.persistenceError =
-        err instanceof Error ? err.message : 'Failed to save attempt to storage';
-    }
+  #enqueuePersistence(write: () => Promise<void>): void {
+    this.#persistenceQueue.push(write);
+    if (this.persistenceStatus !== 'failed') this.persistenceStatus = 'saving';
+    this.#schedulePersistence();
   }
 
-  async #persistSessionCompletion(sessionId: string): Promise<void> {
-    try {
-      await this.#sessionRepo.updateSessionProgress(
-        sessionId,
-        this.state.attempts.length,
-        'completed',
-        this.#nowIso()
-      );
-    } catch (err) {
-      this.persistenceError =
-        err instanceof Error ? err.message : 'Failed to save session completion';
-    }
+  #schedulePersistence(): void {
+    if (this.#persistenceRun || this.persistenceStatus === 'failed') return;
+    this.persistenceStatus = 'saving';
+    const run = this.#drainPersistence();
+    this.#persistenceRun = run;
+    void run.then(() => {
+      this.#persistenceRun = null;
+      if (this.#persistenceQueue.length && this.persistenceStatus !== 'failed') {
+        this.#schedulePersistence();
+      }
+    });
   }
 
-  async #persistSessionAbandon(sessionId: string): Promise<void> {
-    try {
-      await this.#sessionRepo.updateSessionProgress(
-        sessionId,
-        this.state.attempts.length,
-        'abandoned',
-        this.#nowIso()
-      );
-    } catch (err) {
-      this.persistenceError = err instanceof Error ? err.message : 'Failed to save session abandon';
+  async #drainPersistence(): Promise<void> {
+    while (this.#persistenceQueue.length) {
+      try {
+        await this.#persistenceQueue[0]();
+        this.#persistenceQueue.shift();
+      } catch (err) {
+        // Retain the failed head and every later write. Retry uses the same IDs.
+        this.persistenceError = err instanceof Error ? err.message : 'Failed to save session';
+        this.persistenceStatus = 'failed';
+        return;
+      }
     }
+    this.persistenceError = null;
+    this.persistenceStatus = 'saved';
   }
 
-  /**
-   * Starts the session and registers the initial TrainingSessionRecord.
-   */
+  /** Wait for committed writes; a failed write remains queued until explicitly retried. */
+  async flushPersistence(): Promise<boolean> {
+    while (this.#persistenceRun) await this.#persistenceRun;
+    return this.persistenceStatus === 'saved' && this.#persistenceQueue.length === 0;
+  }
+
+  async retryPersistence(): Promise<boolean> {
+    await this.flushPersistence();
+    if (this.#disposed) return false;
+    if (this.#persistenceQueue.length) {
+      this.persistenceStatus = 'saving';
+      this.#schedulePersistence();
+    }
+    const saved = await this.flushPersistence();
+    if (saved && this.#initialRecord && this.phase === 'idle') this.#dispatch({ type: 'start' });
+    return saved;
+  }
+
+  /** Start only after the initial record commits; retry keeps the original session identity. */
   async start(): Promise<void> {
-    if (this.state.phase !== 'idle') return;
-
-    const record: TrainingSessionRecord = {
-      schemaVersion: 1,
-      id: this.state.sessionId,
-      step: this.state.step,
-      charWpm: this.state.currentPrompt?.spec.charWpm ?? 20,
-      effWpm: this.state.currentPrompt?.spec.effWpm ?? 12,
-      freqHz: this.state.currentPrompt?.spec.freqHz ?? 600,
-      startedAt: this.#nowIso(),
-      status: 'in-progress',
-      promptCount: this.state.prompts.length,
-      completedPromptCount: 0
-    };
-
-    try {
-      await this.#sessionRepo.saveSession(record);
-    } catch (err) {
-      this.persistenceError =
-        err instanceof Error ? err.message : 'Failed to initialize session record';
+    if (this.#disposed || this.state.phase !== 'idle') return;
+    if (!this.#initialRecord) {
+      const settings = this.state.prompts[0].spec;
+      const record: TrainingSessionRecord = {
+        schemaVersion: 1,
+        id: this.state.sessionId,
+        step: this.state.step,
+        charWpm: settings.charWpm,
+        effWpm: settings.effWpm,
+        freqHz: settings.freqHz,
+        startedAt: this.#nowIso(),
+        status: 'in-progress',
+        promptCount: this.state.prompts.length,
+        completedPromptCount: 0
+      };
+      this.#initialRecord = record;
+      this.#enqueuePersistence(() => this.#sessionRepo.saveSession(record));
     }
-
-    this.#dispatch({ type: 'start' });
+    if (await this.flushPersistence()) this.#dispatch({ type: 'start' });
   }
 
   play(): void {
@@ -389,8 +423,8 @@ export class GuidedSessionController {
     }
   }
 
-  dispose(): void {
-    if (this.#disposed) return;
+  dispose(): Promise<void> {
+    if (this.#disposePromise) return this.#disposePromise;
     this.#disposed = true;
     this.feedbackCharacter = null;
 
@@ -399,6 +433,14 @@ export class GuidedSessionController {
       this.#audioUnsubscribe = null;
     }
 
-    void this.#audioEngine.dispose();
+    // Release playback immediately, but let planned cleanup keep storage open until writes settle.
+    this.#disposePromise = (async () => {
+      try {
+        await this.#audioEngine.dispose();
+      } finally {
+        await this.flushPersistence();
+      }
+    })();
+    return this.#disposePromise;
   }
 }

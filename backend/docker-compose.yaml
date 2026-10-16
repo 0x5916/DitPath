@@ -60,6 +60,7 @@ services:
       PORT: "8080"
       DB_HOST: db
       DB_PORT: "5432"
+      AUTH_TRUSTED_PROXY_CIDRS: ${AUTH_TRUSTED_PROXY_CIDRS:-}
     depends_on:
       db:
         condition: service_healthy

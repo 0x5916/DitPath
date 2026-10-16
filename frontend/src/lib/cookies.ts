@@ -1,6 +1,6 @@
-import { browser } from '$app/environment';
-import { normalizeLocalePreference, LOCALE_PREFERENCE_STORAGE_KEY } from '$lib/locale';
-import { CW_STORAGE_KEYS } from '$lib/storageKeys';
+import { browser } from '$app/env';
+import { normalizeLocalePreference, LOCALE_PREFERENCE_STORAGE_KEY } from '#lib/locale.ts';
+import { CW_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 const LEGACY_LOCALE_COOKIE = 'PARAGLIDE_LOCALE';
 const LEGACY_LESSON_COOKIE = CW_STORAGE_KEYS.lesson;

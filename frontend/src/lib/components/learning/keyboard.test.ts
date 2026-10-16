@@ -49,6 +49,8 @@ describe('guided session keyboard policy', () => {
     expect(acceptsSessionShortcut(keyEvent({}, 'input'), true)).toBe(false);
     expect(acceptsSessionContinue(keyEvent({ key: 'Enter' }, 'button'), 'introducing')).toBe(false);
     expect(acceptsSessionContinue(keyEvent({ key: 'Enter' }, 'input'), 'feedback')).toBe(false);
+    expect(acceptsSessionShortcut(keyEvent({ key: ' ' }, 'summary'))).toBe(false);
+    expect(acceptsSessionContinue(keyEvent({ key: 'Enter' }, 'summary'), 'feedback')).toBe(false);
   });
 
   it.each(['introducing', 'feedback'] as const)('continues from the page in %s', (phase) => {

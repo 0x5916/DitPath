@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, Play, RotateCcw, AlertCircle } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
+  import { LESSONS } from '#lib/training/sequence.ts';
 
   export type HeroStateKind =
     'new' | 'next' | 'review-due' | 'resume' | 'complete' | 'loading' | 'error';
@@ -48,8 +49,8 @@
     <div class="hero-error" role="alert">
       <AlertCircle size={24} />
       <div>
-        <h2 class="hero-title">Unable to load lesson data</h2>
-        <p class="hero-desc">{errorMessage || 'Please refresh or check your local storage.'}</p>
+        <h2 class="hero-title">{m.learn_data_error_title()}</h2>
+        <p class="hero-desc">{errorMessage || m.learn_data_error_description()}</p>
       </div>
     </div>
   {:else if kind === 'resume' && resumableSessionId}
@@ -75,47 +76,47 @@
       </button>
     </div>
   {:else if kind === 'review-due'}
-    <div class="hero-eyebrow eyebrow-review">Needs attention</div>
-    <h2 class="hero-title">Review {reviewChars.join(', ')}</h2>
-    <p class="hero-desc">Strengthen sound automaticity before advancing along your Koch path.</p>
+    <div class="hero-eyebrow eyebrow-review">{m.learn_review_eyebrow()}</div>
+    <h2 class="hero-title">{m.learn_review_title({ characters: reviewChars.join(', ') })}</h2>
+    <p class="hero-desc">{m.learn_review_description()}</p>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
         <RotateCcw size={18} />
-        <span>Start review (~4 min)</span>
+        <span>{m.learn_review_action({ step })}</span>
       </button>
     </div>
   {:else if kind === 'complete'}
-    <div class="hero-eyebrow eyebrow-complete">Course complete</div>
-    <h2 class="hero-title">Daily Mixed Review</h2>
-    <p class="hero-desc">Maintain instant recognition across all 40 Morse characters.</p>
+    <div class="hero-eyebrow eyebrow-complete">{m.learn_complete_eyebrow()}</div>
+    <h2 class="hero-title">{m.learn_complete_title()}</h2>
+    <p class="hero-desc">{m.learn_complete_description({ count: LESSONS.join('').length })}</p>
     <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(40)}>
+      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(LESSONS.length)}>
         <Play size={18} />
-        <span>Start daily review</span>
+        <span>{m.learn_complete_action()}</span>
       </button>
     </div>
   {:else if kind === 'new'}
-    <div class="hero-eyebrow">Begin here</div>
-    <h2 class="hero-title">Lesson 1 · Learn K and M</h2>
+    <div class="hero-eyebrow">{m.learn_new_eyebrow()}</div>
+    <h2 class="hero-title">{m.learn_new_title({ characters: LESSONS[0].split('').join(', ') })}</h2>
     <p class="hero-desc">
-      Listen for the musical rhythm and shape. 12 short prompts · about 4 min.
+      {m.learn_new_description()}
     </p>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(1)}>
-        <span>Start lesson 1</span>
+        <span>{m.learn_start_action({ step: 1 })}</span>
         <ArrowRight size={18} />
       </button>
     </div>
   {:else}
     <!-- kind === 'next' -->
-    <div class="hero-eyebrow">Next up</div>
-    <h2 class="hero-title">Lesson {step} · Add {introducedChar}</h2>
+    <div class="hero-eyebrow">{m.learn_next_eyebrow()}</div>
+    <h2 class="hero-title">{m.learn_next_title({ step, characters: introducedChar })}</h2>
     <p class="hero-desc">
-      Review known symbols and train new sound {introducedChar}. About 4 min.
+      {m.learn_next_description({ characters: introducedChar })}
     </p>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
-        <span>Start lesson {step}</span>
+        <span>{m.learn_start_action({ step })}</span>
         <ArrowRight size={18} />
       </button>
     </div>

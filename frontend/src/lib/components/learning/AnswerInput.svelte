@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import type { InputMode } from '../../training/v2/types';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     disabled?: boolean;
@@ -20,6 +20,10 @@
   let inputVal = $state('');
   let inputEl = $state<HTMLInputElement | null>(null);
   let composing = false;
+  const inputId = $props.id();
+  let inputLength = $derived(
+    Number.isFinite(expectedLength) ? Math.max(1, Math.trunc(expectedLength)) : 1
+  );
 
   $effect(() => {
     if (!disabled && autoFocus && inputEl) {
@@ -36,7 +40,7 @@
     inputVal = clean;
 
     // Auto-submit when expected single character or group length is reached
-    if (clean.length === expectedLength) {
+    if (clean.length === inputLength) {
       submit(clean, 'keyboard');
     }
   }
@@ -52,7 +56,8 @@
         !event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&
-        inputVal.length === expectedLength
+        !event.shiftKey &&
+        inputVal.length === inputLength
       ) {
         submit(inputVal, 'keyboard');
       }
@@ -74,13 +79,13 @@
     class="answer-field"
     value={inputVal}
     {disabled}
-    maxlength={expectedLength}
+    maxlength={inputLength}
+    style:--answer-length={inputLength}
     autocomplete="off"
     autocapitalize="characters"
     spellcheck="false"
-    placeholder="·"
     aria-label={m.lesson_answer_label()}
-    aria-describedby="answer-instruction"
+    aria-describedby={`${inputId}-instruction`}
     oninput={handleInput}
     onkeydown={handleKeydown}
     oncompositionstart={() => (composing = true)}
@@ -89,10 +94,8 @@
       handleInput(event);
     }}
   />
-  <div class="input-instruction" id="answer-instruction">
-    {expectedLength === 1
-      ? m.lesson_type_character()
-      : m.lesson_type_group({ count: expectedLength })}
+  <div class="input-instruction" id={`${inputId}-instruction`}>
+    {inputLength === 1 ? m.lesson_type_character() : m.lesson_type_group({ count: inputLength })}
   </div>
 </div>
 
@@ -106,7 +109,8 @@
   }
 
   .answer-field {
-    width: 5.5rem;
+    width: min(100%, calc(var(--answer-length) * 1.1em + var(--space-6)));
+    min-width: 5.5rem;
     height: 5.5rem;
     background-color: var(--bg-surface);
     border: 2px solid var(--border-control);

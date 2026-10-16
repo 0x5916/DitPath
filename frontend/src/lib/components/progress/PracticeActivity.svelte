@@ -1,45 +1,48 @@
 <script lang="ts">
-  interface Props {
-    sessionCount: number;
-    totalMinutes: number;
-    accuracyPercent: number;
-    legacySessionCount?: number;
-  }
+  import * as m from '#lib/paraglide/messages.js';
 
   let {
-    sessionCount = 0,
-    totalMinutes = 0,
-    accuracyPercent = 0,
-    legacySessionCount = 0
-  }: Props = $props();
+    sessionCount,
+    totalMinutes,
+    accuracyPercent,
+    timedSessionCount
+  }: {
+    sessionCount: number;
+    totalMinutes: number | null;
+    accuracyPercent: number | null;
+    timedSessionCount: number;
+  } = $props();
 </script>
 
-<div class="activity-ledger-card" role="region" aria-label="Recent activity summary">
+<div class="activity-ledger-card" role="region" aria-label={m.progress_activity_label()}>
   <div class="ledger-head">
-    <h3 class="ledger-title">Training Activity</h3>
-    <span class="ledger-period">Last 7 days</span>
+    <h3 class="ledger-title">{m.progress_activity_title()}</h3>
+    <span class="ledger-period">{m.progress_activity_period()}</span>
   </div>
-
   <div class="ledger-metrics">
     <div class="metric-block">
-      <span class="metric-label">Sessions</span>
+      <span class="metric-label">{m.progress_sessions()}</span>
       <span class="metric-val">{sessionCount}</span>
     </div>
     <div class="metric-block">
-      <span class="metric-label">Time practiced</span>
-      <span class="metric-val">{totalMinutes} min</span>
+      <span class="metric-label">{m.progress_time()}</span>
+      <span class="metric-val"
+        >{totalMinutes === null
+          ? m.progress_unmeasured()
+          : m.progress_minutes({ minutes: totalMinutes })}</span
+      >
     </div>
     <div class="metric-block">
-      <span class="metric-label">Average accuracy</span>
-      <span class="metric-val">{accuracyPercent}%</span>
+      <span class="metric-label">{m.progress_accuracy()}</span>
+      <span class="metric-val"
+        >{accuracyPercent === null
+          ? m.progress_unmeasured()
+          : m.progress_accuracy_value({ percent: accuracyPercent })}</span
+      >
     </div>
   </div>
-
-  {#if legacySessionCount > 0}
-    <div class="legacy-note">
-      <span class="legacy-pill">Legacy history</span>
-      <span>{legacySessionCount} historical passage sessions recorded prior to V2</span>
-    </div>
+  {#if timedSessionCount < sessionCount}
+    <p class="metric-label">{m.progress_recorded_time_hint({ count: timedSessionCount })}</p>
   {/if}
 </div>
 
@@ -100,22 +103,5 @@
     font-size: var(--text-xl);
     font-weight: 700;
     color: var(--text-primary);
-  }
-
-  .legacy-note {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    border-top: 1px solid var(--border);
-    padding-top: var(--space-3);
-  }
-
-  .legacy-pill {
-    padding: 0.1rem 0.35rem;
-    background-color: var(--bg-inset);
-    border-radius: var(--radius-xs);
-    font-weight: 600;
   }
 </style>

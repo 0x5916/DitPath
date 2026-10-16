@@ -1,0 +1,120 @@
+ M AGENTS.md
+ M DEPLOYMENT.md
+ M README.md
+ M backend/API.md
+ M backend/README.md
+ M backend/cmd/api-server/main.go
+ M backend/docker-compose.yaml
+ M backend/docs/training-events-v2.md
+ M backend/example.env
+ D backend/internal/common/claims.go
+ M backend/internal/common/error.go
+ M backend/internal/common/response.go
+ M backend/internal/configs/config.go
+ M backend/internal/databases/db.go
+ M backend/internal/handlers/v1/auth.go
+ M backend/internal/handlers/v1/progress.go
+ M backend/internal/handlers/v1/user.go
+ M backend/internal/handlers/v2/training.go
+ M backend/internal/handlers/v2/training_test.go
+ M backend/internal/middlewares/loaduser.go
+ M backend/internal/server/router.go
+ M backend/internal/utils/password.go
+ M docker-compose.yaml
+ M example.env
+ M frontend/AGENTS.md
+ M frontend/README.md
+ M frontend/docs/ui-ux-audit.md
+ M frontend/eslint.config.js
+ M frontend/messages/de.json
+ M frontend/messages/en.json
+ M frontend/messages/ja.json
+ M frontend/messages/zh-Hans.json
+ M frontend/messages/zh-Hant.json
+ M frontend/package-lock.json
+ M frontend/package.json
+ M frontend/scripts/validate-seo.ts
+ M frontend/src/hooks.server.ts
+ M frontend/src/hooks.ts
+ M frontend/src/lib/api.ts
+ M frontend/src/lib/auth.ts
+ M frontend/src/lib/components/GuestNotice.svelte
+ M frontend/src/lib/components/LoadingSpinner.svelte
+ M frontend/src/lib/components/MorsePlayer.svelte
+ M frontend/src/lib/components/ResultOverlay.svelte
+ M frontend/src/lib/components/SaveButton.svelte
+ M frontend/src/lib/components/learning/AnswerInput.svelte
+ M frontend/src/lib/components/learning/ContrastRepair.svelte
+ M frontend/src/lib/components/learning/CoursePath.svelte
+ M frontend/src/lib/components/learning/CoursePathItem.svelte
+ M frontend/src/lib/components/learning/ExitSessionDialog.svelte
+ M frontend/src/lib/components/learning/LearnHero.svelte
+ M frontend/src/lib/components/learning/PromptFeedback.svelte
+ M frontend/src/lib/components/learning/SessionShell.svelte
+ M frontend/src/lib/components/practice/ContinuousCopyPractice.svelte
+ M frontend/src/lib/components/practice/FamiliarizationPractice.svelte
+ M frontend/src/lib/cookies.ts
+ M frontend/src/lib/cwSync.ts
+ M frontend/src/lib/data/training-db.test.ts
+ M frontend/src/lib/data/training-db.ts
+ M frontend/src/lib/errorLocalization.ts
+ M frontend/src/lib/format.ts
+ M frontend/src/lib/forum.ts
+ M frontend/src/lib/i18n.svelte.ts
+ M frontend/src/lib/locale.ts
+ M frontend/src/lib/morse.test.ts
+ M frontend/src/lib/morse.ts
+ M frontend/src/lib/progressSync.test.ts
+ M frontend/src/lib/progressSync.ts
+ M frontend/src/lib/routes.js
+ M frontend/src/lib/score.test.ts
+ M frontend/src/lib/seo.ts
+ M frontend/src/lib/theme.ts
+ M frontend/src/lib/training/result.ts
+ M frontend/src/lib/training/v2/attempt.ts
+ M frontend/src/routes/+error.svelte
+ M frontend/src/routes/+layout.svelte
+ M frontend/src/routes/+layout.ts
+ M frontend/src/routes/+page.svelte
+ M frontend/src/routes/about/+page.svelte
+ M frontend/src/routes/forum/+page.svelte
+ M frontend/src/routes/forum/[id]/+page.svelte
+ M frontend/src/routes/forum/[id]/ForumReplyItem.svelte
+ M frontend/src/routes/forum/[id]/ReplyComposer.svelte
+ M frontend/src/routes/login/+page.svelte
+ M frontend/src/routes/more/+page.svelte
+ M frontend/src/routes/morse/+page.svelte
+ M frontend/src/routes/morse/learn/+page.svelte
+ M frontend/src/routes/morse/learn/session/+page.svelte
+ M frontend/src/routes/morse/practice/+page.svelte
+ M frontend/src/routes/morse/progress/+page.svelte
+ M frontend/src/routes/profile/+page.svelte
+ M frontend/src/routes/register/+page.svelte
+ M frontend/src/routes/settings/+page.svelte
+ M frontend/src/routes/sitemap.xml/+server.ts
+ D frontend/src/service-worker.ts
+ D frontend/svelte.config.js
+ M frontend/tsconfig.json
+ M frontend/vite.config.ts
+ M frontend/vitest.config.ts
+?? backend/cmd/api-server/main_test.go
+?? backend/docs/auth-resource-limits-spec.md
+?? backend/docs/email-verification-race-spec.md
+?? backend/internal/authlimits/
+?? backend/internal/common/pagination.go
+?? backend/internal/databases/db_test.go
+?? backend/internal/handlers/v1/auth_resources.go
+?? backend/internal/handlers/v1/email_verification.go
+?? backend/internal/handlers/v1/email_verification_test.go
+?? backend/internal/middlewares/auth_rate_limit.go
+?? backend/internal/server/auth_limits_test.go
+?? backend/internal/training/
+?? backend/internal/utils/password_test.go
+?? frontend/scripts/kit-options.js
+?? frontend/src/env.ts
+?? frontend/src/lib/errorLocalization.test.ts
+?? frontend/src/lib/forum-replies.test.ts
+?? frontend/src/lib/forum-replies.ts
+?? frontend/src/lib/offline-cache.test.ts
+?? frontend/src/lib/offline-cache.ts
+?? frontend/src/service-worker/

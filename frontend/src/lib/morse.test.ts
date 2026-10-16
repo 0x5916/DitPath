@@ -6,7 +6,7 @@ import {
   generateTimedLesson,
   getFarnsworthWpmSet,
   getLessonChars
-} from '$lib/morse';
+} from '#lib/morse.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();

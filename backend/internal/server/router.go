@@ -3,8 +3,10 @@ package server
 import (
 	"net/http"
 	"net/http/pprof"
+	"net/netip"
 	"time"
 
+	"opencw/internal/authlimits"
 	"opencw/internal/common"
 	"opencw/internal/configs"
 	"opencw/internal/databases"
@@ -12,13 +14,19 @@ import (
 	v2handlers "opencw/internal/handlers/v2"
 	"opencw/internal/middlewares"
 	"opencw/internal/models"
+	"opencw/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const defaultProductionOrigin = "https://opencw.net"
 
 func RouterV1Setup(engine *gin.Engine) {
+	routerV1Setup(engine, databases.DB, utils.DefaultPasswordWork(), authlimits.DefaultLimiter(), configs.App.AuthTrustedProxyCIDRs)
+}
+
+func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, limiter *authlimits.Limiter, proxies []netip.Prefix) {
 	v1 := engine.Group("/v1")
 
 	// Health check endpoint
@@ -29,22 +37,22 @@ func RouterV1Setup(engine *gin.Engine) {
 		})
 	})
 
-	authHandler := handlers.AuthHandler{DB: databases.DB}
+	authHandler := handlers.AuthHandler{DB: db, Passwords: work}
 	auth := v1.Group("/auth")
-	auth.POST("/register", authHandler.Register)
-	auth.POST("/login", authHandler.Login)
+	auth.POST("/register", middlewares.AuthRequestLimit(authlimits.Registration, limiter, proxies), authHandler.Register)
+	auth.POST("/login", middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), authHandler.Login)
 	auth.POST("/logout", authHandler.Logout)
 	auth.POST("/refresh", authHandler.Refresh)
 
 	protected := v1.Group("/")
 	protected.Use(middlewares.AuthRequired())
-	protected.Use(middlewares.LoadUser(databases.DB))
+	protected.Use(middlewares.LoadUser(db))
 
 	authProtected := protected.Group("/auth")
 	authProtected.POST("/send-verification-email", authHandler.SendVerificationEmail)
 	authProtected.POST("/verify-email", authHandler.VerifyEmail)
 
-	settingsHandler := handlers.SettingsHandler{DB: databases.DB}
+	settingsHandler := handlers.SettingsHandler{DB: db}
 	settings := protected.Group("/settings")
 	settings.GET("/all", settingsHandler.GetAllSettings)
 	settings.GET("/cw", settingsHandler.GetCWSettings)
@@ -52,19 +60,19 @@ func RouterV1Setup(engine *gin.Engine) {
 	settings.POST("/cw", settingsHandler.UpdateCWSettings)
 	settings.POST("/page", settingsHandler.UpdatePageSettings)
 
-	userHandler := handlers.UserHandler{DB: databases.DB}
+	userHandler := handlers.UserHandler{DB: db, Passwords: work}
 	user := protected.Group("/user")
 	user.GET("/me", userHandler.GetUserInfo)
 	user.PUT("/callsign", userHandler.UpdateCallSign)
 	user.PUT("/email", userHandler.UpdateEmail)
 	user.PUT("/password", userHandler.UpdatePassword)
 
-	progressHandler := handlers.ProgressHandler{DB: databases.DB}
+	progressHandler := handlers.ProgressHandler{DB: db}
 	cwProgress := protected.Group("/cw")
 	cwProgress.GET("/progress", progressHandler.GetAllProgress)
 	cwProgress.PUT("/progress", progressHandler.AddProgress)
 
-	forumHandler := handlers.ForumHandler{DB: databases.DB}
+	forumHandler := handlers.ForumHandler{DB: db}
 	forumCreateRateLimit := middlewares.ForumCreateRateLimit()
 
 	// Forum reads are public.
@@ -117,6 +125,7 @@ func CORSSetup(engine *gin.Engine) {
 		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		c.Header("Access-Control-Expose-Headers", "Retry-After")
 		c.Header("Vary", "Origin")
 
 		if c.Request.Method == http.MethodOptions {

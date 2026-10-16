@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"opencw/internal/configs"
@@ -14,24 +15,33 @@ import (
 	"gorm.io/gorm"
 )
 
-func IssueTokenPair(DB *gorm.DB, userID uuid.UUID, now time.Time) (rawToken, accessToken string, err error) {
-	rawToken, hashedToken, err := GenerateRefreshToken()
-	if err != nil {
-		return
-	}
+var ErrCredentialsChanged = errors.New("account credentials changed")
 
-	refreshToken := models.RefreshToken{
-		UserID:    userID,
-		Token:     hashedToken,
-		ExpiresAt: now.Add(time.Hour * 24 * 30),
-	}
-	err = DB.Create(&refreshToken).Error
+// IssueTokenPair fences the password snapshot checked before acquiring the
+// account lock, so an old login cannot recreate sessions after password change.
+func IssueTokenPair(db *gorm.DB, userID uuid.UUID, expectedHash string, now time.Time) (string, string, error) {
+	var raw, access string
+	err := WithLockedUser(db.Statement.Context, db, userID, func(tx *gorm.DB, user *models.User) error {
+		if user.Password != expectedHash {
+			return ErrCredentialsChanged
+		}
+		var hashed string
+		var err error
+		raw, hashed, err = GenerateRefreshToken()
+		if err != nil {
+			return err
+		}
+		access, err = GenerateAccessToken(userID, now)
+		if err != nil {
+			return err
+		}
+		return tx.Create(&models.RefreshToken{UserID: userID, Token: hashed,
+			ExpiresAt: now.Add(time.Hour * 24 * 30)}).Error
+	})
 	if err != nil {
-		return
+		return "", "", err
 	}
-
-	accessToken, err = GenerateAccessToken(userID, now)
-	return
+	return raw, access, nil
 }
 
 func GenerateRefreshToken() (raw, hashed string, err error) {

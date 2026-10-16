@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
-  import { calculateDuration, getLessonChars, LESSONS, createExercise } from '../../morse';
-  import type { Exercise } from '../../training/exercise';
-  import { canCheck, createSession, transition, type SessionState } from '../../training/session';
-  import { score, diffWords, type DiffToken } from '../../score';
+  import { onDestroy, untrack } from 'svelte';
+  import { getLessonChars, LESSONS } from '../../training/sequence';
+  import { canCheck } from '../../training/session';
+  import {
+    createCopyAttempt,
+    emptyCopyAttempt,
+    copyPlaybackEvent,
+    reviewCopyAttempt,
+    copyInputLimit,
+    boundCopyInput
+  } from '../../practice/copy-attempt';
+  import { normalizePlaybackSettings } from '../../practice/playback';
+  import { practiceKeyIntent } from '../../practice/keyboard';
   import { formatClock, percentage } from '../../format';
   import MorsePlayer from '../MorsePlayer.svelte';
   import ResultOverlay from '../ResultOverlay.svelte';
   import { ChevronLeft, ChevronRight } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     lesson?: number;
@@ -28,17 +36,19 @@
     startDelay = 0.5
   }: Props = $props();
 
-  let activeLesson = $state(1);
-  let session = $state<SessionState>(createSession());
-  let exercise = $state<Exercise>({ lesson: 1, text: '' });
-  let lessonText = $derived(exercise.text);
+  let settings = $state(normalizePlaybackSettings({}));
+  let attempt = $state.raw(emptyCopyAttempt());
+  let activeLesson = $derived(attempt.exercise.lesson);
+  let session = $derived(attempt.session);
+  let lessonText = $derived(attempt.exercise.text);
 
   let inputText = $state('');
-  let result = $state(-1);
+  let result = $derived(attempt.review?.result.accuracy ?? -1);
   let showOverlay = $state(false);
-  let diffTokens = $state<DiffToken[]>([]);
+  let diffTokens = $derived(attempt.review?.diffTokens ?? []);
   let newExerciseArmed = $state(false);
   let newExerciseTimer: ReturnType<typeof setTimeout> | null = null;
+  let focusTimer: ReturnType<typeof setTimeout> | null = null;
   let answerEl = $state<HTMLTextAreaElement | null>(null);
 
   let player = $state<{
@@ -48,8 +58,12 @@
   } | null>(null);
 
   $effect.pre(() => {
-    activeLesson = lesson;
-    exercise = createExercise({ lesson, charWpm, effWpm });
+    const next = normalizePlaybackSettings({ charWpm, effWpm, freq, volume, startDelay });
+    const nextLesson = lesson;
+    untrack(() => {
+      settings = next;
+      regenerate(nextLesson);
+    });
   });
 
   let currentLessonChars = $derived(getLessonChars(activeLesson).split('').filter(Boolean));
@@ -63,7 +77,7 @@
       : m.trainer_lesson_letters()
   );
 
-  let sendSeconds = $derived(Math.floor(calculateDuration(lessonText, charWpm, effWpm)));
+  let sendSeconds = $derived(Math.floor(attempt.duration));
   let transportLive = $derived(session.status === 'playing' || session.status === 'paused');
   let sessionStarted = $derived(session.status !== 'ready' && session.status !== 'disposed');
   let checkEnabled = $derived(canCheck(session) && inputText.trim() !== '');
@@ -111,14 +125,12 @@
     }
   }
 
-  function regenerate() {
+  function regenerate(nextLesson = activeLesson) {
     clearNewExerciseArm();
-    exercise = createExercise({ lesson: activeLesson, charWpm, effWpm });
-    const res = transition(session, { type: 'new-exercise' });
-    if (res.ok) session = res.state;
+    if (focusTimer) clearTimeout(focusTimer);
+    void player?.stopNow();
+    attempt = createCopyAttempt(nextLesson, settings, attempt);
     inputText = '';
-    result = -1;
-    diffTokens = [];
     showOverlay = false;
   }
 
@@ -137,66 +149,65 @@
     }
 
     newExerciseArmed = true;
-    newExerciseTimer = setTimeout(() => (newExerciseArmed = false), 4000);
+    newExerciseTimer = setTimeout(clearNewExerciseArm, 4000);
   }
 
   function handleStart() {
-    const res = transition(session, { type: 'start' });
-    if (res.ok) session = res.state;
-    if (browser) setTimeout(() => answerEl?.focus(), 100);
+    attempt = copyPlaybackEvent(attempt, 'start');
+    if (focusTimer) clearTimeout(focusTimer);
+    focusTimer = setTimeout(() => {
+      focusTimer = null;
+      if (!showOverlay && sessionStarted) answerEl?.focus();
+    }, 100);
   }
 
   function handleEnded() {
-    const res = transition(session, { type: 'stop' });
-    if (res.ok) session = res.state;
+    attempt = copyPlaybackEvent(attempt, 'stop');
   }
 
   function handleCheck() {
     if (!checkEnabled) return;
-    const accuracy = score(lessonText, inputText);
-    result = accuracy;
-    diffTokens = diffWords(lessonText, inputText);
+    void player?.stopNow();
+    attempt = reviewCopyAttempt(attempt, inputText);
     showOverlay = true;
-
-    const res = transition(session, {
-      type: 'check',
-      result: {
-        lesson: activeLesson,
-        charWpm,
-        effWpm,
-        accuracy,
-        completedAt: new Date().toISOString()
-      }
-    });
-    if (res.ok) session = res.state;
   }
 
   function handleNextLesson() {
     if (activeLesson < LESSONS.length) {
-      activeLesson += 1;
-      regenerate();
+      regenerate(activeLesson + 1);
     }
   }
 
   function handlePrevLesson() {
     if (activeLesson > 1) {
-      activeLesson -= 1;
-      regenerate();
+      regenerate(activeLesson - 1);
     }
   }
 
-  function onAnswerKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+  function onPracticeKeydown(event: KeyboardEvent) {
+    if (showOverlay) return;
+    const intent = practiceKeyIntent(event);
+    if (intent === 'check' && sessionStarted) {
       event.preventDefault();
       if (checkEnabled) handleCheck();
-    } else if (event.key === 'Escape' && transportLive) {
+    } else if (intent === 'stop' && transportLive) {
       event.preventDefault();
       void player?.stopNow();
+    } else if (intent === 'replay') {
+      event.preventDefault();
+      void player?.playNow();
     }
   }
+
+  onDestroy(() => {
+    if (newExerciseTimer) clearTimeout(newExerciseTimer);
+    if (focusTimer) clearTimeout(focusTimer);
+  });
 </script>
 
-<div class="continuous-copy-practice" role="region" aria-label="Continuous copy practice">
+<svelte:window onkeydown={onPracticeKeydown} />
+
+<div class="continuous-copy-practice" role="region" aria-label={m.practice_copy_region()}>
   <div class="console-head">
     <div class="lesson-nav-row">
       <div class="lesson-picker" role="group" aria-label={m.trainer_current_lesson()}>
@@ -234,8 +245,8 @@
     <p class="console-meta">
       {m.trainer_summary_meta({
         count: String(currentLessonChars.length),
-        speed: `${charWpm}/${effWpm}`,
-        hz: String(freq),
+        speed: `${settings.charWpm}/${settings.effWpm}`,
+        hz: String(settings.freq),
         time: formatClock(sendSeconds)
       })}
     </p>
@@ -260,11 +271,12 @@
     <MorsePlayer
       bind:this={player}
       text={lessonText}
-      {charWpm}
-      {effWpm}
-      {freq}
-      {volume}
-      {startDelay}
+      bind:charWpm={settings.charWpm}
+      bind:effWpm={settings.effWpm}
+      bind:freq={settings.freq}
+      bind:volume={settings.volume}
+      bind:startDelay={settings.startDelay}
+      onSettingsInput={() => regenerate()}
       showSettings
       playTone={sessionStarted && !transportLive ? 'quiet' : 'primary'}
       showTransportExtras={transportLive}
@@ -280,14 +292,14 @@
       <span class="label-text">{m.trainer_answer_label()}</span>
       <textarea
         bind:this={answerEl}
-        bind:value={inputText}
+        bind:value={() => inputText, (value) => (inputText = boundCopyInput(lessonText, value))}
         class="textarea copy-textarea"
         placeholder={m.trainer_answer_placeholder()}
         disabled={!sessionStarted}
+        maxlength={copyInputLimit(lessonText)}
         autocapitalize="characters"
         autocomplete="off"
-        spellcheck="false"
-        onkeydown={onAnswerKeydown}></textarea>
+        spellcheck="false"></textarea>
     </label>
 
     <p class="session-state" aria-live="polite">{sessionStateText}</p>
@@ -340,7 +352,7 @@
       onClose={() => (showOverlay = false)}
       onNext={handleNextLesson}
       onPrev={handlePrevLesson}
-      onRegenerate={regenerate}
+      onRegenerate={() => regenerate()}
     />
   {/if}
 </div>
@@ -378,6 +390,12 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+  }
+
+  .lesson-picker button,
+  .action-row button {
+    min-width: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min, 3rem);
   }
 
   .lesson-label {

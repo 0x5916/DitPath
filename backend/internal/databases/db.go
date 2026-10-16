@@ -3,7 +3,6 @@ package databases
 import (
 	"fmt"
 	"log/slog"
-	"os"
 
 	"opencw/internal/configs"
 	"opencw/internal/models"
@@ -14,7 +13,7 @@ import (
 
 var DB *gorm.DB
 
-func Connect() {
+func Connect() error {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
 		configs.App.DBHost,
@@ -26,10 +25,36 @@ func Connect() {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true, PrepareStmt: true})
 	if err != nil {
-		slog.Error("Failed to connect to database", "err", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to database: %w", err)
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get underlying database connection: %w", err)
+	}
+	if err := migrate(db); err != nil {
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			slog.Error("Failed to close database after initialization error", "err", closeErr)
+		}
+		return err
+	}
+
+	sqlDB.SetMaxOpenConns(configs.App.DBMaxOpenConns)
+	sqlDB.SetMaxIdleConns(configs.App.DBMaxIdleConns)
+	sqlDB.SetConnMaxLifetime(configs.App.DBConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(configs.App.DBConnMaxIdleTime)
+	DB = db
+
+	slog.Info("Database connected and migrated successfully")
+	return nil
+}
+
+type schemaDatabase interface {
+	AutoMigrate(...interface{}) error
+	Exec(string, ...interface{}) *gorm.DB
+}
+
+func migrate(db schemaDatabase) error {
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.EmailOTP{},
@@ -42,33 +67,21 @@ func Connect() {
 		&models.TrainingEvent{},
 		&models.TrainingProfile{},
 	); err != nil {
-		slog.Error("Failed to migrate database", "err", err)
+		return fmt.Errorf("migrate database: %w", err)
 	}
 
 	if err := ensureUserEmailIndexes(db); err != nil {
-		slog.Error("Failed to migrate user email indexes", "err", err)
+		return fmt.Errorf("migrate user email indexes: %w", err)
 	}
 
 	if err := ensureForumIndexes(db); err != nil {
-		slog.Error("Failed to migrate forum indexes", "err", err)
+		return fmt.Errorf("migrate forum indexes: %w", err)
 	}
 
-	DB = db
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		slog.Error("Failed to get underlying sql.DB", "err", err)
-		os.Exit(1)
-	}
-	sqlDB.SetMaxOpenConns(configs.App.DBMaxOpenConns)
-	sqlDB.SetMaxIdleConns(configs.App.DBMaxIdleConns)
-	sqlDB.SetConnMaxLifetime(configs.App.DBConnMaxLifetime)
-	sqlDB.SetConnMaxIdleTime(configs.App.DBConnMaxIdleTime)
-
-	slog.Info("Database connected and migrated successfully")
+	return nil
 }
 
-func ensureUserEmailIndexes(db *gorm.DB) error {
+func ensureUserEmailIndexes(db schemaDatabase) error {
 	statements := []string{
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;`,
 		`DROP INDEX IF EXISTS idx_users_email;`,
@@ -85,7 +98,7 @@ func ensureUserEmailIndexes(db *gorm.DB) error {
 	return nil
 }
 
-func ensureForumIndexes(db *gorm.DB) error {
+func ensureForumIndexes(db schemaDatabase) error {
 	statements := []string{
 		`CREATE INDEX IF NOT EXISTS idx_forum_threads_created_at_id ON forum_threads (created_at DESC, id DESC) WHERE deleted_at IS NULL;`,
 	}

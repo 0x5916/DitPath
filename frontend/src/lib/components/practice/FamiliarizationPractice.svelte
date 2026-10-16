@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { MORSE, getLessonChars } from '../../morse';
+  import { practiceKeyIntent } from '../../practice/keyboard';
   import MorsePlayer from '../MorsePlayer.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     lesson?: number;
@@ -27,11 +29,20 @@
   let charMorse = $derived(MORSE[selectedChar] ?? '');
   let drillPlayed = $state(false);
   let drillPlaying = $state(false);
+  let player = $state<{
+    playNow: () => Promise<void>;
+    stopNow: () => Promise<void>;
+  } | null>(null);
 
   $effect.pre(() => {
     activeLesson = lesson;
     const chars = getLessonChars(lesson).split('').filter(Boolean);
-    selectedChar = chars[0] ?? 'K';
+    untrack(() => {
+      void player?.stopNow();
+      selectedChar = chars[0] ?? 'K';
+      drillPlayed = false;
+      drillPlaying = false;
+    });
   });
 
   let isLetter = (c: string) => /[A-Z]/.test(c);
@@ -47,18 +58,33 @@
       : m.trainer_set_learned({ count: String(availableChars.length) })
   );
 
-  let player = $state<{
-    playNow: () => Promise<void>;
-    stopNow: () => Promise<void>;
-  } | null>(null);
-
   function handleSelectChar(ch: string) {
+    if (ch === selectedChar) return;
+    void player?.stopNow();
     selectedChar = ch;
     drillPlayed = false;
+    drillPlaying = false;
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    const intent = practiceKeyIntent(event);
+    if (intent === 'replay') {
+      event.preventDefault();
+      void player?.playNow();
+    } else if (intent === 'stop' && drillPlaying) {
+      event.preventDefault();
+      void player?.stopNow();
+    }
   }
 </script>
 
-<div class="familiarization-practice" role="region" aria-label="Character familiarization">
+<svelte:window onkeydown={handleKeydown} />
+
+<div
+  class="familiarization-practice"
+  role="region"
+  aria-label={m.practice_familiarization_region()}
+>
   <div class="drill-header">
     <h2 class="drill-title">{m.trainer_drill_label()}</h2>
     <p class="drill-meta">
@@ -123,7 +149,7 @@
           class="char-chip"
           class:is-active={ch === selectedChar}
           onclick={() => handleSelectChar(ch)}
-          aria-label={`Inspect ${ch}`}
+          aria-label={m.practice_inspect_character({ character: ch })}
         >
           {ch}
         </button>

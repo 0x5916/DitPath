@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { page } from '$app/state';
-  import { localizedHref } from '$lib/i18n.svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
   import { ArrowLeft, ChevronRight } from '@lucide/svelte';
-  import PracticeModeCard from '$lib/components/practice/PracticeModeCard.svelte';
-  import ContinuousCopyPractice from '$lib/components/practice/ContinuousCopyPractice.svelte';
-  import FamiliarizationPractice from '$lib/components/practice/FamiliarizationPractice.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import PracticeModeCard from '#lib/components/practice/PracticeModeCard.svelte';
+  import ContinuousCopyPractice from '#lib/components/practice/ContinuousCopyPractice.svelte';
+  import FamiliarizationPractice from '#lib/components/practice/FamiliarizationPractice.svelte';
+  import * as m from '#lib/paraglide/messages.js';
 
   let mode = $derived.by(() => {
     if (!browser) return null;
@@ -25,7 +25,7 @@
   <title>{m.trainer_title()} · DitPath</title>
 </svelte:head>
 
-<div class="page-content page-narrow">
+<div class="page-narrow">
   <div class="practice-hub-container">
     {#if mode === 'copy'}
       <div class="mode-header">
@@ -50,9 +50,9 @@
     {:else}
       <div class="hub-header">
         <div class="eyebrow">{m.trainer_title()}</div>
-        <h1 class="page-title">Train Your Way</h1>
+        <h1 class="page-title">{m.practice_hub_title()}</h1>
         <p class="hub-subtitle">
-          Choose a self-directed practice mode to hone specific listening and copying skills.
+          {m.practice_hub_subtitle()}
         </p>
       </div>
 
@@ -83,33 +83,29 @@
         </section>
       {/if}
 
-      <fieldset class="segmented" aria-label={m.trainer_mode_legend()}>
-        <legend class="sr-only">{m.trainer_mode_legend()}</legend>
-      </fieldset>
-
       <div class="practice-cards-grid">
         <PracticeModeCard
           title={m.trainer_mode_passage()}
-          description="Listen to a generated 60-second Morse passage and copy text in real time."
-          actionLabel="Start copy practice"
+          description={m.practice_copy_description()}
+          actionLabel={m.practice_copy_start()}
           href={localizedHref('/morse/practice?mode=copy')}
         />
 
         <PracticeModeCard
           title={m.trainer_mode_drill()}
-          description="See any symbol and its dot-dash pattern while listening to its tone rhythm."
-          actionLabel="Inspect symbols"
+          description={m.practice_inspect_description()}
+          actionLabel={m.practice_inspect_start()}
           href={localizedHref('/morse/practice?mode=familiarize')}
         />
       </div>
 
       <div class="hub-footer-notice">
         <p class="notice-text">
-          Free practice does not affect your guided course unlocks or mastery requirements.
+          {m.practice_mastery_notice()}
         </p>
         <a href={localizedHref('/morse/learn')} class="btn-ghost back-to-course">
           <ArrowLeft size={16} />
-          <span>Back to Koch Course</span>
+          <span>{m.practice_back_to_course()}</span>
         </a>
       </div>
     {/if}

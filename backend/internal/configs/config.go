@@ -4,25 +4,29 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"opencw/internal/authlimits"
 )
 
 type Config struct {
-	Port            string   `required:"true"`
-	DBHost          string   `required:"true"`
-	DBPort          string   `required:"true"`
-	DBUser          string   `required:"true"`
-	DBPassword      string   `required:"true"`
-	DBName          string   `required:"true"`
-	JWTSecret       []byte   `required:"true"`
-	ResendAPIKey    string   `required:"true"`
-	ResendFromEmail string   `required:"true"`
-	GinMode         string   `required:"true"`
-	CORSOrigins     []string // optional — no tag
+	Port                  string         `required:"true"`
+	DBHost                string         `required:"true"`
+	DBPort                string         `required:"true"`
+	DBUser                string         `required:"true"`
+	DBPassword            string         `required:"true"`
+	DBName                string         `required:"true"`
+	JWTSecret             []byte         `required:"true"`
+	ResendAPIKey          string         `required:"true"`
+	ResendFromEmail       string         `required:"true"`
+	GinMode               string         `required:"true"`
+	CORSOrigins           []string       // optional — no tag
+	AuthTrustedProxyCIDRs []netip.Prefix // optional, auth attribution only
 
 	ReadTimeout       time.Duration `required:"true"`
 	ReadHeaderTimeout time.Duration `required:"true"`
@@ -39,6 +43,11 @@ type Config struct {
 var App Config
 
 func Load() {
+	proxies, err := authlimits.ParseTrustedProxies(os.Getenv("AUTH_TRUSTED_PROXY_CIDRS"))
+	if err != nil {
+		slog.Error("Invalid authentication proxy configuration", "err", err)
+		os.Exit(1)
+	}
 	readTimeout := getDurationEnv("READ_TIMEOUT", 15*time.Second)
 	readHeaderTimeout := getDurationEnv("READ_HEADER_TIMEOUT", 5*time.Second)
 	writeTimeout := getDurationEnv("WRITE_TIMEOUT", 30*time.Second)
@@ -60,25 +69,26 @@ func Load() {
 	}
 
 	App = Config{
-		Port:              os.Getenv("PORT"),
-		DBHost:            os.Getenv("DB_HOST"),
-		DBPort:            os.Getenv("DB_PORT"),
-		DBUser:            os.Getenv("DB_USER"),
-		DBPassword:        os.Getenv("DB_PASSWORD"),
-		DBName:            os.Getenv("DB_NAME"),
-		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
-		ResendFromEmail:   os.Getenv("RESEND_FROM_EMAIL"),
-		GinMode:           os.Getenv("GIN_MODE"),
-		CORSOrigins:       corsOrigins,
-		ReadTimeout:       readTimeout,
-		ReadHeaderTimeout: readHeaderTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
-		ShutdownTimeout:   shutdownTimeout,
-		DBMaxOpenConns:    dbMaxOpenConns,
-		DBMaxIdleConns:    dbMaxIdleConns,
-		DBConnMaxLifetime: dbConnMaxLifetime,
-		DBConnMaxIdleTime: dbConnMaxIdleTime,
+		Port:                  os.Getenv("PORT"),
+		DBHost:                os.Getenv("DB_HOST"),
+		DBPort:                os.Getenv("DB_PORT"),
+		DBUser:                os.Getenv("DB_USER"),
+		DBPassword:            os.Getenv("DB_PASSWORD"),
+		DBName:                os.Getenv("DB_NAME"),
+		ResendAPIKey:          os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:       os.Getenv("RESEND_FROM_EMAIL"),
+		GinMode:               os.Getenv("GIN_MODE"),
+		CORSOrigins:           corsOrigins,
+		AuthTrustedProxyCIDRs: proxies,
+		ReadTimeout:           readTimeout,
+		ReadHeaderTimeout:     readHeaderTimeout,
+		WriteTimeout:          writeTimeout,
+		IdleTimeout:           idleTimeout,
+		ShutdownTimeout:       shutdownTimeout,
+		DBMaxOpenConns:        dbMaxOpenConns,
+		DBMaxIdleConns:        dbMaxIdleConns,
+		DBConnMaxLifetime:     dbConnMaxLifetime,
+		DBConnMaxIdleTime:     dbConnMaxIdleTime,
 	}
 
 	secret := os.Getenv("JWT_SECRET")

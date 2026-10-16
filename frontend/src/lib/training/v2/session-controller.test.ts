@@ -57,7 +57,9 @@ function createFakeAttemptRepo(): AttemptRepository & { saved: AttemptEvent[] } 
   return {
     saved,
     saveAttempt: vi.fn(async (a: AttemptEvent) => {
-      saved.push(a);
+      const index = saved.findIndex((attempt) => attempt.id === a.id);
+      if (index < 0) saved.push(a);
+      else saved[index] = a;
     }),
     saveAttempts: vi.fn(async (as: AttemptEvent[]) => {
       saved.push(...as);
@@ -83,11 +85,16 @@ function createFakeSessionRepo(): SessionRepository & {
     sessions,
     updates,
     saveSession: vi.fn(async (s: TrainingSessionRecord) => {
-      sessions.push(s);
+      const index = sessions.findIndex((session) => session.id === s.id);
+      if (index < 0) sessions.push({ ...s });
+      else sessions[index] = { ...s };
     }),
     getSession: vi.fn(async (id: string) => sessions.find((s) => s.id === id) ?? null),
     getLatestInProgressSession: vi.fn(async () => null),
     getSessions: vi.fn(async () => sessions),
+    getSessionsByTimeRange: vi.fn(async (start: string, end: string) =>
+      sessions.filter((session) => session.startedAt >= start && session.startedAt <= end)
+    ),
     updateSessionProgress: vi.fn(
       async (...args: Parameters<SessionRepository['updateSessionProgress']>) => {
         const [id, count, status, at] = args;
@@ -375,5 +382,246 @@ describe('Guided Session Controller (Svelte 5 runes)', () => {
     expect(completionUpdate).toBeDefined();
 
     controller.dispose();
+  });
+});
+
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function answer(controller: GuidedSessionController, text = 'K') {
+  controller.play();
+  controller.onAudioEnded();
+  expect(controller.submitAnswer(text, 'keyboard')).toBe(true);
+  controller.continue();
+}
+
+describe('guided persistence commit ordering and recovery', () => {
+  it('waits for initialization commit and retries the same record with actual prompt settings', async () => {
+    const initialCommit = deferred();
+    const sessions = createFakeSessionRepo();
+    vi.mocked(sessions.saveSession).mockImplementationOnce(() => initialCommit.promise);
+    const prompt = createMockPrompt('custom', 'K');
+    prompt.spec = { ...prompt.spec, charWpm: 25, effWpm: 15, freqHz: 700 };
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [prompt],
+      audioEngine: createFakeAudioEngine(),
+      attemptRepo: createFakeAttemptRepo(),
+      sessionRepo: sessions
+    });
+    const starting = controller.start();
+    const duplicateStart = controller.start();
+    expect(controller.phase).toBe('idle');
+    expect(controller.persistenceStatus).toBe('saving');
+    expect(sessions.saveSession).toHaveBeenCalledTimes(1);
+    initialCommit.reject(new Error('Storage unavailable'));
+    await Promise.all([starting, duplicateStart]);
+    expect(controller.phase).toBe('idle');
+    expect(controller.persistenceStatus).toBe('failed');
+    expect(await controller.retryPersistence()).toBe(true);
+    expect(controller.phase).toBe('ready');
+    expect(controller.persistenceStatus).toBe('saved');
+    const records = vi.mocked(sessions.saveSession).mock.calls.map(([record]) => record);
+    expect(records[1]).toEqual(records[0]);
+    expect(records[1]).toMatchObject({ charWpm: 25, effWpm: 15, freqHz: 700 });
+    expect(sessions.sessions).toHaveLength(1);
+    await controller.dispose();
+  });
+
+  it('keeps completion saving until the final answer commits, including during disposal', async () => {
+    const attemptCommit = deferred();
+    const attempts = createFakeAttemptRepo();
+    const save = vi.mocked(attempts.saveAttempt).getMockImplementation()!;
+    vi.mocked(attempts.saveAttempt).mockImplementationOnce(async (attempt) => {
+      await attemptCommit.promise;
+      await save(attempt);
+    });
+    const sessions = createFakeSessionRepo();
+    const audio = createFakeAudioEngine();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('last', 'K')],
+      audioEngine: audio,
+      attemptRepo: attempts,
+      sessionRepo: sessions
+    });
+    await controller.start();
+    answer(controller);
+    expect(controller.phase).toBe('complete');
+    expect(controller.persistenceStatus).toBe('saving');
+    expect(sessions.updates).toEqual([]);
+    let disposed = false;
+    const disposing = controller.dispose().then(() => {
+      disposed = true;
+    });
+    await Promise.resolve();
+    expect(audio.dispose).toHaveBeenCalledOnce();
+    expect(disposed).toBe(false);
+    attemptCommit.resolve();
+    await disposing;
+    expect(attempts.saved).toHaveLength(1);
+    expect(sessions.updates.map(({ count, status }) => ({ count, status }))).toEqual([
+      { count: 1, status: undefined },
+      { count: 1, status: 'completed' }
+    ]);
+    expect(controller.persistenceStatus).toBe('saved');
+  });
+
+  it('keeps storage cleanup waiting for pending writes even when audio disposal rejects', async () => {
+    const commit = deferred();
+    const attempts = createFakeAttemptRepo();
+    const save = vi.mocked(attempts.saveAttempt).getMockImplementation()!;
+    vi.mocked(attempts.saveAttempt).mockImplementationOnce(async (attempt) => {
+      await commit.promise;
+      await save(attempt);
+    });
+    const audio = createFakeAudioEngine();
+    vi.mocked(audio.dispose).mockRejectedValueOnce(new Error('Audio close failed'));
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('last', 'K')],
+      audioEngine: audio,
+      attemptRepo: attempts,
+      sessionRepo: createFakeSessionRepo()
+    });
+    await controller.start();
+    answer(controller);
+    let finished = false;
+    const disposing = controller.dispose().catch((error) => {
+      finished = true;
+      expect(error.message).toBe('Audio close failed');
+    });
+    await Promise.resolve();
+    expect(finished).toBe(false);
+    commit.resolve();
+    await disposing;
+    expect(finished).toBe(true);
+    expect(controller.persistenceStatus).toBe('saved');
+    expect(attempts.saved).toHaveLength(1);
+  });
+
+  it('does not hide a lost earlier answer behind later saves and retries in snapshot order', async () => {
+    const attempts = createFakeAttemptRepo();
+    vi.mocked(attempts.saveAttempt).mockRejectedValueOnce(new Error('Quota exceeded'));
+    const sessions = createFakeSessionRepo();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('first', 'K'), createMockPrompt('second', 'M')],
+      audioEngine: createFakeAudioEngine(),
+      attemptRepo: attempts,
+      sessionRepo: sessions
+    });
+    await controller.start();
+    answer(controller, 'K');
+    await controller.flushPersistence();
+    answer(controller, 'M');
+    expect(await controller.flushPersistence()).toBe(false);
+    expect(controller.persistenceStatus).toBe('failed');
+    expect(controller.persistenceError).toBe('Quota exceeded');
+    expect(controller.attempts).toHaveLength(2);
+    expect(attempts.saveAttempt).toHaveBeenCalledTimes(1);
+    expect(sessions.updates).toEqual([]);
+    expect(await controller.retryPersistence()).toBe(true);
+    const ids = vi.mocked(attempts.saveAttempt).mock.calls.map(([attempt]) => attempt.id);
+    expect(ids).toEqual([
+      controller.attempts[0].id,
+      controller.attempts[0].id,
+      controller.attempts[1].id
+    ]);
+    expect(attempts.saved).toHaveLength(2);
+    expect(sessions.updates.map(({ count, status }) => ({ count, status }))).toEqual([
+      { count: 1, status: undefined },
+      { count: 2, status: undefined },
+      { count: 2, status: 'completed' }
+    ]);
+    expect(controller.persistenceError).toBeNull();
+    expect(controller.persistenceStatus).toBe('saved');
+    await controller.dispose();
+  });
+
+  it('retries an answer idempotently if its following progress update failed', async () => {
+    const attempts = createFakeAttemptRepo();
+    const sessions = createFakeSessionRepo();
+    vi.mocked(sessions.updateSessionProgress).mockRejectedValueOnce(
+      new Error('Transaction aborted')
+    );
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('only', 'K')],
+      audioEngine: createFakeAudioEngine(),
+      attemptRepo: attempts,
+      sessionRepo: sessions
+    });
+    await controller.start();
+    answer(controller);
+    expect(await controller.flushPersistence()).toBe(false);
+    expect(attempts.saved).toHaveLength(1);
+    expect(sessions.sessions[0].status).toBe('in-progress');
+    expect(await controller.retryPersistence()).toBe(true);
+    expect(attempts.saved).toHaveLength(1);
+    expect(sessions.sessions[0]).toMatchObject({ status: 'completed', completedPromptCount: 1 });
+    await controller.dispose();
+  });
+
+  it('does not mark completion saved when its own commit fails', async () => {
+    const sessions = createFakeSessionRepo();
+    const update = vi.mocked(sessions.updateSessionProgress).getMockImplementation()!;
+    vi.mocked(sessions.updateSessionProgress).mockImplementation(async (...args) => {
+      if (args[2] === 'completed') throw new Error('Completion aborted');
+      await update(...args);
+    });
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('only', 'K')],
+      audioEngine: createFakeAudioEngine(),
+      attemptRepo: createFakeAttemptRepo(),
+      sessionRepo: sessions
+    });
+    await controller.start();
+    answer(controller);
+    expect(await controller.flushPersistence()).toBe(false);
+    expect(controller.persistenceStatus).toBe('failed');
+    expect(controller.phase).toBe('complete');
+    vi.mocked(sessions.updateSessionProgress).mockImplementation(update);
+    expect(await controller.retryPersistence()).toBe(true);
+    expect(sessions.sessions[0].status).toBe('completed');
+    await controller.dispose();
+  });
+
+  it('queues abandonment after an in-flight initial commit and never starts disposed playback', async () => {
+    const initialCommit = deferred();
+    const sessions = createFakeSessionRepo();
+    const save = vi.mocked(sessions.saveSession).getMockImplementation()!;
+    vi.mocked(sessions.saveSession).mockImplementationOnce(async (record) => {
+      await initialCommit.promise;
+      await save(record);
+    });
+    const audio = createFakeAudioEngine();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('only', 'K')],
+      audioEngine: audio,
+      attemptRepo: createFakeAttemptRepo(),
+      sessionRepo: sessions
+    });
+    const starting = controller.start();
+    controller.abandon();
+    const disposing = controller.dispose();
+    initialCommit.resolve();
+    await Promise.all([starting, disposing]);
+    expect(controller.phase).toBe('abandoned');
+    expect(sessions.sessions[0].status).toBe('abandoned');
+    expect(controller.persistenceStatus).toBe('saved');
+    controller.play();
+    expect(audio.play).not.toHaveBeenCalled();
+    expect(audio.listeners.size).toBe(0);
+    expect(await controller.retryPersistence()).toBe(false);
   });
 });

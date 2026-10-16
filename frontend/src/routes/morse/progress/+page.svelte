@@ -1,148 +1,119 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { SvelteMap } from 'svelte/reactivity';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import { LESSONS } from '$lib/training/sequence';
-  import { openTrainingDb } from '$lib/data/training-db';
-  import { createAttemptRepository } from '$lib/data/attempt-repository';
-  import { createSessionRepository } from '$lib/data/session-repository';
-  import { reduceCharacterMasteries } from '$lib/training/v2/mastery';
-  import type { CharacterMastery, ConfusionPair } from '$lib/training/v2/types';
-  import CharacterMasteryGrid from '$lib/components/progress/CharacterMasteryGrid.svelte';
-  import ConfusionList from '$lib/components/progress/ConfusionList.svelte';
-  import PracticeActivity from '$lib/components/progress/PracticeActivity.svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
+  import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
+  import { createSessionRepository } from '#lib/data/session-repository.ts';
+  import { summarizeProgress, type ProgressSummary } from '#lib/training/v2/progress-summary.ts';
+  import CharacterMasteryGrid from '#lib/components/progress/CharacterMasteryGrid.svelte';
+  import ConfusionList from '#lib/components/progress/ConfusionList.svelte';
+  import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
+  import * as m from '#lib/paraglide/messages.js';
 
   let loading = $state(true);
-  let masteryMap = $state<Map<string, CharacterMastery>>(new Map());
-  let confusionPairs = $state<ConfusionPair[]>([]);
-  let slowChars = $state<string[]>([]);
-  let sessionCount7Days = $state(0);
-  let totalMinutes7Days = $state(0);
-  let averageAccuracy = $state(0);
+  let loadError = $state(false);
+  let summary = $state.raw<ProgressSummary | null>(null);
+  let mounted = false;
+  let loadVersion = 0;
+  let activeDb: IDBDatabase | null = null;
 
-  onMount(async () => {
+  async function loadProgress() {
+    const version = ++loadVersion;
+    loading = true;
+    loadError = false;
+    let db: IDBDatabase | null = null;
     try {
-      const db = await openTrainingDb();
-      const attemptRepo = createAttemptRepository(db);
-      const sessionRepo = createSessionRepository(db);
-
+      db = await openTrainingDb();
+      if (!mounted || version !== loadVersion) return;
+      activeDb = db;
       const now = Date.now();
-      const sevenDaysAgo = new Date(now - 7 * 86400000).toISOString();
-      const sixtyDaysAgo = new Date(now - 60 * 86400000).toISOString();
       const nowIso = new Date(now).toISOString();
-
-      const allAttempts = await attemptRepo.getAttemptsByTimeRange(sixtyDaysAgo, nowIso);
-      const attempts7Days = allAttempts.filter((a) => a.createdAt >= sevenDaysAgo);
-
-      // Compute 7-day stats
-      const scored7Days = attempts7Days.filter((a) => a.classification !== 'unmeasured');
-      const correct7Days = scored7Days.filter((a) => a.isCorrect).length;
-      averageAccuracy =
-        scored7Days.length > 0 ? Math.round((correct7Days / scored7Days.length) * 100) : 0;
-
-      const sessions = await sessionRepo.getSessions(50);
-      const recentSessions = sessions.filter(
-        (s) => s.status === 'completed' && s.startedAt >= sevenDaysAgo
-      );
-      sessionCount7Days = recentSessions.length;
-      totalMinutes7Days = sessionCount7Days * 4; // approximately 4 min per session
-
-      // Character masteries
-      const map = new SvelteMap(
-        reduceCharacterMasteries(LESSONS.join('').split(''), allAttempts, { nowIso })
-      );
-      const slow: string[] = [];
-      for (const [ch, charMastery] of map) {
-        if (
-          charMastery.medianLatencyMs !== null &&
-          charMastery.medianLatencyMs > 2000 &&
-          charMastery.totalAttempts >= 3
-        ) {
-          slow.push(ch);
-        }
+      const [attempts, sessions] = await Promise.all([
+        createAttemptRepository(db).getAttemptsByTimeRange(
+          new Date(now - 60 * 86400000).toISOString(),
+          nowIso
+        ),
+        createSessionRepository(db).getSessionsByTimeRange(
+          new Date(now - 7 * 86400000).toISOString(),
+          nowIso
+        )
+      ]);
+      if (mounted && version === loadVersion)
+        summary = summarizeProgress(attempts, sessions, nowIso);
+    } catch (error) {
+      if (mounted && version === loadVersion) {
+        console.error('Failed to load progress data:', error);
+        loadError = true;
       }
-
-      // Compute acoustic confusion pairs
-      const pairCounts = new SvelteMap<
-        string,
-        { expected: string; actual: string; count: number; last: string }
-      >();
-      for (const a of allAttempts) {
-        if (!a.isCorrect && a.enteredText.length === 1 && a.targetCharacter.length === 1) {
-          const key = `${a.targetCharacter}_${a.enteredText}`;
-          const existing = pairCounts.get(key);
-          if (existing) {
-            existing.count += 1;
-            existing.last = a.createdAt;
-          } else {
-            pairCounts.set(key, {
-              expected: a.targetCharacter,
-              actual: a.enteredText,
-              count: 1,
-              last: a.createdAt
-            });
-          }
-        }
-      }
-
-      const pairs: ConfusionPair[] = Array.from(pairCounts.values())
-        .filter((p) => p.count >= 2)
-        .map((p) => ({
-          expected: p.expected,
-          actual: p.actual,
-          confusionCount: p.count,
-          lastOccurredAt: p.last
-        }))
-        .sort((a, b) => b.confusionCount - a.confusionCount);
-
-      masteryMap = map;
-      confusionPairs = pairs;
-      slowChars = slow;
-      loading = false;
-    } catch (err) {
-      console.error('Failed to load progress data:', err);
-      loading = false;
+    } finally {
+      if (db) closeTrainingDb(db);
+      if (activeDb === db) activeDb = null;
+      if (mounted && version === loadVersion) loading = false;
     }
-  });
-
-  function handleStartReview() {
-    void goto(localizedHref('/morse/learn'));
   }
+
+  onMount(() => {
+    mounted = true;
+    void loadProgress();
+    return () => {
+      mounted = false;
+      loadVersion++;
+      if (activeDb) closeTrainingDb(activeDb);
+    };
+  });
 </script>
 
 <svelte:head>
-  <title>Progress & Mastery · DitPath</title>
+  <title>{m.nav_progress()} · DitPath</title>
 </svelte:head>
 
-<div class="page-content page-narrow">
+<div class="page-narrow">
   <div class="progress-container">
     <header class="progress-header">
-      <div class="eyebrow">Progress</div>
-      <h1 class="page-title">Your Recognition Evidence</h1>
-      <p class="progress-subtitle">
-        Concrete automaticity and retention metrics across all trained symbols.
-      </p>
+      <div class="eyebrow">{m.nav_progress()}</div>
+      <h1 class="page-title">{m.progress_title()}</h1>
+      <p class="progress-subtitle">{m.progress_subtitle()}</p>
     </header>
 
     {#if loading}
-      <div class="skeleton loading-card"></div>
-    {:else}
-      <PracticeActivity
-        sessionCount={sessionCount7Days}
-        totalMinutes={totalMinutes7Days}
-        accuracyPercent={averageAccuracy}
-      />
+      <div class="loading-card" role="status">
+        <span class="sr-only">{m.common_loading()}</span>
+        <div class="skeleton loading-card" aria-hidden="true"></div>
+      </div>
+    {:else if loadError}
+      <div class="progress-section">
+        <p role="alert">{m.progress_load_error()}</p>
+        <button type="button" class="btn-primary" onclick={loadProgress}
+          >{m.progress_retry()}</button
+        >
+      </div>
+    {:else if summary}
+      {#if !summary.hasRecentActivity}
+        <section class="progress-section" aria-labelledby="empty-heading">
+          <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
+          <p class="progress-subtitle">{m.progress_empty_description()}</p>
+          <a class="btn-primary" href={localizedHref('/morse/learn')}
+            >{m.progress_return_course()}</a
+          >
+        </section>
+      {:else}
+        <PracticeActivity
+          sessionCount={summary.sessionCount}
+          totalMinutes={summary.totalMinutes}
+          timedSessionCount={summary.timedSessionCount}
+          accuracyPercent={summary.accuracyPercent}
+        />
 
-      <section class="progress-section" aria-labelledby="mastery-heading">
-        <h2 id="mastery-heading" class="section-title">Character Mastery</h2>
-        <CharacterMasteryGrid {masteryMap} />
-      </section>
+        <section class="progress-section" aria-labelledby="mastery-heading">
+          <h2 id="mastery-heading" class="section-title">{m.progress_mastery_heading()}</h2>
+          <CharacterMasteryGrid masteryMap={summary.masteryMap} />
+        </section>
 
-      <section class="progress-section" aria-labelledby="diagnostics-heading">
-        <h2 id="diagnostics-heading" class="section-title">Diagnostics</h2>
-        <ConfusionList {confusionPairs} {slowChars} onStartReview={handleStartReview} />
-      </section>
+        <section class="progress-section" aria-labelledby="diagnostics-heading">
+          <h2 id="diagnostics-heading" class="section-title">{m.progress_diagnostics_heading()}</h2>
+          <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
+        </section>
+      {/if}
     {/if}
   </div>
 </div>

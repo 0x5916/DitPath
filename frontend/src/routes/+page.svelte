@@ -12,13 +12,13 @@
     Play,
     Square
   } from '@lucide/svelte';
-  import { createWebAudioEngine, type AudioEngine } from '$lib/audio/engine';
-  import { acceptsSessionShortcut } from '$lib/components/learning/keyboard';
-  import { buildAudioPlan } from '$lib/training/timing';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import { getLessonCharacterSet } from '$lib/training/sequence';
-  import { GITHUB_URL } from '$lib/seo';
-  import * as m from '$lib/paraglide/messages';
+  import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
+  import { acceptsSessionShortcut } from '#lib/components/learning/keyboard.ts';
+  import { buildAudioPlan } from '#lib/training/timing.ts';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { getLessonCharacterSet } from '#lib/training/sequence.ts';
+  import { GITHUB_URL } from '#lib/seo.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   // The lists store the message functions, not their values, so the template
   // always reads the current locale (the layout also remounts on a switch).
@@ -663,12 +663,6 @@
     .masthead {
       grid-template-columns: 1fr 1fr;
       gap: var(--space-10);
-    }
-
-    .learning-intro,
-    .destinations,
-    .colophon {
-      --home-section-gap: calc(var(--space-6) * 2);
     }
 
     .method {

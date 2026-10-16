@@ -1,4 +1,4 @@
-import { baseLocale, isLocale, locales } from '$lib/paraglide/runtime';
+import { baseLocale, isLocale, locales } from '#lib/paraglide/runtime.js';
 
 export type Locale = (typeof locales)[number];
 export type LocalePreference = Locale | 'auto';
@@ -36,6 +36,17 @@ export function matchLocaleCandidate(input: string | null | undefined): Locale |
   if (exact) return exact as Locale;
 
   const base = lower.split('-')[0];
+  if (base === 'zh') {
+    try {
+      const script = new Intl.Locale(cleaned).maximize().script;
+      const chinese = locales.find(
+        (locale) => locale.toLowerCase() === `zh-${script?.toLowerCase()}`
+      );
+      if (chinese) return chinese as Locale;
+    } catch {
+      return null;
+    }
+  }
   const primaryMatch = locales.find((locale) => locale.toLowerCase().split('-')[0] === base);
   return primaryMatch ? (primaryMatch as Locale) : null;
 }

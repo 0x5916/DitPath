@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { calculateDuration } from './timing';
+import { describe, expect, it, vi } from 'vitest';
 import { createExercise, generateTimedLesson } from './exercise';
-import { getLessonChars } from './sequence';
+import { getLessonChars, LESSONS } from './sequence';
+import { calculateDuration } from './timing';
 
 const constant = (value: number) => () => value;
 
@@ -68,5 +68,87 @@ describe('createExercise', () => {
         .split(' ')
         .every((group) => group.length === 2)
     ).toBe(true);
+  });
+});
+
+// A regression reaches this sentinel instead of blocking the test worker in
+// the old unbounded loop or constructing an enormous fixed group.
+function unexpectedRandom() {
+  return vi.fn(() => {
+    throw new Error('generation should not sample random characters');
+  });
+}
+
+describe('exercise input boundary', () => {
+  it.each([Number.NaN, Infinity, -Infinity, '' as unknown as number])(
+    'rejects a malformed target duration before generation: %s',
+    (target) => {
+      const random = unexpectedRandom();
+      expect(() => generateTimedLesson(1, target, 20, 12, 2, random)).toThrow(RangeError);
+      expect(random).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([0, -1, Number.NaN, Infinity, -Infinity, '' as unknown as number])(
+    'rejects malformed character/effective rates before generation: %s',
+    (rate) => {
+      const random = unexpectedRandom();
+      expect(() => generateTimedLesson(1, 60, rate, 12, 2, random)).toThrow(RangeError);
+      expect(() => generateTimedLesson(1, 60, 20, rate, 2, random)).toThrow(RangeError);
+      expect(random).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([0, -1, 1.5, Number.NaN, Infinity, -Infinity, '' as unknown as number, 2 ** 53])(
+    'rejects a malformed fixed group size before generation: %s',
+    (size) => {
+      const random = unexpectedRandom();
+      expect(() => generateTimedLesson(1, 60, 20, 12, size, random)).toThrow(RangeError);
+      expect(random).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([0, -1, 1.5, Number.NaN, Infinity, '' as unknown as number])(
+    'rejects a malformed/empty lesson set instead of appending undefined: %s',
+    (lesson) => {
+      const random = unexpectedRandom();
+      expect(() => generateTimedLesson(lesson, 60, 20, 12, 2, random)).toThrow(RangeError);
+      expect(random).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([0, -1])('preserves empty output for a nonpositive target: %s', (target) => {
+    const random = unexpectedRandom();
+    expect(generateTimedLesson(1, target, 20, 12, 2, random)).toBe('');
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it('rejects nonfinite or backwards timing before generation', () => {
+    const random = unexpectedRandom();
+    expect(() => generateTimedLesson(1, 60, Number.MIN_VALUE, 12, 2, random)).toThrow(RangeError);
+    expect(() => generateTimedLesson(1, 60, 5, 50, 2, random)).toThrow(RangeError);
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it('does not construct a huge valid fixed group that cannot fit the target', () => {
+    const random = unexpectedRandom();
+    expect(generateTimedLesson(1, 60, 20, 12, 1_000_000_000, random)).toBe('');
+    expect(random).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed sampled group and unsupported character sample', () => {
+    const random = vi.fn(() => Infinity);
+    expect(() => generateTimedLesson(1, 60, 20, 12, null, random)).toThrow(RangeError);
+    expect(random).toHaveBeenCalledTimes(1);
+    expect(() => generateTimedLesson(1, 60, 20, 12, 2, () => Number.NaN)).toThrow(RangeError);
+  });
+
+  it('preserves fixed groups and the existing cumulative set beyond the final lesson', () => {
+    expect(generateTimedLesson(1, 12, 20, 10, 1, () => 0.5)).toBe('M '.repeat(6));
+    expect(generateTimedLesson(1, 20, 20, 10, 8, () => 0.5)).toBe('MMMMMMMM MMMMMMMM ');
+    expect(generateTimedLesson(LESSONS.length + 1, 12, 20, 10, 2, () => 0.5)).toBe(
+      generateTimedLesson(LESSONS.length, 12, 20, 10, 2, () => 0.5)
+    );
+    expect(createExercise({ lesson: 1, charWpm: 20, effWpm: 12, targetSeconds: 0 }).text).toBe('');
   });
 });

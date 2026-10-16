@@ -4,6 +4,9 @@
   "version": "0.0.1",
   "license": "Apache-2.0",
   "type": "module",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -11,9 +14,10 @@
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "paraglide:compile": "node --experimental-strip-types scripts/compile-paraglide.ts",
-    "check": "svelte-kit sync && npm run paraglide:compile && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && npm run paraglide:compile && svelte-check --tsconfig ./tsconfig.json && npm run check:worker",
     "check:watch": "svelte-kit sync && npm run paraglide:compile && svelte-check --tsconfig ./tsconfig.json --watch",
     "check:scripts": "tsc --noEmit -p tsconfig.scripts.json",
+    "check:worker": "tsc --noEmit -p src/service-worker/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "npm run messages:validate && npm run seo:validate && npm run check && npm run check:scripts && npm run test",
@@ -26,8 +30,8 @@
   "devDependencies": {
     "@eslint/compat": "^2.1.1",
     "@eslint/js": "^10.0.1",
-    "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/adapter-static": "^4.0.0",
+    "@sveltejs/kit": "^3.0.1",
     "@sveltejs/mcp": "0.1.26",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",

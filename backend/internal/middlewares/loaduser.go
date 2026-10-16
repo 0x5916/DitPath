@@ -14,10 +14,18 @@ import (
 
 func LoadUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Context().Err() != nil {
+			c.Abort()
+			return
+		}
 		userID := c.MustGet("userID").(uuid.UUID)
 
 		var user models.User
-		if err := db.Take(&user, userID).Error; err != nil {
+		if err := db.WithContext(c.Request.Context()).Take(&user, userID).Error; err != nil {
+			if c.Request.Context().Err() != nil {
+				c.Abort()
+				return
+			}
 			slog.Warn("LoadUser failed: user not found", "user_id", userID, "err", err)
 			c.JSON(http.StatusUnauthorized, common.NewErrorResponse(common.ErrorCodeUserNotFound, "User not found"))
 			c.Abort()

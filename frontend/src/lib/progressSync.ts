@@ -1,9 +1,11 @@
-import { submitProgress } from '$lib/api';
-import type { ProgressRecord } from '$lib/api';
-import type { AttemptResult, ResultRecorder } from '$lib/training/result';
-import { AUTH_STORAGE_KEYS, CW_STORAGE_KEYS } from '$lib/storageKeys';
+import { getAuthSession, isAuthSessionCurrent, type AuthSession } from '#lib/auth.ts';
+import { submitProgress } from '#lib/api.ts';
+import type { ProgressRecord } from '#lib/api.ts';
+import type { AttemptResult, ResultRecorder } from '#lib/training/result.ts';
+import { AUTH_STORAGE_KEYS, CW_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 type ProgressPayload = {
+  id?: string;
   lesson: number;
   char_wpm: number;
   eff_wpm: number;
@@ -16,7 +18,7 @@ type ProgressPayload = {
 const MAX_QUEUE_SIZE = 500;
 
 let syncInitialized = false;
-let flushInFlight: Promise<void> | null = null;
+let flushInFlight: { generation: number; promise: Promise<void> } | null = null;
 
 function canUseStorage(): boolean {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
@@ -43,7 +45,8 @@ function readQueue(): ProgressPayload[] {
         typeof value.accuracy === 'number' &&
         typeof value.client_created_at === 'string' &&
         typeof value.queued_at === 'string' &&
-        (value.username === undefined || typeof value.username === 'string')
+        (value.username === undefined || typeof value.username === 'string') &&
+        (value.id === undefined || typeof value.id === 'string')
       );
     });
   } catch {
@@ -62,15 +65,28 @@ function writeQueue(queue: ProgressPayload[]): void {
   localStorage.setItem(CW_STORAGE_KEYS.progressQueue, JSON.stringify(queue));
 }
 
-function enqueue(item: ProgressPayload): void {
-  const queue = readQueue();
-  queue.push(item);
-
-  if (queue.length > MAX_QUEUE_SIZE) {
-    queue.splice(0, queue.length - MAX_QUEUE_SIZE);
+/** Serialize only local read/modify/write work across cooperating browser tabs. */
+async function updateQueue<T>(
+  update: (queue: ProgressPayload[]) => { queue: ProgressPayload[]; value: T }
+): Promise<T> {
+  const mutate = () => {
+    const result = update(readQueue());
+    writeQueue(result.queue);
+    return result.value;
+  };
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(`ditpath:${CW_STORAGE_KEYS.progressQueue}`, mutate);
   }
+  // Older browsers still preserve same-tab appends; cross-tab writes need Web Locks.
+  return mutate();
+}
 
-  writeQueue(queue);
+async function enqueue(item: ProgressPayload): Promise<void> {
+  await updateQueue((queue) => {
+    queue.push({ ...item, id: crypto.randomUUID() });
+    if (queue.length > MAX_QUEUE_SIZE) queue.splice(0, queue.length - MAX_QUEUE_SIZE);
+    return { queue, value: undefined };
+  });
 }
 
 function shouldAttemptUpload(): boolean {
@@ -122,52 +138,77 @@ export function getLocalProgressRecords(): ProgressRecord[] {
     }));
 }
 
+/** Claim guest records before uploading so a later account cannot adopt in-flight work. */
+async function claimQueue(session: AuthSession): Promise<ProgressPayload[]> {
+  return updateQueue((original) => {
+    if (!isAuthSessionCurrent(session)) return { queue: original, value: [] };
+    const queue = original.map((item) => ({
+      ...item,
+      id: item.id ?? crypto.randomUUID(),
+      username: item.username ?? session.username ?? undefined
+    }));
+    return { queue, value: sortQueue(queue) };
+  });
+}
+
+async function runFlush(session: AuthSession): Promise<void> {
+  const attempted = new Set<string>();
+  while (isAuthSessionCurrent(session) && shouldAttemptUpload()) {
+    const queue = await claimQueue(session);
+    if (!isAuthSessionCurrent(session)) return;
+    const item = queue.find(
+      (entry) =>
+        !attempted.has(entry.id!) && (!entry.username || entry.username === session.username)
+    );
+    if (!item) return;
+    attempted.add(item.id!);
+
+    try {
+      await submitProgress(
+        item.lesson,
+        item.char_wpm,
+        item.eff_wpm,
+        item.accuracy,
+        item.client_created_at
+      );
+      if (!isAuthSessionCurrent(session)) return;
+      // Read again after the await: another attempt may have been queued meanwhile.
+      await updateQueue((latest) => ({
+        queue: isAuthSessionCurrent(session)
+          ? latest.filter((entry) => entry.id !== item.id)
+          : latest,
+        value: undefined
+      }));
+      if (!isAuthSessionCurrent(session)) return;
+    } catch {
+      // Keep the original owner and record on cancellation or a transient failure.
+      if (!isAuthSessionCurrent(session)) return;
+    }
+  }
+}
+
+/** One uploader per origin; storage mutations use a different, short-lived lock. */
+async function runExclusiveFlush(session: AuthSession): Promise<void> {
+  const upload = () => runFlush(session);
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    await navigator.locks.request(`ditpath:${CW_STORAGE_KEYS.progressQueue}:upload`, upload);
+  } else {
+    // Without Web Locks, separate tabs may submit the same queued record.
+    await upload();
+  }
+}
+
 export async function flushQueuedProgress(): Promise<void> {
   if (!canUseStorage() || !shouldAttemptUpload()) return;
+  const session = getAuthSession();
+  if (flushInFlight?.generation === session.generation) return flushInFlight.promise;
 
-  if (flushInFlight) {
-    return flushInFlight;
-  }
-
-  flushInFlight = (async () => {
-    const currentUsername = localStorage.getItem(AUTH_STORAGE_KEYS.username) ?? undefined;
-    const originalQueue = sortQueue(readQueue());
-    if (originalQueue.length === 0) return;
-
-    const remaining: ProgressPayload[] = [];
-
-    for (let index = 0; index < originalQueue.length; index += 1) {
-      const item = originalQueue[index];
-
-      if (item.username && currentUsername && item.username !== currentUsername) {
-        remaining.push(item);
-        continue;
-      }
-
-      try {
-        await submitProgress(
-          item.lesson,
-          item.char_wpm,
-          item.eff_wpm,
-          item.accuracy,
-          item.client_created_at
-        );
-      } catch {
-        remaining.push(item);
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          remaining.push(...originalQueue.slice(index + 1));
-          break;
-        }
-      }
-    }
-
-    writeQueue(remaining);
-  })();
-
+  const request = { generation: session.generation, promise: runExclusiveFlush(session) };
+  flushInFlight = request;
   try {
-    await flushInFlight;
+    await request.promise;
   } finally {
-    flushInFlight = null;
+    if (flushInFlight === request) flushInFlight = null;
   }
 }
 
@@ -179,33 +220,17 @@ export async function saveProgressOfflineFirst(args: {
   /** Optional completion time for the record; defaults to now. */
   clientCreatedAt?: string;
 }): Promise<void> {
-  const payload: ProgressPayload = {
+  if (!canUseStorage()) return;
+  await enqueue({
     lesson: args.lesson,
     char_wpm: args.char_wpm,
     eff_wpm: args.eff_wpm,
     accuracy: args.accuracy,
     client_created_at: args.clientCreatedAt ?? new Date().toISOString(),
-    username: localStorage.getItem(AUTH_STORAGE_KEYS.username) ?? undefined,
+    username: getAuthSession().username ?? undefined,
     queued_at: new Date().toISOString()
-  };
-
-  if (shouldAttemptUpload()) {
-    try {
-      await submitProgress(
-        payload.lesson,
-        payload.char_wpm,
-        payload.eff_wpm,
-        payload.accuracy,
-        payload.client_created_at
-      );
-      await flushQueuedProgress();
-      return;
-    } catch {
-      // Queue when request fails for network/transient auth reasons.
-    }
-  }
-
-  enqueue(payload);
+  });
+  await flushQueuedProgress();
 }
 
 export function initializeProgressSync(): void {

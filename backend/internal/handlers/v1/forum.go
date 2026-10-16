@@ -115,28 +115,78 @@ func (h ForumHandler) GetThread(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": forumThreadDetail(thread, replyCount)})
 }
 
-// GetThreadReplies returns the full nested reply tree of a thread. Soft-deleted
-// replies are kept as tombstones when they still have visible descendants, so
-// the tree structure stays intact. It is a public endpoint.
+// GetThreadReplies returns bounded chronological pages. Parent context keeps
+// cross-page conversations readable without recursively expanding descendants.
 func (h ForumHandler) GetThreadReplies(c *gin.Context) {
+	page, err := common.ParseReadPage(c.Request.URL.Query())
+	if err != nil {
+		c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidQueryParameter, "Invalid query parameters"))
+		return
+	}
 	thread, ok := h.lookupThread(c)
 	if !ok {
 		return
 	}
-
+	db := h.DB.WithContext(c.Request.Context())
+	var total, totalRows int64
+	if err = db.Model(&models.ForumReply{}).Where("thread_id = ?", thread.ID).Count(&total).Error; err == nil {
+		err = db.Unscoped().Model(&models.ForumReply{}).Where("thread_id = ?", thread.ID).Count(&totalRows).Error
+	}
+	query := db.Unscoped().Where("thread_id = ?", thread.ID)
+	if page.HasCursor {
+		query = query.Where("(created_at,id) > (?,?)", page.Time, page.ID)
+	}
 	var replies []models.ForumReply
-	if err := h.DB.Unscoped().
-		Preload("User").
-		Where("thread_id = ?", thread.ID).
-		Order("created_at ASC").
-		Find(&replies).Error; err != nil {
+	if err == nil {
+		err = query.Preload("User", func(db *gorm.DB) *gorm.DB { return db.Select("id", "username", "call_sign") }).Order("created_at ASC,id ASC").Limit(page.Limit + 1).Find(&replies).Error
+	}
+	var next *string
+	if len(replies) > page.Limit {
+		replies = replies[:page.Limit]
+		cursor := common.EncodeReadCursor(replies[len(replies)-1].CreatedAt, replies[len(replies)-1].ID)
+		next = &cursor
+	}
+	parentIDs := make([]uuid.UUID, 0, len(replies))
+	for _, reply := range replies {
+		if reply.ParentID != nil {
+			parentIDs = append(parentIDs, *reply.ParentID)
+		}
+	}
+	var parents []models.ForumReply
+	if err == nil && len(parentIDs) > 0 {
+		err = db.Unscoped().Select("id", "user_id", "deleted_at", "LEFT(body,160) AS body").
+			Preload("User", func(db *gorm.DB) *gorm.DB { return db.Select("id", "username", "call_sign") }).
+			Where("thread_id = ? AND id IN ?", thread.ID, parentIDs).Find(&parents).Error
+	}
+	if err != nil {
 		slog.Error("Failed to query forum replies", "thread_id", thread.ID, "err", err)
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeForumQueryFailed, "Failed to query forum replies"))
 		return
 	}
-
-	tree, total := buildForumReplyTree(replies)
-	c.JSON(http.StatusOK, common.ForumReplyListResponse{Data: tree, Total: total})
+	contexts := make(map[uuid.UUID]*common.ForumParentContext, len(parents))
+	for _, parent := range parents {
+		context := &common.ForumParentContext{IsDeleted: parent.DeletedAt.Valid}
+		if !context.IsDeleted {
+			body := parent.Body
+			context.Body = &body
+			context.Author = forumAuthorResponse(parent.User)
+		}
+		contexts[parent.ID] = context
+	}
+	data := make([]common.ForumReplyResponse, 0, len(replies))
+	for _, reply := range replies {
+		item := forumReplyDetail(&reply)
+		item.IsDeleted = reply.DeletedAt.Valid
+		if item.IsDeleted {
+			item.Body = nil
+			item.Author = nil
+		}
+		if reply.ParentID != nil {
+			item.ParentContext = contexts[*reply.ParentID]
+		}
+		data = append(data, item)
+	}
+	c.JSON(http.StatusOK, common.ForumReplyListResponse{Data: data, Total: total, TotalRows: totalRows, Limit: page.Limit, NextCursor: next})
 }
 
 // CreateThread creates a new thread. Only users with a verified email can
@@ -282,7 +332,7 @@ func (h ForumHandler) lookupThread(c *gin.Context) (*models.ForumThread, bool) {
 	}
 
 	var thread models.ForumThread
-	if err := h.DB.Preload("User").Take(&thread, id).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Preload("User").Take(&thread, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, common.NewErrorResponse(common.ErrorCodeThreadNotFound, "Thread not found"))
 		} else {
@@ -402,74 +452,6 @@ func forumReplyDetail(reply *models.ForumReply) common.ForumReplyResponse {
 		CreatedAt: reply.CreatedAt,
 		Children:  []common.ForumReplyResponse{},
 	}
-}
-
-type forumReplyNode struct {
-	reply    models.ForumReply
-	children []*forumReplyNode
-}
-
-func buildForumReplyTree(replies []models.ForumReply) ([]common.ForumReplyResponse, int64) {
-	nodes := make(map[uuid.UUID]*forumReplyNode, len(replies))
-	var total int64
-	for i := range replies {
-		nodes[replies[i].ID] = &forumReplyNode{reply: replies[i]}
-		if !replies[i].DeletedAt.Valid {
-			total++
-		}
-	}
-
-	roots := make([]*forumReplyNode, 0, len(replies))
-	for i := range replies {
-		node := nodes[replies[i].ID]
-		parentID := replies[i].ParentID
-		if parentID != nil {
-			if parent, ok := nodes[*parentID]; ok {
-				parent.children = append(parent.children, node)
-				continue
-			}
-		}
-		roots = append(roots, node)
-	}
-
-	tree := make([]common.ForumReplyResponse, 0, len(roots))
-	for _, root := range roots {
-		if item, ok := buildForumReplyNode(root); ok {
-			tree = append(tree, item)
-		}
-	}
-	return tree, total
-}
-
-// buildForumReplyNode converts a node into its response form. Soft-deleted
-// nodes are kept as tombstones when their subtree still contains visible
-// replies, so the thread structure is preserved; otherwise they are pruned.
-func buildForumReplyNode(node *forumReplyNode) (common.ForumReplyResponse, bool) {
-	children := make([]common.ForumReplyResponse, 0, len(node.children))
-	for _, child := range node.children {
-		if item, ok := buildForumReplyNode(child); ok {
-			children = append(children, item)
-		}
-	}
-
-	deleted := node.reply.DeletedAt.Valid
-	if deleted && len(children) == 0 {
-		return common.ForumReplyResponse{}, false
-	}
-
-	item := common.ForumReplyResponse{
-		ID:        node.reply.ID,
-		ParentID:  node.reply.ParentID,
-		IsDeleted: deleted,
-		CreatedAt: node.reply.CreatedAt,
-		Children:  children,
-	}
-	if !deleted {
-		body := node.reply.Body
-		item.Body = &body
-		item.Author = forumAuthorResponse(node.reply.User)
-	}
-	return item, true
 }
 
 // encodeThreadCursor builds an opaque cursor from the last thread of a page.

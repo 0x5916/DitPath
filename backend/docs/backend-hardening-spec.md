@@ -1,0 +1,51 @@
+# Backend hardening implementation contract
+
+**Status: Implemented and verified, 2026-10-16.** Implementation was authorized on 2026-10-16 by the user's instruction to fix all remaining review items, run tests/audits, and provide a full report. This authorization covers the decisions below and multiple focused implementation slices, superseding the usual single-packet limit for this run. It does not authorize guessing production proxy identities or operating an unidentified production deployment.
+
+## Authentication input boundary
+
+All JSON bodies consumed by V1 authentication and account handlers have a 16 KiB encoded-body limit. The complete body is read through a bounded reader before binding, including requests with unknown/chunked length, ignored JSON fields, and unread trailing values/whitespace. Exactly 16 KiB is allowed. Existing JSON field validation remains. Oversize returns `413 REQUEST_BODY_TOO_LARGE`, `Cache-Control: no-store`, and no password work, token issuance, or account/OTP mutation. Login/registration request admission remains first, so an exhausted quota still returns `429`; protected routes retain authentication/user loading before body checks. Oversize verification bodies return `413` before account/OTP transaction guards; other binding errors retain the email specification's existing guard precedence. No new decompression is introduced.
+
+## Verification guessing budget
+
+Each OTP persists `failed_attempts`, non-null with default zero, including existing rows through the normal migration path. Five syntactically valid wrong guesses against the newest pending OTP exhaust it. The first four return existing `400 VERIFICATION_CODE_INVALID`; the fifth and subsequent submissions return `429 VERIFICATION_ATTEMPTS_EXCEEDED`, with no-store and a positive ceiling-rounded `Retry-After` reflecting the remaining issuance cooldown (minimum one). The message directs the user to request a new code. Exhausted rows remain pending so older legacy OTPs cannot become eligible. A new issuance atomically supersedes prior rows and starts a fresh budget; the existing one-minute account cooldown and ten-minute expiry remain.
+
+Account guards and malformed-body precedence remain. Missing OTPs, malformed codes, and expired non-exhausted OTPs do not consume the budget; matching expired codes retain the expired response and wrong codes retain invalid. The account-row lock serializes guess updates with verification, issuance, and email changes across instances. Expected wrong-code rejection must be returned only after the attempt increment commits. Database/commit errors roll back and return a server error. No code or attempted code is logged. Frontend error messages cover all five locales.
+
+## Password changes and refresh sessions
+
+A successful password change atomically updates the password and revokes every active refresh token for that account, including the caller's. It issues no replacement tokens. Already-issued access JWTs remain valid until their existing 15-minute expiry; immediate JWT revocation is not promised. The frontend clears the local session after successful password change and requires a new login.
+
+Password hashing/comparison stays outside account locks and retains the shared two-reservation policy. The final password transaction locks the live account, verifies its stored hash still equals the hash whose old password was checked, then updates and revokes together. A concurrent password winner makes the stale loser return `401 INVALID_CREDENTIALS` without overwrite.
+
+Token issuance for registration/login and refresh rotation takes the same account-first lock. Credential-based issuance fences against the exact hash that was checked. Login with a stale password snapshot cannot mint a post-change refresh session. Refresh may resolve token ownership before locking, but must reread active/unexpired token state after the account lock and before consumption/successor creation. If refresh wins first, the later password change revokes its successor; if password change wins first, refresh fails. Other accounts' tokens are unaffected. Missing accounts cannot issue/refresh. Transactions use request context. Every transaction begin/commit failure has an initialized `500 INTERNAL_SERVER_ERROR` fallback and emits no success token pair.
+
+## Bounded history reads
+
+`GET /v1/cw/progress` accepts `limit` (default/max 100) and an opaque cursor, returns the existing record shape in `data` plus `limit` and `next_cursor`, and orders descending by server `created_at,id`. Optional `year` summary mode validates years 1..9999, returns all selected UTC-year daily counts (at most 366 rows) and the latest 20 records overall; mixed summary/pagination arguments are invalid. The profile uses summary mode so pagination never produces an incomplete heatmap.
+
+`GET /v1/forum/threads/:id/replies` returns chronological flat pages, default/max 100, ordered ascending by `created_at,id`. Records retain parent IDs and empty `children` arrays, including deletion tombstones. Add `limit`, `next_cursor`, and `total_rows`; existing `total` counts live replies. Optional parent context contains only same-thread public author metadata and an excerpt bounded to 160 runes; deleted parents expose neither body nor author. The frontend uses explicit navigation and readable parent context rather than rendering the full unbounded tree.
+
+Cursors are URL-safe base64 of UTC RFC3339Nano timestamp and canonical UUID, maximum 256 encoded characters; malformed cursors/limits return existing `400 INVALID_QUERY_PARAMETER`. Equal timestamps are disambiguated by UUID. Queries fetch at most limit+1 records, and parent context fetches at most one parent per returned row. Pages are live views, not a cross-request database snapshot; concurrent insertion/deletion may change totals.
+
+V2 training snapshots stream ordered events into an incremental reducer. All-history counts, last activity, and existing latest-20-per-character/two-session mastery semantics must remain exact. State is bounded by distinct response characters rather than total historical events; no arbitrary history cutoff is permitted. Request cancellation closes iteration. The endpoint's wire shape remains.
+
+## Startup and release readiness
+
+Required connection, model migration, and index failures stop startup before global database publication or HTTP serving, close any opened pool, and cannot log successful migration. Non-release startup accepts injected environment variables when `.env` does not exist, retains dotenv non-overwrite behavior, and rejects real read/parse errors. Release mode still skips dotenv. Remove the obsolete missing-`fake-indexeddb` deployment warning, verifying the existing manifest/lockfile rather than adding a dependency.
+
+## Acceptance and report
+
+Use a disposable migrated PostgreSQL database, never live schemas. Test full-body limits and ordinary inputs through registered routes; persisted wrong attempts, exhaustion/new issuance, rollback and concurrent guesses; both lock orders for refresh/password races, stale login/password snapshots, unaffected accounts, and old access-token policy. Fault-test transaction begin/commit and startup stages. Test page boundaries/equal timestamps/invalid cursors/tombstones, full-year heatmap counts, and reducer equivalence over long/mixed histories. Run backend test/vet/build and relevant race checks; frontend verify/lint/build plus browser checks for changed flows; both Compose validations. Capture command exits, test/skip counts, diff checks, and git status. Independently challenge security patches once before final verification. Preserve existing uncommitted work and add no dependencies. The final report distinguishes fixed/tested items from unverified production activation, workload-scale limits, or environmental blockers.
+
+## Acceptance evidence recorded on 2026-10-16
+
+Go 1.27.1, Node 26.10.0, and an isolated PostgreSQL 18.6 fixture were used. The complete backend suite and full race-detector suite each passed **347 test/subtest records (100 top-level tests)**, with zero failures or skipped tests. `go vet ./...`, `go build ./...`, gofmt, and diff checks exited 0. Backend source remained unchanged across the final gates.
+
+Regression probes in disposable source copies restored the former missing controls: complete-body overflow tests failed, OTP failure counts remained zero, and two refresh sessions survived password change. The corresponding tests passed in the fixed checkout. Additional regression coverage preserves zero-row email-update server errors after extracting the shared account lock. An independent historical batch reducer matches streaming mastery across 7,000 mixed events and three review times; a 100,000-event test verifies a 20-event retained window per character.
+
+Integrated frontend `npm run verify` passed **365 tests in 35 files**, validated **555 keys in all five catalogs**, and reported zero type errors/warnings. Lint and static build exited 0 on an unchanged source digest. Browser checks used synthetic loopback fixtures: forum pages 100/100/51 with working previous/next navigation and readable sanitized parent context; complete yearly heatmap counts with 20 recent records; delayed initial/year responses rejected after same-account session replacement. Independent review's profile scope/reload findings were repaired and checked in the browser.
+
+Both Compose template configuration validations exited 0. Host `make check` and `make status` each exited 2 because macOS supplies Bash 3.2 while the deployment scripts require Bash 4+; the root production `.env` is absent. Production deployment/proxy activation was not performed. The external Svelte autofixer was blocked by automatic approval review because it may export source; local compiler/lint/tests passed. Browser credential entry was not automated under the computer-use handoff rule; API/client password-change behavior is covered by the PostgreSQL and automated session tests.
+
+The PostgreSQL fixture and its credential files were removed after testing. Rancher Desktop was started for the fixture; its two existing Relay services resumed healthy and were preserved, so the runtime remains running. Changes are uncommitted, with existing/concurrent workspace edits retained; final git status was captured.

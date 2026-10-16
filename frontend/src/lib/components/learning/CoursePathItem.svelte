@@ -1,6 +1,6 @@
 <script lang="ts">
   import { CheckCircle2, CircleDot, AlertCircle, Lock, Circle } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   export type PathItemStatus =
     'stable' | 'current' | 'review' | 'available' | 'locked' | 'legacy-unverified';

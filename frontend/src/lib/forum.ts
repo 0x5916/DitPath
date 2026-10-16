@@ -1,5 +1,5 @@
-import { getUserInfo, type ForumCategoryValue } from '$lib/api';
-import * as m from '$lib/paraglide/messages';
+import { getUserInfo, type ForumCategoryValue } from '#lib/api.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /** Localized display label for one of the fixed forum categories. */
 export function forumCategoryLabel(category: ForumCategoryValue): string {

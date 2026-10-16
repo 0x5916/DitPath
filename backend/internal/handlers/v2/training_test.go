@@ -7,6 +7,7 @@ import (
 
 	"opencw/internal/common"
 	"opencw/internal/models"
+	"opencw/internal/training"
 )
 
 // validEventMap returns a fully valid batch event payload; tests override
@@ -191,7 +192,7 @@ func TestValidateTrainingEventsPartialAcceptance(t *testing.T) {
 	}
 }
 
-// masteryEvent builds a scored attempt for computeCharacterMasteries tests.
+// masteryEvent builds a scored attempt for training.ComputeCharacterMasteries tests.
 func masteryEvent(session, character, createdAt string, correct bool, latencyMS int) models.TrainingEvent {
 	ts, err := time.Parse(time.RFC3339, createdAt)
 	if err != nil {
@@ -212,7 +213,7 @@ func masteryEvent(session, character, createdAt string, correct bool, latencyMS 
 }
 
 func TestComputeCharacterMasteriesEmpty(t *testing.T) {
-	masteries := computeCharacterMasteries(nil, time.Now())
+	masteries := training.ComputeCharacterMasteries(nil, time.Now())
 	if len(masteries) != 0 {
 		t.Fatalf("expected no masteries, got %+v", masteries)
 	}
@@ -227,7 +228,7 @@ func TestComputeCharacterMasteriesRequiresTwoSessions(t *testing.T) {
 		singleSession = append(singleSession, masteryEvent("sess_1", "K", "2026-10-04T12:00:00Z", true, 1000))
 	}
 
-	masteries := computeCharacterMasteries(singleSession, now)
+	masteries := training.ComputeCharacterMasteries(singleSession, now)
 	if len(masteries) != 1 {
 		t.Fatalf("expected 1 mastery row, got %d", len(masteries))
 	}
@@ -244,7 +245,7 @@ func TestComputeCharacterMasteriesRequiresTwoSessions(t *testing.T) {
 		multiSession = append(multiSession, masteryEvent("sess_2", "K", "2026-10-04T13:00:00Z", true, 1000))
 	}
 
-	masteries = computeCharacterMasteries(multiSession, now)
+	masteries = training.ComputeCharacterMasteries(multiSession, now)
 	if masteries[0].Status != "stable" {
 		t.Fatalf("two-session flawless character should be stable, got %q", masteries[0].Status)
 	}
@@ -264,7 +265,7 @@ func TestComputeCharacterMasteriesReviewWhenOverdue(t *testing.T) {
 		events = append(events, masteryEvent("sess_2", "K", "2026-09-25T13:00:00Z", true, 1000))
 	}
 
-	masteries := computeCharacterMasteries(events, now)
+	masteries := training.ComputeCharacterMasteries(events, now)
 	if masteries[0].Status != "review" {
 		t.Fatalf("character practised 10 days ago should be due for review, got %q", masteries[0].Status)
 	}
@@ -286,7 +287,7 @@ func TestComputeCharacterMasteriesRollingWindow(t *testing.T) {
 		events = append(events, masteryEvent("sess_2", "K", "2026-10-04T11:00:00Z", true, 1000))
 	}
 
-	masteries := computeCharacterMasteries(events, now)
+	masteries := training.ComputeCharacterMasteries(events, now)
 	if len(masteries) != 1 {
 		t.Fatalf("expected 1 mastery row, got %d", len(masteries))
 	}
@@ -309,7 +310,7 @@ func TestComputeCharacterMasteriesMedianRounding(t *testing.T) {
 		masteryEvent("sess_1", "K", "2026-10-04T12:01:00Z", true, 1002),
 	}
 
-	masteries := computeCharacterMasteries(events, now)
+	masteries := training.ComputeCharacterMasteries(events, now)
 	if masteries[0].MedianLatencyMS == nil {
 		t.Fatal("expected a median latency")
 	}
@@ -324,7 +325,7 @@ func TestComputeCharacterMasteriesExcludesUnmeasured(t *testing.T) {
 	event := masteryEvent("sess_1", "K", "2026-10-04T12:00:00Z", true, 1000)
 	event.Classification = "unmeasured"
 
-	masteries := computeCharacterMasteries([]models.TrainingEvent{event}, now)
+	masteries := training.ComputeCharacterMasteries([]models.TrainingEvent{event}, now)
 	if len(masteries) != 0 {
 		t.Fatalf("unmeasured attempts must not create mastery rows, got %+v", masteries)
 	}

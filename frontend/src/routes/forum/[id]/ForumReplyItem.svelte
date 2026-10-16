@@ -1,14 +1,13 @@
 <script lang="ts">
   import { CornerDownRight } from '@lucide/svelte';
-  import type { ForumReply } from '$lib/api';
-  import type { PostingStatus } from '$lib/forum';
-  import { authorLabel, formatDate } from '$lib/format';
-  import * as m from '$lib/paraglide/messages';
+  import type { ForumReplyContent } from '#lib/forum-replies.ts';
+  import type { PostingStatus } from '#lib/forum.ts';
+  import { authorLabel, formatDate } from '#lib/format.ts';
+  import * as m from '#lib/paraglide/messages.js';
   import ReplyComposer from './ReplyComposer.svelte';
-  import Self from './ForumReplyItem.svelte';
 
   interface Props {
-    reply: ForumReply;
+    reply: ForumReplyContent;
     currentUsername: string | null;
     /** Username of the thread author, used to mark their replies. */
     threadAuthor?: string | null;
@@ -24,7 +23,7 @@
     onDraftChange?: (value: string) => void;
     onCancelReply?: () => void;
     onSubmitReply?: (event: SubmitEvent) => void;
-    onReply: (reply: ForumReply) => void;
+    onReply: (reply: ForumReplyContent) => void;
     onDelete: (replyId: string) => Promise<void>;
   }
 
@@ -60,10 +59,7 @@
   /** The open inline composer belongs to this reply. */
   const isTarget = $derived(!reply.is_deleted && replyTargetId === reply.id);
 
-  // A reply that answers a parent no longer present in the tree renders at the
-  // top level, so no connector shows what it answers; only then does the reply
-  // repeat its parent relationship as a quiet note. Replies rendered under a
-  // visible parent already read through the thread connectors.
+  // Server pages retain parent context even when the parent is on another page.
   const parentMissing = $derived(!reply.is_deleted && depth === 0 && reply.parent_id !== null);
 
   let wasTarget = $state(false);
@@ -104,7 +100,12 @@
   }
 </script>
 
-<div class="reply" class:is-deleted={reply.is_deleted}>
+<div
+  class="reply"
+  class:is-deleted={reply.is_deleted}
+  class:is-nested={depth > 0}
+  style:--reply-depth={Math.min(depth, 3)}
+>
   {#if reply.is_deleted}
     <div class="reply-main is-deleted">
       <div class="deleted-node" aria-label={m.forum_reply_deleted()}>
@@ -129,7 +130,12 @@
           <span class="reply-context-icon" aria-hidden="true">
             <CornerDownRight size={13} />
           </span>
-          <span class="reply-context-label">{m.forum_replying_to_removed()}</span>
+          <span class="reply-context-label"
+            >{reply.parent_context && !reply.parent_context.is_deleted
+              ? m.forum_replying_to_parent({ username: authorLabel(reply.parent_context.author) })
+              : m.forum_replying_to_removed()}</span
+          >
+          {#if reply.parent_context?.body}<span>{reply.parent_context.body}</span>{/if}
         </p>
       {/if}
       <p class="reply-text">{reply.body}</p>
@@ -183,46 +189,18 @@
       {/if}
     </div>
   {/if}
-
-  {#if reply.children.length > 0}
-    <div class="reply-children" class:flattened={depth >= 3}>
-      {#each reply.children as child (child.id)}
-        <Self
-          reply={child}
-          {currentUsername}
-          {threadAuthor}
-          depth={depth + 1}
-          {replyTargetId}
-          {replyDraft}
-          {replySubmitting}
-          {replyError}
-          {postingStatus}
-          {onDraftChange}
-          {onCancelReply}
-          {onSubmitReply}
-          {onReply}
-          {onDelete}
-        />
-      {/each}
-    </div>
-  {/if}
 </div>
 
 <style>
   .reply {
-    --reply-indent: 1.15rem;
-    --reply-branch: 0.72rem;
-    --reply-child-padding: var(--space-3);
-    --reply-elbow-top: 0.78rem;
-    --reply-parent-reach: var(--space-2);
     --reply-line: color-mix(in srgb, var(--border-subtle) 82%, transparent);
     padding: var(--space-4) 0;
   }
 
-  .reply-children > :global(.reply) {
-    position: relative;
-    padding: var(--reply-child-padding) 0;
-    border-bottom: none;
+  .reply.is-nested {
+    margin-left: calc(var(--reply-depth) * var(--space-3));
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--reply-line);
   }
 
   .reply-main {
@@ -312,96 +290,9 @@
     margin-top: var(--space-2);
   }
 
-  .reply-children {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    margin-top: var(--space-2);
-    margin-left: var(--space-2);
-    padding-left: var(--reply-indent);
-  }
-
-  .reply-children > :global(.reply)::before {
-    content: '';
-    position: absolute;
-    left: calc(-1 * var(--reply-indent));
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: var(--reply-line);
-  }
-
-  .reply-children > :global(.reply:first-child)::before {
-    top: calc(-1 * var(--reply-parent-reach));
-  }
-
-  .reply-children > :global(.reply:last-child)::before {
-    bottom: auto;
-    height: calc(var(--reply-child-padding) + var(--reply-elbow-top));
-  }
-
-  .reply-children > :global(.reply:first-child:last-child)::before {
-    height: calc(var(--reply-parent-reach) + var(--reply-child-padding) + var(--reply-elbow-top));
-  }
-
-  .reply-children > :global(.reply > .reply-main) {
-    position: relative;
-  }
-
-  .reply-children > :global(.reply > .reply-main)::before {
-    content: '';
-    position: absolute;
-    left: calc(-1 * var(--reply-indent));
-    top: var(--reply-elbow-top);
-    width: var(--reply-branch);
-    height: 1px;
-    background: var(--reply-line);
-  }
-
-  .reply-children > :global(.reply.is-deleted) {
-    --reply-elbow-top: 0.9rem;
-  }
-
-  .reply-children.flattened {
-    margin-left: 0;
-    padding-left: var(--space-3);
-  }
-
-  .reply-children.flattened > :global(.reply)::before {
-    left: calc(-1 * var(--space-3));
-    background: color-mix(in srgb, var(--border-subtle) 78%, transparent);
-  }
-
-  .reply-children.flattened > :global(.reply > .reply-main)::before {
-    left: calc(-1 * var(--space-3));
-    width: var(--space-2);
-    background: color-mix(in srgb, var(--border-subtle) 78%, transparent);
-  }
-
   @media (max-width: 720px) {
     .reply {
-      --reply-indent: 0.85rem;
-      --reply-branch: 0.5rem;
-      --reply-child-padding: var(--space-2);
       padding: var(--space-3) 0;
-    }
-
-    .reply-children > :global(.reply) {
-      padding: var(--reply-child-padding) 0;
-    }
-
-    .reply-children {
-      margin-left: 0.2rem;
-      padding-left: var(--reply-indent);
-    }
-
-    .reply-children.flattened {
-      padding-left: var(--space-2);
-    }
-
-    .reply-children.flattened > :global(.reply > .reply-main)::before {
-      left: calc(-1 * var(--space-2));
-      width: 0.45rem;
     }
   }
 </style>

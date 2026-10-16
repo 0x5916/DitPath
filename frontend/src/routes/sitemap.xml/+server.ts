@@ -1,9 +1,9 @@
 import type { RequestHandler } from './$types';
-import { deLocalizeHref, locales } from '$lib/paraglide/runtime';
-import { buildSitemapUrlSet, normalizePathname } from '$lib/seo';
+import { deLocalizeHref, locales } from '#lib/paraglide/runtime.js';
+import { buildSitemapUrlSet, normalizePathname } from '#lib/seo.ts';
 
 // Written to `build/sitemap.xml` during the build; `url.origin` is the
-// configured `kit.prerender.origin`.
+// configured `paths.origin`.
 export const prerender = true;
 
 function escapeXml(value: string): string {

@@ -7,9 +7,9 @@
     UserRound,
     Wrench
   } from '@lucide/svelte';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import { GITHUB_URL } from '$lib/seo';
-  import * as m from '$lib/paraglide/messages';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { GITHUB_URL } from '#lib/seo.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   // The lists store the message functions, not their values, so the template
   // always reads the current locale (the layout also remounts on a switch).

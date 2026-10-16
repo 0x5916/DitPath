@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import '../app.css';
-  import { user, initAuth, logout } from '$lib/auth';
-  import { flushQueuedProgress, initializeProgressSync } from '$lib/progressSync';
-  import { LESSONS } from '$lib/morse';
-  import { reconcileSettingsWithServer, applyPageLanguagePreference } from '$lib/cwSync';
-  import { GITHUB_URL } from '$lib/seo';
+  import { user, initAuth, logout, getAuthSession } from '#lib/auth.ts';
+  import { createSessionScope } from '#lib/session-scope.ts';
+  import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
+  import { flushQueuedProgress, initializeProgressSync } from '#lib/progressSync.ts';
+  import { LESSONS } from '#lib/morse.ts';
+  import { reconcileSettingsWithServer, applyPageLanguagePreference } from '#lib/cwSync.ts';
+  import { GITHUB_URL } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import {
@@ -31,14 +33,14 @@
     setLangPreference,
     initLang,
     localizedHref as href
-  } from '$lib/i18n.svelte';
-  import { locales } from '$lib/paraglide/runtime';
-  import Dropdown from '$lib/components/Dropdown.svelte';
-  import { getLocaleLongLabel, getLocaleShortLabel } from '$lib/locale';
-  import { THEME_CYCLE, applyTheme, readStoredTheme, setTheme } from '$lib/theme';
-  import * as m from '$lib/paraglide/messages';
-  import type { Locale } from '$lib/i18n.svelte';
-  import type { Theme } from '$lib/theme';
+  } from '#lib/i18n.svelte.ts';
+  import { locales } from '#lib/paraglide/runtime.js';
+  import Dropdown from '#lib/components/Dropdown.svelte';
+  import { getLocaleLongLabel, getLocaleShortLabel } from '#lib/locale.ts';
+  import { THEME_CYCLE, applyTheme, readStoredTheme, setTheme } from '#lib/theme.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import type { Locale } from '#lib/i18n.svelte.ts';
+  import type { Theme } from '#lib/theme.ts';
 
   let { children, data } = $props();
 
@@ -68,7 +70,9 @@
   let themeLabel = $derived(
     theme === 'auto' ? m.theme_auto() : theme === 'light' ? m.theme_light() : m.theme_dark()
   );
-  let reconciledSettingsForUser = $state<string | null>(null);
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
+  let reconciledSettingsForSession = $state<number | null>(null);
 
   const structuredDataScripts = $derived(
     data.seo.structuredData.map((schema) => {
@@ -91,21 +95,27 @@
 
   $effect(() => {
     if (!$user) {
-      reconciledSettingsForUser = null;
+      reconciledSettingsForSession = null;
       return;
     }
 
-    void flushQueuedProgress();
+    void flushQueuedProgress().catch(() => {
+      // Keep app startup resilient if browser storage is temporarily unavailable.
+    });
 
-    if (reconciledSettingsForUser === $user.username) return;
-    reconciledSettingsForUser = $user.username;
+    const session = getAuthSession();
+    if (reconciledSettingsForSession === session.generation) return;
+    reconciledSettingsForSession = session.generation;
+    const current = scope.capture();
 
     void reconcileSettingsWithServer({
       maxLesson: LESSONS.length,
       // A static build cannot read the stored preference while prerendering,
       // so fall back to the client-resolved one.
       fallbackLanguagePreference: langPreference.value,
-      onLocale: setLangPreference
+      onLocale: (preference, options) => {
+        if (current()) setLangPreference(preference, options);
+      }
     }).catch(() => {
       // Keep app startup/login resilient if reconciliation fails.
     });
@@ -134,8 +144,16 @@
   }
 
   async function handleLogout() {
-    await logout();
-    await goto(href('/'));
+    const pending = logout();
+    const current = scope.capture();
+    await pending;
+    if (current()) await goto(href('/'));
+  }
+
+  function handleStorage(event: StorageEvent) {
+    if (event.key === null || Object.values(AUTH_STORAGE_KEYS).some((key) => key === event.key)) {
+      initAuth();
+    }
   }
 
   function stripTrailingSlash(path: string): string {
@@ -194,6 +212,8 @@
     };
   });
 </script>
+
+<svelte:window onstorage={handleStorage} />
 
 <svelte:head>
   <title>{data.seo.title}</title>

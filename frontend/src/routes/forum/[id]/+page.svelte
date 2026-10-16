@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { createSessionScope } from '#lib/session-scope.ts';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { user } from '$lib/auth';
+  import { user, getAuthSession } from '#lib/auth.ts';
   import {
     ApiError,
     createForumReply,
@@ -9,34 +11,52 @@
     deleteForumThread,
     getForumThread,
     getForumThreadReplies,
-    type ForumReply,
-    type ForumThreadDetail
-  } from '$lib/api';
+    type ForumThreadDetail,
+    type ForumReplyList
+  } from '#lib/api.ts';
   import {
     formatReplyCount,
     forumCategoryLabel,
     resolvePostingStatus,
     type PostingStatus
-  } from '$lib/forum';
-  import { localizeApiError } from '$lib/errorLocalization';
-  import { extractErrorCode } from '$lib/errorCode';
-  import { authorLabel, formatDate } from '$lib/format';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
+  } from '#lib/forum.ts';
+  import {
+    buildForumReplyView,
+    FORUM_REPLY_PAGE_SIZE,
+    type ForumReplyContent,
+    type ForumReplyView
+  } from '#lib/forum-replies.ts';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
+  import { extractErrorCode } from '#lib/errorCode.ts';
+  import { authorLabel, formatDate } from '#lib/format.ts';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import ForumReplyItem from './ForumReplyItem.svelte';
   import ReplyComposer from './ReplyComposer.svelte';
   import { ArrowLeft, CornerDownRight } from '@lucide/svelte';
-  import { SITE_NAME } from '$lib/seo';
-  import * as m from '$lib/paraglide/messages';
+  import { SITE_NAME } from '#lib/seo.ts';
+  import * as m from '#lib/paraglide/messages.js';
+
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
 
   const threadId = $derived(page.params.id);
 
   let thread = $state<ForumThreadDetail | null>(null);
-  let replies = $state<ForumReply[]>([]);
+  let replyView = $state.raw<ForumReplyView>({ rows: [], limited: false });
+  let replyPage = $state(0);
+  let replyCursors = $state<(string | null)[]>([null]);
+  let nextReplyCursor = $state<string | null>(null);
+  let totalReplyRows = $state(0);
+  let totalLiveReplies = $state(0);
+  let repliesLoading = $state(false);
+  let repliesToken = 0;
   let loading = $state(true);
   let loadFailed = $state('');
   let notFound = $state(false);
   let loadToken = 0;
+  let loadedGeneration: number | null = null;
+  let loadedThreadId: string | null = null;
 
   let postingStatus = $state<PostingStatus | null>(null);
 
@@ -64,25 +84,50 @@
     thread !== null && $user !== null && thread.author.username === $user.username
   );
 
-  // Replies arrive as a nested tree; the visible count is the number of nodes.
-  function countReplies(list: ForumReply[]): number {
-    return list.reduce((sum, reply) => sum + 1 + countReplies(reply.children ?? []), 0);
+  const replyCount = $derived(totalLiveReplies);
+  const replyPageCount = $derived(Math.ceil(totalReplyRows / FORUM_REPLY_PAGE_SIZE));
+  const visibleReplies = $derived(replyView.rows);
+
+  function applyReplies(input: ForumReplyList): void {
+    replyView = buildForumReplyView(input.data);
+    nextReplyCursor = input.next_cursor;
+    totalReplyRows = input.total_rows;
+    totalLiveReplies = input.total;
   }
 
-  let replyCount = $derived(countReplies(replies));
+  async function changeReplyPage(target: number): Promise<void> {
+    const id = threadId;
+    if (!id || repliesLoading || target < 0) return;
+    const cursor = target > replyPage ? nextReplyCursor : replyCursors[target];
+    if (target > 0 && !cursor) return;
+    const token = ++repliesToken;
+    const current = scope.capture();
+    repliesLoading = true;
+    repliesError = '';
+    try {
+      const result = await getForumThreadReplies(id, cursor);
+      if (!current() || token !== repliesToken || id !== threadId) return;
+      replyCursors[target] = cursor;
+      replyPage = target;
+      applyReplies(result);
+    } catch (error) {
+      if (current() && token === repliesToken)
+        repliesError = localizeApiError(error, () => m.api_error_forum_query_failed());
+    } finally {
+      if (current() && token === repliesToken) repliesLoading = false;
+    }
+  }
 
   $effect(() => {
     const id = threadId;
-    if (!id) return;
-    void loadThread(id);
-  });
-
-  $effect(() => {
     const username = $user?.username ?? null;
+    if (id) void loadThread(id);
+
+    const current = scope.capture();
     let cancelled = false;
     postingStatus = null;
     void resolvePostingStatus(username).then((status) => {
-      if (!cancelled) postingStatus = status;
+      if (current() && !cancelled) postingStatus = status;
     });
     return () => {
       cancelled = true;
@@ -96,14 +141,34 @@
 
   async function loadThread(id: string): Promise<void> {
     const token = ++loadToken;
+    const current = scope.capture();
     loading = true;
     loadFailed = '';
     notFound = false;
     repliesError = '';
     deleteError = '';
     thread = null;
-    replies = [];
+    replyView = { rows: [], limited: false };
+    replyPage = 0;
+    replyCursors = [null];
+    nextReplyCursor = null;
+    totalReplyRows = 0;
+    totalLiveReplies = 0;
+    ++repliesToken;
+    repliesLoading = false;
     replyTarget = null;
+    const generation = getAuthSession().generation;
+    if (loadedGeneration !== generation || loadedThreadId !== id) {
+      topDraft = '';
+      inlineDraft = '';
+    }
+    loadedGeneration = generation;
+    loadedThreadId = id;
+    topError = '';
+    replyError = '';
+    topSubmitting = false;
+    replySubmitting = false;
+    deletingThread = false;
     threadComposerOpen = false;
     threadDeleteArmed = false;
 
@@ -112,18 +177,18 @@
         getForumThread(id),
         getForumThreadReplies(id)
       ]);
-      if (token !== loadToken) return;
+      if (!current() || token !== loadToken) return;
       thread = threadData;
-      replies = replyData.data;
+      applyReplies(replyData);
     } catch (error) {
-      if (token !== loadToken) return;
+      if (!current() || token !== loadToken) return;
       if (isThreadNotFound(error)) {
         notFound = true;
       } else {
         loadFailed = localizeApiError(error, () => m.api_error_forum_query_failed());
       }
     } finally {
-      if (token === loadToken) loading = false;
+      if (current() && token === loadToken) loading = false;
     }
   }
 
@@ -131,12 +196,19 @@
     const id = threadId;
     if (!id) return;
 
+    const token = ++repliesToken;
+    const current = scope.capture();
+    repliesLoading = true;
     try {
-      const data = await getForumThreadReplies(id);
-      replies = data.data;
+      const data = await getForumThreadReplies(id, replyCursors[replyPage]);
+      if (!current() || id !== threadId || token !== repliesToken) return;
+      applyReplies(data);
       repliesError = '';
     } catch (error) {
-      repliesError = localizeApiError(error, () => m.api_error_forum_query_failed());
+      if (current() && token === repliesToken)
+        repliesError = localizeApiError(error, () => m.api_error_forum_query_failed());
+    } finally {
+      if (current() && token === repliesToken) repliesLoading = false;
     }
   }
 
@@ -156,7 +228,7 @@
     topError = '';
   }
 
-  function setReplyTarget(reply: ForumReply): void {
+  function setReplyTarget(reply: ForumReplyContent): void {
     threadComposerOpen = false;
     topError = '';
     replyTarget = {
@@ -178,6 +250,9 @@
     const id = threadId;
     if (!id) return;
 
+    const sessionCurrent = scope.capture();
+    const token = loadToken;
+    const current = () => sessionCurrent() && token === loadToken && id === threadId;
     const inline = composer === 'inline';
     if (inline ? replySubmitting : topSubmitting) return;
 
@@ -210,6 +285,7 @@
 
     try {
       await createForumReply(id, body, parentId);
+      if (!current()) return;
       if (inline) {
         inlineDraft = '';
         replyTarget = null;
@@ -219,21 +295,26 @@
       }
       await refreshReplies();
     } catch (error) {
+      if (!current()) return;
       fail(localizeApiError(error, () => m.api_error_forum_create_failed()));
     } finally {
-      if (inline) {
-        replySubmitting = false;
-      } else {
-        topSubmitting = false;
+      if (current()) {
+        if (inline) replySubmitting = false;
+        else topSubmitting = false;
       }
     }
   }
 
   async function onDeleteReply(replyId: string): Promise<void> {
+    const sessionCurrent = scope.capture();
+    const token = loadToken;
+    const current = () => sessionCurrent() && token === loadToken;
     try {
       await deleteForumReply(replyId);
+      if (!current()) return;
       await refreshReplies();
     } catch (error) {
+      if (!current()) return;
       repliesError = localizeApiError(error, () => m.api_error_forum_delete_failed());
     }
   }
@@ -247,17 +328,24 @@
       return;
     }
 
+    const sessionCurrent = scope.capture();
+    const token = loadToken;
+    const current = () => sessionCurrent() && token === loadToken && id === threadId;
     deletingThread = true;
     deleteError = '';
 
     try {
       await deleteForumThread(id);
+      if (!current()) return;
       await goto(href('/forum'));
     } catch (error) {
+      if (!current()) return;
       deleteError = localizeApiError(error, () => m.api_error_forum_delete_failed());
     } finally {
-      deletingThread = false;
-      threadDeleteArmed = false;
+      if (current()) {
+        deletingThread = false;
+        threadDeleteArmed = false;
+      }
     }
   }
 </script>
@@ -372,11 +460,45 @@
         <ErrorAlert message={repliesError} />
       {/if}
 
-      {#if replies.length > 0}
+      {#if replyView.limited}
+        <p class="body-text" role="status">{m.forum_replies_limited()}</p>
+      {/if}
+
+      {#if replyPageCount > 1}
+        <nav
+          class="reply-pagination"
+          aria-label={m.forum_replies_page({
+            page: String(replyPage + 1),
+            total: String(replyPageCount)
+          })}
+        >
+          <button
+            type="button"
+            class="btn-ghost"
+            disabled={replyPage === 0 || repliesLoading}
+            onclick={() => void changeReplyPage(replyPage - 1)}>{m.forum_replies_previous()}</button
+          >
+          <span role="status"
+            >{m.forum_replies_page({
+              page: String(replyPage + 1),
+              total: String(replyPageCount)
+            })}</span
+          >
+          <button
+            type="button"
+            class="btn-ghost"
+            disabled={!nextReplyCursor || repliesLoading}
+            onclick={() => void changeReplyPage(replyPage + 1)}>{m.forum_replies_next()}</button
+          >
+        </nav>
+      {/if}
+
+      {#if visibleReplies.length > 0}
         <div class="reply-tree">
-          {#each replies as reply (reply.id)}
+          {#each visibleReplies as row (row.reply.id)}
             <ForumReplyItem
-              {reply}
+              reply={row.reply}
+              depth={row.depth}
               currentUsername={$user?.username ?? null}
               threadAuthor={thread.author?.username ?? null}
               replyTargetId={replyTarget?.id ?? null}
@@ -454,6 +576,13 @@
   .reply-tree {
     display: flex;
     flex-direction: column;
+  }
+
+  .reply-pagination {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
   }
 
   @media (max-width: 720px) {

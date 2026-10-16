@@ -34,7 +34,7 @@ For the full stack, configure the root `example.env` as `.env`, then follow the 
 
 ## Architecture
 
-`frontend/` uses SvelteKit 5, TypeScript, Tailwind CSS v4, Paraglide, and the static adapter. `backend/` uses Go, Gin, and GORM. `db/` supplies PostgreSQL tuning; `scripts/` supplies operational automation. The root `docker-compose.yaml` connects these services, pgAdmin, and Cloudflare Tunnel.
+`frontend/` uses SvelteKit 3 with Svelte 5, TypeScript 6, Tailwind CSS v4, Paraglide, and the static adapter. `backend/` uses Go, Gin, and GORM. `db/` supplies PostgreSQL tuning; `scripts/` supplies operational automation. The root `docker-compose.yaml` connects these services, pgAdmin, and Cloudflare Tunnel.
 
 ## License
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Check, X, AlertCircle, Volume2 } from '@lucide/svelte';
   import type { AttemptClassification } from '../../training/v2/types';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     classification: AttemptClassification;
@@ -36,7 +36,6 @@
 
 <div
   class="feedback-card"
-  role="region"
   aria-live="polite"
   aria-atomic="true"
   class:is-correct={isCorrect}
@@ -54,22 +53,22 @@
         <Check size={20} />
         <span>{m.lesson_correct()}</span>
       </div>
-      <div class="feedback-subtext">Recognized quickly</div>
+      <div class="feedback-subtext">{m.lesson_feedback_automatic()}</div>
     {:else if classification === 'developing'}
       <div class="feedback-badge badge-good">
         <Check size={20} />
         <span>{m.lesson_correct()}</span>
       </div>
-      <div class="feedback-subtext">Still becoming automatic</div>
+      <div class="feedback-subtext">{m.lesson_feedback_developing()}</div>
     {:else if classification === 'incorrect'}
       <div class="feedback-badge badge-bad">
         <X size={20} />
-        <span>Not this time</span>
+        <span>{m.lesson_feedback_incorrect()}</span>
       </div>
     {:else if classification === 'missing'}
       <div class="feedback-badge badge-bad">
         <AlertCircle size={20} />
-        <span>No answer entered</span>
+        <span>{m.lesson_feedback_missing()}</span>
       </div>
     {/if}
   </div>
@@ -77,12 +76,12 @@
   <div class="feedback-comparison">
     {#if !isCorrect && entered}
       <div class="comparison-row">
-        <span class="comparison-label">You entered</span>
+        <span class="comparison-label">{m.lesson_feedback_entered()}</span>
         <span class="comparison-val val-entered">{entered}</span>
       </div>
     {/if}
     <div class="comparison-row">
-      <span class="comparison-label">The sound was</span>
+      <span class="comparison-label">{m.lesson_feedback_expected()}</span>
       <span class="comparison-val val-expected">{expected}</span>
     </div>
   </div>
@@ -93,31 +92,25 @@
         type="button"
         class="btn-ghost"
         onclick={onPlayExpected}
-        aria-label={`Hear ${expected}`}
-        aria-pressed={playingCharacter === expected}
+        aria-busy={playingCharacter === expected}
       >
         <Volume2 size={18} />
         <span
           >{playingCharacter === expected
             ? m.lesson_playing_character({ character: expected })
-            : `Hear ${expected}`}</span
+            : m.lesson_hear_character({ character: expected })}</span
         >
       </button>
 
       {#if canCompare}
-        <button
-          type="button"
-          class="btn-ghost"
-          onclick={onCompare}
-          aria-label={`Compare ${entered} and ${expected}`}
-        >
-          <span>Compare {entered} & {expected}</span>
+        <button type="button" class="btn-ghost" onclick={onCompare}>
+          <span>{m.lesson_compare_characters({ first: entered, second: expected })}</span>
         </button>
       {/if}
     {/if}
 
     <button type="button" class="btn-primary" aria-keyshortcuts="Enter" onclick={onContinue}>
-      {m.lesson_continue()} <kbd aria-hidden="true">Enter</kbd>
+      {m.lesson_continue()} <kbd aria-hidden="true">{m.keyboard_enter()}</kbd>
     </button>
   </div>
 </div>

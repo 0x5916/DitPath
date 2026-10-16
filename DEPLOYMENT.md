@@ -108,14 +108,15 @@ nano .env
 
 Paste the generated value into `JWT_SECRET` and fill the required values below. In Nano, save with **Ctrl+O**, confirm with **Enter**, then exit with **Ctrl+X**. Keep `.env` out of Git and do not source it as shell code; values such as the sender address contain spaces.
 
-| Configuration | Required values and meaning                                                                                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Database      | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; select `POSTGRES_DATA_PATH` on persistent storage. An unset path falls back to `./data/postgres`. |
-| Access tokens | `JWT_SECRET`: base64 bytes; `make check` requires at least 32 decoded bytes.                                                                           |
-| Email         | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; both are required by backend startup validation.                                                                |
-| Browser API   | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.example.com/v1`. It is embedded when the frontend is built.                      |
-| CORS          | `CORS_ORIGINS`: comma-separated frontend origins. This is backend runtime configuration.                                                               |
-| pgAdmin       | `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`: separate from database credentials; used to initialize its account.                               |
+| Configuration | Required values and meaning                                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database      | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; select `POSTGRES_DATA_PATH` on persistent storage. An unset path falls back to `./data/postgres`.           |
+| Access tokens | `JWT_SECRET`: base64 bytes; `make check` requires at least 32 decoded bytes.                                                                                     |
+| Email         | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; both are required by backend startup validation.                                                                          |
+| Browser API   | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.example.com/v1`. It is embedded when the frontend is built.                                |
+| CORS          | `CORS_ORIGINS`: comma-separated frontend origins. This is backend runtime configuration.                                                                         |
+| Auth source   | `AUTH_TRUSTED_PROXY_CIDRS`: optional comma-separated proxy CIDRs; empty by default. See [authentication source attribution](#authentication-source-attribution). |
+| pgAdmin       | `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`: separate from database credentials; used to initialize its account.                                         |
 
 Set the database's RAM budget on a shared or nested host; see [PostgreSQL resource tuning](#postgresql-resource-tuning). The template selects PGTune's web profile; other tuning inputs remain commented until you remove their leading `#`. Review optional ports, HTTP timeouts, connection pool settings, and tunnel values in [example.env](example.env), then run `make check`.
 
@@ -152,7 +153,7 @@ make backup
 
 Deployment can bootstrap `.env` and generate a missing JWT secret, but required credentials still need values. It builds the images, waits for database/backend/frontend/pgAdmin container health, and probes backend and frontend HTTP endpoints. A failed pgAdmin HTTP probe warns. `make status` additionally treats an unhealthy or missing pgAdmin container as a failure; its pgAdmin HTTP probe and tunnel problems are warnings.
 
-The [frontend image](frontend/Dockerfile) runs `npm run verify` before building. The current checkout's IndexedDB tests import `fake-indexeddb`, which is not declared in [frontend/package.json](frontend/package.json); a clean image build can fail at that gate until the dependency manifest and lockfile are corrected. Fix the dependency in the repository before deployment; the LXC's Docker installation does not supply frontend test packages.
+The [frontend image](frontend/Dockerfile) installs the locked development dependencies and runs `npm run verify` before building. IndexedDB tests use `fake-indexeddb`, which is declared in [frontend/package.json](frontend/package.json) and pinned by [frontend/package-lock.json](frontend/package-lock.json). A failed verification gate stops the image build; fix the reported failure in the repository before deployment.
 
 Local endpoints are frontend `http://127.0.0.1:3000`, health `http://127.0.0.1:8080/v1/health`, and pgAdmin `http://127.0.0.1:5050` unless its port changed. `pgadmin-config` exits after rendering configuration; exit 0 is expected.
 
@@ -190,6 +191,14 @@ If this first installation fails, use the matching checkpoint:
 For Cloudflare Tunnel, configure `CLOUDFLARED_TUNNEL_TOKEN` and route public hostnames to `http://frontend:80`, `http://backend:8080`, and, if needed, `http://pgadmin:80` on the Compose network. Put a restrictive Cloudflare Access policy in front of pgAdmin. `CLOUDFLARED_PROTOCOL` selects the tunnel transport. The service always starts with the stack; an empty token causes restart loops. Stop it explicitly when using a different proxy.
 
 A reverse proxy must terminate TLS and forward the frontend to port 3000 and API to port 8080. Preserve both `/v1` and `/v2` API paths. If adding a public path prefix, include the V1 path in `PUBLIC_API_BASE` and configure proxy rewriting consistently. Rebuild the frontend after changing that value; recreate the backend after changing CORS. Production uses `GIN_MODE=release`, which disables profiling routes; development registers `/debug/pprof/*`, so keep development profiling private.
+
+### Authentication source attribution
+
+The root [environment template](example.env) and [Compose stack](docker-compose.yaml) pass `AUTH_TRUSTED_PROXY_CIDRS` to the backend with an empty default. Empty/unset trusts no proxy, so public login and registration use the canonical transport peer. Users behind the same Cloudflare Tunnel/reverse-proxy peer therefore share 10 login and 3 registration admissions per rolling minute, alongside the combined per-process quota. Restarts reset history and additional backend processes multiply limits; [the API contract](backend/API.md#authentication-resource-admission) owns responses and precedence.
+
+Enabling a production allowlist requires separate explicit authorization from the deployment owner. Before activation, verify the actual TCP peer addresses and approve only their required CIDRs, then verify each approved proxy constructs or sanitizes the complete `X-Forwarded-For` chain. CIDR membership alone does not prove header provenance. Do not infer trust from Docker/private address ranges or copy an unverified allowlist. No production CIDRs are supplied by this packet.
+
+The [auth source resolver](backend/internal/authlimits/source.go) accepts forwarding only from approved peers, validates every element across all `X-Forwarded-For` fields, and ignores other forwarding/platform headers. Configuration is validated before database startup or listening; malformed CIDRs, empty list elements, and trust-all prefixes fail startup. This setting affects public auth attribution and logs only; it does not change global Gin proxy behavior or tune quotas. The [approved resource-limit specification](backend/docs/auth-resource-limits-spec.md) owns policy and acceptance requirements, with acceptance evidence recorded there.
 
 ## Updates and rollback
 

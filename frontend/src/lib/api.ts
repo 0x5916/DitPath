@@ -1,4 +1,10 @@
-import { apiFetch } from './auth';
+import {
+  apiFetch,
+  assertAuthSessionCurrent,
+  clearAuthSession,
+  getAuthSession,
+  type AuthSession
+} from './auth';
 import { extractErrorCodeFromBody } from './errorCode';
 
 export class ApiError extends Error {
@@ -41,23 +47,32 @@ async function parseJsonBody<T>(res: Response): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-async function throwApiError(res: Response, fallback: string): Promise<never> {
+async function throwApiError(
+  res: Response,
+  fallback: string,
+  session: AuthSession
+): Promise<never> {
   const body = await parseJsonBody<unknown>(res).catch(() => null);
+  assertAuthSessionCurrent(session);
   throw new ApiError(extractErrorCodeFromBody(body) ?? fallback, res.status, body);
 }
 
 async function apiGetJson<T>(path: string, fallback: string): Promise<T> {
-  const requestKey = `GET:${path}`;
+  const session = getAuthSession();
+  const requestKey = `${session.generation}:GET:${path}`;
   const existing = inFlightGetRequests.get(requestKey) as Promise<T> | undefined;
   if (existing) return existing;
 
   const request = (async () => {
     const res = await apiFetch(path);
-    if (!res.ok) return throwApiError(res, fallback);
+    if (!res.ok) return throwApiError(res, fallback, session);
 
     try {
-      return await parseJsonBody<T>(res);
+      const data = await parseJsonBody<T>(res);
+      assertAuthSessionCurrent(session);
+      return data;
     } catch {
+      assertAuthSessionCurrent(session);
       throw new ApiError(fallback, res.status, null);
     }
   })();
@@ -67,7 +82,7 @@ async function apiGetJson<T>(path: string, fallback: string): Promise<T> {
   try {
     return await request;
   } finally {
-    inFlightGetRequests.delete(requestKey);
+    if (inFlightGetRequests.get(requestKey) === request) inFlightGetRequests.delete(requestKey);
   }
 }
 
@@ -75,31 +90,38 @@ async function apiSendJson<T = void>(
   path: string,
   method: 'POST' | 'PUT',
   body: unknown,
-  fallback: string
+  fallback: string,
+  options?: { retryUnauthorized?: boolean }
 ): Promise<T> {
-  const res = await apiFetch(path, {
-    method,
-    headers: JSON_HEADERS,
-    body: JSON.stringify(body)
-  });
+  const session = getAuthSession();
+  const res = await apiFetch(
+    path,
+    { method, headers: JSON_HEADERS, body: JSON.stringify(body) },
+    options
+  );
 
-  if (!res.ok) return throwApiError(res, fallback);
+  if (!res.ok) return throwApiError(res, fallback, session);
 
   try {
-    return await parseJsonBody<T>(res);
+    const data = await parseJsonBody<T>(res);
+    assertAuthSessionCurrent(session);
+    return data;
   } catch {
+    assertAuthSessionCurrent(session);
     throw new ApiError(fallback, res.status, null);
   }
 }
 
 /** Request helper for verbs whose response carries no body. */
 async function apiNoBody(path: string, method: 'POST' | 'DELETE', fallback: string): Promise<void> {
+  const session = getAuthSession();
   const res = await apiFetch(path, {
     method,
     headers: { Accept: 'application/json' }
   });
 
-  if (!res.ok) return throwApiError(res, fallback);
+  assertAuthSessionCurrent(session);
+  if (!res.ok) return throwApiError(res, fallback, session);
 }
 
 export interface CWSettings {
@@ -159,6 +181,7 @@ export interface ForumReply {
   is_deleted: boolean;
   created_at: string;
   children: ForumReply[];
+  parent_context?: { author: ForumAuthor | null; body: string | null; is_deleted: boolean };
 }
 
 export interface ForumThreadListPage {
@@ -171,6 +194,9 @@ export interface ForumThreadListPage {
 export interface ForumReplyList {
   data: ForumReply[];
   total: number;
+  total_rows: number;
+  limit: number;
+  next_cursor: string | null;
 }
 
 export interface ForumThreadQuery {
@@ -207,12 +233,23 @@ export async function getForumThread(threadId: string): Promise<ForumThreadDetai
   return 'data' in response && response.data ? response.data : (response as ForumThreadDetail);
 }
 
-export async function getForumThreadReplies(threadId: string): Promise<ForumReplyList> {
+export async function getForumThreadReplies(
+  threadId: string,
+  cursor?: string | null
+): Promise<ForumReplyList> {
+  const params = new URLSearchParams({ limit: '100' });
+  if (cursor) params.set('cursor', cursor);
   const response = await apiGetJson<ForumReplyList>(
-    `/forum/threads/${encodeURIComponent(threadId)}/replies`,
+    `/forum/threads/${encodeURIComponent(threadId)}/replies?${params}`,
     'FORUM_QUERY_FAILED'
   );
-  return { data: response.data ?? [], total: response.total ?? 0 };
+  return {
+    data: response.data ?? [],
+    total: response.total ?? 0,
+    total_rows: response.total_rows ?? response.total ?? 0,
+    limit: response.limit ?? 100,
+    next_cursor: response.next_cursor ?? null
+  };
 }
 
 export async function createForumThread(
@@ -305,15 +342,41 @@ export interface ProgressRecord {
   client_created_at?: string;
 }
 
-export async function getProgress(): Promise<ProgressRecord[]> {
-  const data = await apiGetJson<{
-    data?: Array<Omit<ProgressRecord, 'lesson'> & { lesson: string | number }>;
-  }>('/cw/progress', 'PROGRESS_QUERY_FAILED');
+export interface ProgressDay {
+  date: string;
+  count: number;
+}
+export interface ProgressSummary {
+  days: ProgressDay[];
+  recent: ProgressRecord[];
+}
 
-  return (data.data ?? []).map((record) => ({
-    ...record,
-    lesson: String(record.lesson)
-  }));
+export async function getProgressSummary(year: number): Promise<ProgressSummary> {
+  return apiGetJson<ProgressSummary>(`/cw/progress?year=${year}`, 'PROGRESS_QUERY_FAILED');
+}
+
+export interface ProgressPage {
+  data: ProgressRecord[];
+  limit: number;
+  next_cursor: string | null;
+}
+
+export async function getProgressPage(
+  query: { cursor?: string | null; limit?: number } = {}
+): Promise<ProgressPage> {
+  const limit = Math.min(100, Math.max(1, Math.floor(query.limit ?? 100)));
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (query.cursor) params.set('cursor', query.cursor);
+  const response = await apiGetJson<{
+    data?: Array<Omit<ProgressRecord, 'lesson'> & { lesson: string | number }>;
+    limit?: number;
+    next_cursor?: string | null;
+  }>(`/cw/progress?${params}`, 'PROGRESS_QUERY_FAILED');
+  return {
+    data: (response.data ?? []).map((record) => ({ ...record, lesson: String(record.lesson) })),
+    limit: response.limit ?? limit,
+    next_cursor: response.next_cursor ?? null
+  };
 }
 
 export async function submitProgress(
@@ -344,10 +407,13 @@ export async function submitProgress(
 }
 
 export async function updatePassword(oldPassword: string, newPassword: string): Promise<void> {
+  const session = getAuthSession();
   await apiSendJson(
     '/user/password',
     'PUT',
     { old_password: oldPassword, new_password: newPassword },
-    'INTERNAL_SERVER_ERROR'
+    'INTERNAL_SERVER_ERROR',
+    { retryUnauthorized: false }
   );
+  clearAuthSession(session);
 }

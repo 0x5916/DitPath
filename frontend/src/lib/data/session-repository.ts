@@ -14,6 +14,7 @@ export interface SessionRepository {
   /** Offers only the latest session; newer sessions supersede older unfinished ones. */
   getLatestInProgressSession(): Promise<TrainingSessionRecord | null>;
   getSessions(limit?: number): Promise<TrainingSessionRecord[]>;
+  getSessionsByTimeRange(startIso: string, endIso: string): Promise<TrainingSessionRecord[]>;
   updateSessionProgress(
     id: string,
     completedPromptCount: number,
@@ -90,6 +91,19 @@ export function createSessionRepository(db: IDBDatabase): SessionRepository {
           };
         });
       });
+    },
+
+    async getSessionsByTimeRange(
+      startIso: string,
+      endIso: string
+    ): Promise<TrainingSessionRecord[]> {
+      return withTransaction(db, TRAINING_STORES.sessions, 'readonly', (stores) =>
+        reqToPromise<TrainingSessionRecord[]>(
+          stores[TRAINING_STORES.sessions]
+            .index('startedAt')
+            .getAll(IDBKeyRange.bound(startIso, endIso))
+        )
+      );
     },
 
     async updateSessionProgress(

@@ -1,0 +1,253 @@
+{
+  "valid": [
+    {
+      "label": "Held Alice profile/settings cannot overwrite Bob after storage account switch",
+      "passed": true
+    },
+    {
+      "label": "Credential quota failure displays localized error and re-enables Login",
+      "passed": true
+    },
+    {
+      "label": "Partial credential write rolls back all authentication keys",
+      "passed": true
+    },
+    {
+      "label": "Authenticated Settings hydrates account fields on initial direct load",
+      "passed": true
+    },
+    {
+      "label": "Quota retry signs in and navigation completes",
+      "passed": true
+    },
+    {
+      "label": "Stale Settings requests cannot overwrite Bob form or its loading state",
+      "passed": true
+    },
+    {
+      "label": "Native Web Locks allow only one tab to upload a queued record while request is held",
+      "passed": true
+    },
+    {
+      "label": "Two tabs upload each queued item once, including an item appended during the first request",
+      "passed": true
+    },
+    {
+      "label": "Uploader acknowledges latest queue without erasing appended work",
+      "passed": true
+    },
+    {
+      "label": "Blocked native database deletion shows waiting status",
+      "passed": true
+    },
+    {
+      "label": "Confirmed deletion prevents duplicate/cancel actions while native request remains pending",
+      "passed": true
+    },
+    {
+      "label": "Deletion success is announced only after the blocking connection closes",
+      "passed": true
+    },
+    {
+      "label": "Guided initialization storage failure has visible recovery",
+      "passed": true
+    },
+    {
+      "label": "Initialization retry opens a usable native-audio session",
+      "passed": true
+    },
+    {
+      "label": "Guided exit dialog wraps reverse Tab to its final action",
+      "passed": true
+    },
+    {
+      "label": "Native request success followed by transaction abort is shown as unsaved",
+      "passed": true
+    },
+    {
+      "label": "Explicit exit failure retains recoverable session with discard choice",
+      "passed": true
+    },
+    {
+      "label": "Aborted answer transaction is absent from durable IndexedDB",
+      "passed": true
+    },
+    {
+      "label": "Retry commits the same answer once without duplicate attempts",
+      "passed": true
+    },
+    {
+      "label": "Internal Back preserves failed answers and offers retry/discard",
+      "passed": true
+    },
+    {
+      "label": "Retry completes the original Back navigation",
+      "passed": true
+    },
+    {
+      "label": "Forward history remains intact and initializes the lesson again",
+      "passed": true
+    },
+    {
+      "label": "All 15 prompts complete without falsely claiming a failed final write was saved",
+      "passed": true
+    },
+    {
+      "label": "Next lesson waits for failed persistence or explicit discard",
+      "passed": true
+    },
+    {
+      "label": "Retry commits completion and initializes unlocked next lesson without stale state",
+      "passed": true
+    },
+    {
+      "label": "Native IndexedDB contains exactly 13 answer records and committed completed status for the 15-prompt lesson",
+      "passed": true
+    },
+    {
+      "label": "Progress shows actual completed-session duration and completed-only count",
+      "passed": true
+    },
+    {
+      "label": "Mastery cells are labeled evidence displays without fake detail actions",
+      "passed": true
+    },
+    {
+      "label": "Progress distinguishes storage failure from empty history and provides retry",
+      "passed": true
+    },
+    {
+      "label": "Progress retry restores the recorded evidence",
+      "passed": true
+    },
+    {
+      "label": "Native committed settings propagate to parent passage and keep effective rate within character rate",
+      "passed": true
+    },
+    {
+      "label": "Advertised Space shortcut starts native copy playback",
+      "passed": true
+    },
+    {
+      "label": "Textarea Space and Shift Enter remain editable without transport or result shortcuts",
+      "passed": true
+    },
+    {
+      "label": "Confirmed regeneration resets transport and locks the replacement answer until playback starts",
+      "passed": true
+    },
+    {
+      "label": "Copy textarea exposes a finite passage-relative input bound",
+      "passed": true
+    },
+    {
+      "label": "Practice result states its course/mastery limit truthfully",
+      "passed": true
+    },
+    {
+      "label": "Result dialog reverse Tab from its initial panel focus wraps to the final action",
+      "passed": true
+    },
+    {
+      "label": "Escape closes the result and restores the transcription focus",
+      "passed": true
+    },
+    {
+      "label": "Replacing an actively playing reviewed passage stops and resets it synchronously",
+      "passed": true
+    },
+    {
+      "label": "Progress renders translated en without horizontal overflow at measured desktop width",
+      "passed": true
+    },
+    {
+      "label": "German Progress preference renders without desktop horizontal overflow",
+      "passed": true
+    },
+    {
+      "label": "ja Progress preference renders without desktop horizontal overflow",
+      "passed": true
+    },
+    {
+      "label": "zh-Hans Progress preference renders without desktop horizontal overflow",
+      "passed": true
+    },
+    {
+      "label": "zh-Hant Progress preference renders without desktop horizontal overflow",
+      "passed": true
+    },
+    {
+      "label": "en Progress preference renders without desktop horizontal overflow",
+      "passed": true
+    },
+    {
+      "label": "Progress retains usable theme controls across light and dark",
+      "passed": true
+    },
+    {
+      "label": "Rebuilt character drill mounts without the initialization ReferenceError",
+      "passed": true
+    },
+    {
+      "label": "Changing character during native playback stops the old sound and resets the new character",
+      "passed": true
+    },
+    {
+      "label": "Explicit leave without saving completes navigation",
+      "passed": true
+    },
+    {
+      "label": "Explicit discard preserves prior durable evidence and does not pretend the failed answer was saved",
+      "passed": true
+    },
+    {
+      "label": "Guided and dashboard DB resources close so Settings deletion completes afterward",
+      "passed": true
+    },
+    {
+      "label": "Empty Progress is distinct from a storage error",
+      "passed": true
+    },
+    {
+      "label": "An empty device receives the newcomer lesson action",
+      "passed": true
+    }
+  ],
+  "setupCorrections": [
+    {
+      "label": "Browser Back preserves failed writes and offers explicit discard",
+      "passed": false,
+      "setupInvalid": "Used a hard document navigation; this exercises native unload, not SvelteKit history."
+    },
+    {
+      "label": "Progress uses actual completed-session durations, not session-count estimates",
+      "passed": false,
+      "setupInvalid": "Assertion compared unnormalized rendered whitespace."
+    },
+    {
+      "label": "Player speed changes propagate to passage settings and clamp effective speed to character speed",
+      "passed": false,
+      "needsInvestigation": true,
+      "setupInvalid": "Synthetic fill did not dispatch native change; repeated using real input key events."
+    },
+    {
+      "label": "Native committed settings update parent and clamp effective rate to character rate",
+      "passed": false,
+      "setupInvalid": "Typing helper also left native change uncommitted; verify with number-step activation."
+    },
+    {
+      "label": "Regenerating a playing passage resets transport and answer availability",
+      "passed": false,
+      "setupInvalid": "Active practice regeneration requires its visible second discard confirmation."
+    },
+    {
+      "label": "More remains available at 799px, matching mobile navigation",
+      "passed": false,
+      "setupInvalid": "Browser viewport capability did not change an already open tab; measured width remained 1280px."
+    }
+  ],
+  "limits": [
+    "Viewport override requests 799/800px were ignored; measured document width stayed 1280px. Narrow/mobile acceptance remains unverified.",
+    "All browser data and API identities were synthetic loopback fixtures."
+  ]
+}

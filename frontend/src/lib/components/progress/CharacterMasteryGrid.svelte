@@ -1,100 +1,53 @@
 <script lang="ts">
   import { LESSONS } from '../../training/sequence';
   import CharacterMasteryCell from './CharacterMasteryCell.svelte';
-  import type { CharacterMastery } from '../../training/v2/types';
+  import type { CharacterMastery, MasteryStatus } from '../../training/v2/types';
+  import * as m from '#lib/paraglide/messages.js';
 
-  interface Props {
-    masteryMap: Map<string, CharacterMastery>;
-    onSelectChar?: (char: string) => void;
-  }
-
-  let { masteryMap, onSelectChar = () => {} }: Props = $props();
-
-  // All 40 Koch characters in sequence order
+  let { masteryMap }: { masteryMap: ReadonlyMap<string, CharacterMastery> } = $props();
   const allChars = LESSONS.join('').split('');
-
-  let stableChars = $derived(allChars.filter((c) => masteryMap.get(c)?.status === 'stable'));
-  let learningChars = $derived(allChars.filter((c) => masteryMap.get(c)?.status === 'learning'));
-  let reviewChars = $derived(allChars.filter((c) => masteryMap.get(c)?.status === 'review'));
-  let newChars = $derived(
-    allChars.filter((c) => !masteryMap.has(c) || masteryMap.get(c)?.status === 'new')
+  let groups = $derived(
+    [
+      { status: 'stable', label: m.learn_status_stable(), empty: m.progress_stable_empty() },
+      {
+        status: 'learning',
+        label: m.progress_status_learning(),
+        empty: m.progress_learning_empty()
+      },
+      { status: 'review', label: m.learn_status_review(), empty: '' },
+      { status: 'new', label: m.progress_status_new(), empty: '' }
+    ].map((group) => ({
+      ...group,
+      characters: allChars.filter(
+        (character) =>
+          (masteryMap.get(character)?.status ?? 'new') === (group.status as MasteryStatus)
+      )
+    }))
   );
 </script>
 
-<div class="mastery-grid-card" role="region" aria-label="Character mastery breakdown">
-  <div class="grid-section">
-    <div class="section-title-row">
-      <span class="status-dot dot-stable"></span>
-      <h3 class="group-title">Stable ({stableChars.length})</h3>
-    </div>
-    {#if stableChars.length > 0}
-      <div class="cells-row">
-        {#each stableChars as c (c)}
-          <CharacterMasteryCell
-            character={c}
-            mastery={masteryMap.get(c)}
-            onclick={() => onSelectChar(c)}
-          />
-        {/each}
+<div class="mastery-grid-card" role="region" aria-label={m.progress_mastery_label()}>
+  {#each groups as group (group.status)}
+    {#if group.characters.length > 0 || group.empty}
+      <div class="grid-section">
+        <div class="section-title-row">
+          <span class="status-dot dot-{group.status}" aria-hidden="true"></span>
+          <h3 class="group-title">
+            {m.progress_group_count({ status: group.label, count: group.characters.length })}
+          </h3>
+        </div>
+        {#if group.characters.length > 0}
+          <div class="cells-row">
+            {#each group.characters as character (character)}
+              <CharacterMasteryCell {character} mastery={masteryMap.get(character)} />
+            {/each}
+          </div>
+        {:else}
+          <p class="empty-note">{group.empty}</p>
+        {/if}
       </div>
-    {:else}
-      <p class="empty-note">Complete multi-session practice to stabilize symbols.</p>
     {/if}
-  </div>
-
-  <div class="grid-section">
-    <div class="section-title-row">
-      <span class="status-dot dot-learning"></span>
-      <h3 class="group-title">Developing ({learningChars.length})</h3>
-    </div>
-    {#if learningChars.length > 0}
-      <div class="cells-row">
-        {#each learningChars as c (c)}
-          <CharacterMasteryCell
-            character={c}
-            mastery={masteryMap.get(c)}
-            onclick={() => onSelectChar(c)}
-          />
-        {/each}
-      </div>
-    {:else}
-      <p class="empty-note">Symbols currently under practice appear here.</p>
-    {/if}
-  </div>
-
-  {#if reviewChars.length > 0}
-    <div class="grid-section">
-      <div class="section-title-row">
-        <span class="status-dot dot-review"></span>
-        <h3 class="group-title">Review due ({reviewChars.length})</h3>
-      </div>
-      <div class="cells-row">
-        {#each reviewChars as c (c)}
-          <CharacterMasteryCell
-            character={c}
-            mastery={masteryMap.get(c)}
-            onclick={() => onSelectChar(c)}
-          />
-        {/each}
-      </div>
-    </div>
-  {/if}
-
-  <div class="grid-section">
-    <div class="section-title-row">
-      <span class="status-dot dot-new"></span>
-      <h3 class="group-title">New / Upcoming ({newChars.length})</h3>
-    </div>
-    <div class="cells-row">
-      {#each newChars as c (c)}
-        <CharacterMasteryCell
-          character={c}
-          mastery={masteryMap.get(c)}
-          onclick={() => onSelectChar(c)}
-        />
-      {/each}
-    </div>
-  </div>
+  {/each}
 </div>
 
 <style>

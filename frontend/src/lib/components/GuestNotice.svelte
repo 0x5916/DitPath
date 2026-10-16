@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { localizedHref } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     /** Optional classes for the wrapping <p> (e.g. `body-text`). */

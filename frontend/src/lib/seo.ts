@@ -1,4 +1,4 @@
-import type { Locale } from '$lib/locale';
+import type { Locale } from '#lib/locale.ts';
 import { NOINDEX_ROUTE_PATHS, ROUTE_PATHS } from './routes.js';
 
 export type SeoMetadata = {

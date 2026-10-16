@@ -4,7 +4,7 @@ This repository contains the sound-first DitPath trainer. See [README.md](README
 
 ## Boundaries
 
-- Keep SvelteKit 5 with the static adapter and the Go backend. Do not migrate frameworks or runtimes.
+- Keep SvelteKit 3 with Svelte 5, the static adapter, and the Go backend. Do not migrate frameworks or runtimes.
 - Implement one discrete packet per session with explicit acceptance criteria and targeted checks, typically fewer than 400 changed lines.
 - Never force-push, reset across uncommitted work, or clean untracked files without confirmation.
 - Backend database schemas, endpoints, authentication semantics, and deployment configuration require an approved API specification and explicit authorization before alteration.

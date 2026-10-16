@@ -1,8 +1,8 @@
 /**
- * Compatibility facade for the original `$lib/morse` module.
+ * Compatibility facade for the original `#lib/morse` module.
  *
  * The implementation now lives in small plain-TypeScript modules under
- * `$lib/training`, free of Svelte/DOM/browser dependencies. Existing callers
+ * `#lib/training`, free of Svelte/DOM/browser dependencies. Existing callers
  * keep importing from here; new code should prefer the training modules.
  */
 

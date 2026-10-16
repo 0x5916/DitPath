@@ -137,6 +137,40 @@ describe('Local Data Repositories', () => {
   });
 
   describe('SessionRepository', () => {
+    it('queries the complete indexed session time range without a fixed recent-session cap', async () => {
+      const repo = createSessionRepository(db);
+      const base: TrainingSessionRecord = {
+        schemaVersion: 1,
+        id: 'boundary',
+        step: 1,
+        charWpm: 20,
+        effWpm: 12,
+        freqHz: 600,
+        startedAt: '2026-10-09T12:00:00.000Z',
+        status: 'completed',
+        promptCount: 12,
+        completedPromptCount: 12
+      };
+      await repo.saveSession(base);
+      for (let index = 0; index < 65; index++) {
+        await repo.saveSession({
+          ...base,
+          id: `recent-${index}`,
+          startedAt: '2026-10-16T12:00:00.000Z'
+        });
+      }
+      await repo.saveSession({ ...base, id: 'old', startedAt: '2026-10-09T11:59:59.999Z' });
+      await repo.saveSession({ ...base, id: 'future', startedAt: '2026-10-16T12:00:00.001Z' });
+
+      const sessions = await repo.getSessionsByTimeRange(
+        '2026-10-09T12:00:00.000Z',
+        '2026-10-16T12:00:00.000Z'
+      );
+      expect(sessions).toHaveLength(66);
+      expect(sessions[0].id).toBe('boundary');
+      expect(sessions.some((session) => ['old', 'future'].includes(session.id))).toBe(false);
+    });
+
     it('does not resurrect an older unfinished session after a newer session finishes or is dismissed', async () => {
       const repo = createSessionRepository(db);
       const session: TrainingSessionRecord = {

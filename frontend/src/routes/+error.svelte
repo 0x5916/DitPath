@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { House, Radio } from '@lucide/svelte';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   // Unknown URLs land here with a 404 from SvelteKit; anything else is a real
   // failure (a load that threw, a 500 from the API) and gets generic wording.

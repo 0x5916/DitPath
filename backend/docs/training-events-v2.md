@@ -65,7 +65,9 @@ Per-event codes are `MISSING_FIELD`, `INVALID_FIELD`, `INVALID_TIMING`, `INVALID
 
 `GET /v2/training/snapshot` returns 200 with `suggested_step`, `unlocked_step`, nullable `last_active_at`, and `character_masteries`. Each mastery contains `character`, `status`, `rolling_accuracy`, nullable `median_latency_ms`, and `total_attempts`. Storage failures return 500 `TRAINING_SNAPSHOT_FAILED`.
 
-Only characters with scored attempts appear; `unmeasured` events are excluded. The mirrored client/server policy uses a rolling window of 20, at least 12 attempts in at least two sessions for stability, accuracy at least 0.90, median correct latency at most 1500 ms, and review after three days without practice. Constants in the [server handler](../internal/handlers/v2/training.go) and [client types](../../frontend/src/lib/training/v2/types.ts) must stay aligned.
+Only characters with scored attempts appear; `unmeasured` events are excluded. The mirrored client/server policy uses a rolling window of 20, at least 12 attempts in at least two sessions for stability, accuracy at least 0.90, median correct latency at most 1500 ms, and review after three days without practice. Constants in the [server mastery module](../internal/training/mastery.go) and [client types](../../frontend/src/lib/training/v2/types.ts) must stay aligned.
+
+Snapshots iterate stored events in `client_created_at,id` order with the request context. The incremental reducer retains at most 20 scored attempts per distinct character and the all-history count/two-session facts; older attempts are counted, not discarded. Last activity still includes unmeasured attempts. Memory follows the distinct characters returned, rather than the number of historical attempts; database work remains proportional to history size. Cancellation stops iteration and closes the row cursor.
 
 On first accepted ingestion, `training_profiles` seeds steps from legacy `page_settings.cur_lesson`, defaulting to 1. Event batches advance `last_active_at` using the latest client measurement time; they do not advance the step fields. A snapshot without a profile returns steps 1 and can use the latest event time as activity.
 

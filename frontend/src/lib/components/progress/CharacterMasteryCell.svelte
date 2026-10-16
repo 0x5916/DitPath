@@ -1,38 +1,46 @@
 <script lang="ts">
-  import type { CharacterMastery, MasteryStatus } from '../../training/v2/types';
+  import type { CharacterMastery } from '../../training/v2/types';
   import { CheckCircle2, CircleDot, AlertCircle, Circle } from '@lucide/svelte';
+  import * as m from '#lib/paraglide/messages.js';
 
-  interface Props {
+  let {
+    character,
+    mastery = null
+  }: {
     character: string;
     mastery?: CharacterMastery | null;
-    onclick?: () => void;
-  }
+  } = $props();
 
-  let { character, mastery = null, onclick = () => {} }: Props = $props();
-
-  let status = $derived.by<MasteryStatus>(() => {
-    return mastery?.status ?? 'new';
-  });
-
-  let accuracyLabel = $derived.by(() => {
-    if (!mastery || mastery.totalAttempts === 0) return 'Untested';
-    return `${Math.round(mastery.rollingAccuracy * 100)}% accuracy`;
-  });
-
+  let status = $derived(mastery?.status ?? 'new');
+  let statusLabel = $derived(
+    {
+      stable: m.learn_status_stable(),
+      learning: m.progress_status_learning(),
+      review: m.learn_status_review(),
+      new: m.progress_status_new()
+    }[status]
+  );
   let accessibleLabel = $derived(
-    `${character}, ${status}, ${accuracyLabel}, ${mastery?.totalAttempts ?? 0} attempts`
+    m.progress_character_label({
+      character,
+      status: statusLabel,
+      accuracy:
+        mastery && mastery.totalAttempts > 0
+          ? m.progress_accuracy_value({ percent: Math.round(mastery.rollingAccuracy * 100) })
+          : m.progress_unmeasured(),
+      count: mastery?.totalAttempts ?? 0
+    })
   );
 </script>
 
-<button
-  type="button"
+<span
   class="mastery-cell status-{status}"
-  {onclick}
+  role="img"
   aria-label={accessibleLabel}
   title={accessibleLabel}
 >
   <span class="cell-char">{character}</span>
-  <span class="cell-status-icon">
+  <span class="cell-status-icon" aria-hidden="true">
     {#if status === 'stable'}
       <CheckCircle2 size={12} />
     {:else if status === 'learning'}
@@ -43,7 +51,7 @@
       <Circle size={10} />
     {/if}
   </span>
-</button>
+</span>
 
 <style>
   .mastery-cell {
@@ -59,16 +67,7 @@
     background-color: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    cursor: pointer;
     position: relative;
-    transition:
-      background-color var(--transition-fast),
-      border-color var(--transition-fast);
-  }
-
-  .mastery-cell:hover {
-    background-color: var(--bg-inset);
-    border-color: var(--accent);
   }
 
   .cell-char {

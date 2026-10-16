@@ -1,10 +1,10 @@
 <script lang="ts">
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-  import type { PostingStatus } from '$lib/forum';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
+  import type { PostingStatus } from '#lib/forum.ts';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     /** The comment being answered. */

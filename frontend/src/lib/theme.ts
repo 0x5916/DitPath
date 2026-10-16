@@ -1,4 +1,4 @@
-import { UI_STORAGE_KEYS } from '$lib/storageKeys';
+import { UI_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 export type Theme = 'auto' | 'light' | 'dark';
 

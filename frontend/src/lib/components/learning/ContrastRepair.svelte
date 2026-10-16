@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Volume2 } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     charA: string;
@@ -21,10 +21,10 @@
   }: Props = $props();
 </script>
 
-<div class="contrast-repair-card" role="region" aria-label="Sound contrast repair">
-  <div class="contrast-title">Compare the sounds</div>
+<div class="contrast-repair-card" role="region" aria-label={m.lesson_contrast_region()}>
+  <div class="contrast-title">{m.lesson_contrast_title()}</div>
   <p class="contrast-subtitle">
-    Listen to the contrast between these two rhythms before continuing.
+    {m.lesson_contrast_hint()}
   </p>
 
   <div class="contrast-columns">
@@ -34,19 +34,18 @@
         type="button"
         class="btn-primary"
         onclick={onPlayA}
-        aria-label={`Play sound for ${charA}`}
-        aria-pressed={playingCharacter === charA}
+        aria-busy={playingCharacter === charA}
       >
         <Volume2 size={18} />
         <span
           >{playingCharacter === charA
             ? m.lesson_playing_character({ character: charA })
-            : `Play ${charA}`}</span
+            : m.lesson_play_character({ character: charA })}</span
         >
       </button>
     </div>
 
-    <div class="contrast-divider">vs</div>
+    <div class="contrast-divider">{m.lesson_contrast_versus()}</div>
 
     <div class="contrast-col">
       <div class="char-display">{charB}</div>
@@ -54,14 +53,13 @@
         type="button"
         class="btn-primary"
         onclick={onPlayB}
-        aria-label={`Play sound for ${charB}`}
-        aria-pressed={playingCharacter === charB}
+        aria-busy={playingCharacter === charB}
       >
         <Volume2 size={18} />
         <span
           >{playingCharacter === charB
             ? m.lesson_playing_character({ character: charB })
-            : `Play ${charB}`}</span
+            : m.lesson_play_character({ character: charB })}</span
         >
       </button>
     </div>
@@ -69,7 +67,7 @@
 
   <div class="contrast-actions">
     <button type="button" class="btn-primary" aria-keyshortcuts="Enter" onclick={onContinue}>
-      {m.lesson_continue()} <kbd aria-hidden="true">Enter</kbd>
+      {m.lesson_continue()} <kbd aria-hidden="true">{m.keyboard_enter()}</kbd>
     </button>
   </div>
 </div>
@@ -105,6 +103,8 @@
 
   .contrast-columns {
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
     align-items: center;
     justify-content: space-around;
     width: 100%;

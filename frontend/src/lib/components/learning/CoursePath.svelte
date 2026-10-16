@@ -2,7 +2,7 @@
   import { LESSONS } from '../../training/sequence';
   import CoursePathItem, { type PathItemStatus } from './CoursePathItem.svelte';
   import type { CharacterMastery } from '../../training/v2/types';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     currentStep: number;

@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { ArrowLeft, Pause, Play } from '@lucide/svelte';
   import SessionProgress from './SessionProgress.svelte';
   import ExitSessionDialog from './ExitSessionDialog.svelte';
   import { acceptsSessionEscape } from './keyboard';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     currentPromptIndex: number;
@@ -66,8 +67,8 @@
     <button
       type="button"
       class="btn-icon"
-      aria-label="Exit session"
-      title="Exit session"
+      aria-label={m.lesson_exit()}
+      title={m.lesson_exit()}
       bind:this={exitButton}
       onclick={handleExitClick}
     >
@@ -85,8 +86,8 @@
       <button
         type="button"
         class="btn-icon"
-        aria-label={isPaused ? 'Resume session' : 'Pause session'}
-        title={isPaused ? 'Resume session' : 'Pause session'}
+        aria-label={isPaused ? m.lesson_resume() : m.lesson_pause()}
+        title={isPaused ? m.lesson_resume() : m.lesson_pause()}
         onclick={onPauseToggle}
       >
         {#if isPaused}
@@ -100,13 +101,13 @@
     {/if}
   </header>
 
-  <main class="session-stage">
+  <div class="session-stage">
     <div class="session-content">
       {#if children}
         {@render children()}
       {/if}
     </div>
-  </main>
+  </div>
 
   <ExitSessionDialog
     isOpen={showExitConfirm}
@@ -152,7 +153,12 @@
   }
 
   .header-spacer {
-    width: 2.25rem;
+    width: var(--answer-target-min, 3rem);
+  }
+
+  .session-header button {
+    min-width: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min, 3rem);
   }
 
   .session-stage {

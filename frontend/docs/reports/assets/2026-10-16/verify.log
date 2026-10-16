@@ -1,0 +1,48 @@
+
+> cw-frontend@0.0.1 verify
+> npm run messages:validate && npm run seo:validate && npm run check && npm run check:scripts && npm run test
+
+
+> cw-frontend@0.0.1 messages:validate
+> node --experimental-strip-types scripts/validate-messages.ts
+
+messages:validate passed — 563 keys, 5 locales, every key referenced
+
+> cw-frontend@0.0.1 seo:validate
+> node --experimental-strip-types scripts/validate-seo.ts
+
+OK: sitemap URL set validated (25 URLs)
+OK: nginx.conf locale list matches the inlang project
+SEO validation passed.
+
+> cw-frontend@0.0.1 check
+> svelte-kit sync && npm run paraglide:compile && svelte-check --tsconfig ./tsconfig.json && npm run check:worker
+
+
+> cw-frontend@0.0.1 paraglide:compile
+> node --experimental-strip-types scripts/compile-paraglide.ts
+
+Loading svelte-check in workspace: /Users/alan/Desktop/Morse/frontend
+Getting Svelte diagnostics...
+
+svelte-check found 0 errors and 0 warnings
+
+> cw-frontend@0.0.1 check:worker
+> tsc --noEmit -p src/service-worker/tsconfig.json
+
+
+> cw-frontend@0.0.1 check:scripts
+> tsc --noEmit -p tsconfig.scripts.json
+
+
+> cw-frontend@0.0.1 test
+> vitest run
+
+
+ RUN  v5.0.4 /Users/alan/Desktop/Morse/frontend
+
+
+ Test Files  36 passed (36)
+      Tests  424 passed (424)
+   Start at  05:12:04
+   Duration  486ms (tests 52%, import 22%, transform 21%, worker 4%)

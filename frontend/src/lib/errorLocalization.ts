@@ -1,18 +1,26 @@
-import * as m from '$lib/paraglide/messages';
-import { extractErrorCode } from '$lib/errorCode';
+import * as m from '#lib/paraglide/messages.js';
+import { extractErrorCode } from '#lib/errorCode.ts';
 
 export function localizeApiError(error: unknown, fallback: () => string): string {
   const code = extractErrorCode(error);
 
   switch (code) {
+    case 'BROWSER_STORAGE_FAILED':
+      return m.auth_storage_error();
     case 'INVALID_REQUEST_BODY':
       return m.api_error_invalid_request_body();
+    case 'REQUEST_BODY_TOO_LARGE':
+      return m.api_error_request_body_too_large();
     case 'INTERNAL_SERVER_ERROR':
       return m.api_error_internal_server_error();
     case 'DATABASE_FAILURE':
       return m.api_error_database_failure();
     case 'INVALID_CREDENTIALS':
       return m.api_error_invalid_credentials();
+    case 'AUTH_RATE_LIMITED':
+      return m.api_error_auth_rate_limited();
+    case 'AUTH_CAPACITY_EXCEEDED':
+      return m.api_error_auth_capacity_exceeded();
     case 'CONFLICT':
       return m.api_error_conflict();
     case 'INVALID_TOKEN':
@@ -53,6 +61,8 @@ export function localizeApiError(error: unknown, fallback: () => string): string
       return m.api_error_email_already_verified();
     case 'VERIFICATION_RATE_LIMITED':
       return m.api_error_verification_rate_limited();
+    case 'VERIFICATION_ATTEMPTS_EXCEEDED':
+      return m.api_error_verification_attempts_exceeded();
     case 'VERIFICATION_SEND_FAILED':
       return m.api_error_verification_send_failed();
     case 'VERIFICATION_CODE_INVALID':

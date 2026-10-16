@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"math"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"opencw/internal/common"
 	"opencw/internal/models"
+	"opencw/internal/training"
 	"opencw/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -56,24 +55,6 @@ var validInputModes = map[string]bool{
 	"keyboard": true,
 	"grid":     true,
 	"touch":    true,
-}
-
-// masteryPolicy mirrors the client's DEFAULT_MASTERY_POLICY
-// (frontend/src/lib/training/v2/types.ts). Keep both definitions in sync.
-var masteryPolicy = struct {
-	minAttemptsForStability int
-	minSessionsForStability int
-	targetAccuracy          float64
-	maxAutomaticLatencyMS   int
-	reviewIntervalDays      int
-	rollingWindowSize       int
-}{
-	minAttemptsForStability: 12,
-	minSessionsForStability: 2,
-	targetAccuracy:          0.9,
-	maxAutomaticLatencyMS:   1500,
-	reviewIntervalDays:      3,
-	rollingWindowSize:       20,
 }
 
 // validatedTrainingEvent is a batch event that passed per-event validation.
@@ -185,10 +166,28 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
-	var events []models.TrainingEvent
-	if err := h.DB.Where("user_id = ?", user.ID).
-		Order("client_created_at ASC, id ASC").
-		Find(&events).Error; err != nil {
+	db := h.DB.WithContext(c.Request.Context())
+	var accumulator training.MasteryAccumulator
+	var lastActive *time.Time
+	rows, err := db.Model(&models.TrainingEvent{}).
+		Select("target_character", "classification", "is_correct", "latency_ms", "session_id", "client_created_at").
+		Where("user_id = ?", user.ID).Order("client_created_at ASC, id ASC").Rows()
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var event models.TrainingEvent
+			if err = db.ScanRows(rows, &event); err != nil {
+				break
+			}
+			accumulator.Add(event)
+			last := event.ClientCreatedAt
+			lastActive = &last
+		}
+		if err == nil {
+			err = rows.Err()
+		}
+	}
+	if err != nil {
 		slog.Error("Failed to load training events", "user_id", user.ID, "err", err)
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
 			common.ErrorCodeTrainingSnapshotFailed, "Failed to build training snapshot"))
@@ -198,11 +197,11 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 	response := common.TrainingSnapshotResponse{
 		SuggestedStep:      1,
 		UnlockedStep:       1,
-		CharacterMasteries: computeCharacterMasteries(events, time.Now()),
+		CharacterMasteries: accumulator.Masteries(time.Now()),
 	}
 
 	var profile models.TrainingProfile
-	if err := h.DB.Where("user_id = ?", user.ID).Take(&profile).Error; err != nil {
+	if err := db.Where("user_id = ?", user.ID).Take(&profile).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			slog.Error("Failed to load training profile", "user_id", user.ID, "err", err)
 			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
@@ -219,9 +218,8 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 		response.LastActiveAt = profile.LastActiveAt
 	}
 
-	if response.LastActiveAt == nil && len(events) > 0 {
-		last := events[len(events)-1].ClientCreatedAt
-		response.LastActiveAt = &last
+	if response.LastActiveAt == nil {
+		response.LastActiveAt = lastActive
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -453,102 +451,4 @@ func validateTrainingEventInput(in *common.TrainingEventInput) *common.TrainingR
 	}
 
 	return nil
-}
-
-// computeCharacterMasteries mirrors the client CharacterMastery reducer
-// (frontend/src/lib/training/v2/mastery.ts) for the reduced snapshot shape:
-// rolling window accuracy, median correct latency, and the two-session
-// stability rule (a single session can never produce a stable character).
-func computeCharacterMasteries(events []models.TrainingEvent, now time.Time) []common.TrainingCharacterMasteryResponse {
-	byCharacter := make(map[string][]models.TrainingEvent)
-	for _, event := range events {
-		if event.Classification == "unmeasured" {
-			continue
-		}
-		character := strings.ToUpper(strings.TrimSpace(event.TargetCharacter))
-		if character == "" {
-			continue
-		}
-		byCharacter[character] = append(byCharacter[character], event)
-	}
-
-	characters := make([]string, 0, len(byCharacter))
-	for character := range byCharacter {
-		characters = append(characters, character)
-	}
-	sort.Strings(characters)
-
-	masteries := make([]common.TrainingCharacterMasteryResponse, 0, len(characters))
-	for _, character := range characters {
-		// Events arrive ordered by client_created_at, so the window is the tail.
-		attempts := byCharacter[character]
-		totalAttempts := len(attempts)
-
-		sessions := make(map[string]struct{})
-		for _, attempt := range attempts {
-			sessions[attempt.SessionID] = struct{}{}
-		}
-
-		windowStart := totalAttempts - masteryPolicy.rollingWindowSize
-		if windowStart < 0 {
-			windowStart = 0
-		}
-		window := attempts[windowStart:]
-
-		correctInWindow := 0
-		correctLatencies := make([]int, 0, len(window))
-		for _, attempt := range window {
-			if attempt.IsCorrect {
-				correctInWindow++
-				correctLatencies = append(correctLatencies, attempt.LatencyMS)
-			}
-		}
-
-		rollingAccuracy := float64(correctInWindow) / float64(len(window))
-		medianLatency := medianOfInts(correctLatencies)
-
-		status := "learning"
-		hasMinAttempts := totalAttempts >= masteryPolicy.minAttemptsForStability
-		hasMultiSession := len(sessions) >= masteryPolicy.minSessionsForStability
-		hasAccuracy := rollingAccuracy >= masteryPolicy.targetAccuracy
-		hasAutomaticSpeed := medianLatency != nil && *medianLatency <= masteryPolicy.maxAutomaticLatencyMS
-
-		if hasMinAttempts && hasMultiSession && hasAccuracy && hasAutomaticSpeed {
-			lastPractisedAt := attempts[totalAttempts-1].ClientCreatedAt
-			dueAt := lastPractisedAt.Add(time.Duration(masteryPolicy.reviewIntervalDays) * 24 * time.Hour)
-			if !now.Before(dueAt) {
-				status = "review"
-			} else {
-				status = "stable"
-			}
-		}
-
-		masteries = append(masteries, common.TrainingCharacterMasteryResponse{
-			Character:       character,
-			Status:          status,
-			RollingAccuracy: math.Round(rollingAccuracy*1000) / 1000,
-			MedianLatencyMS: medianLatency,
-			TotalAttempts:   totalAttempts,
-		})
-	}
-
-	return masteries
-}
-
-// medianOfInts matches the client median helper: midpoint for even counts,
-// rounded half away from zero. Returns nil when no samples exist.
-func medianOfInts(values []int) *int {
-	if len(values) == 0 {
-		return nil
-	}
-	sorted := append([]int(nil), values...)
-	sort.Ints(sorted)
-
-	mid := len(sorted) / 2
-	if len(sorted)%2 == 1 {
-		median := sorted[mid]
-		return &median
-	}
-	median := int(math.Round(float64(sorted[mid-1]+sorted[mid]) / 2))
-	return &median
 }

@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { createSessionScope } from '#lib/session-scope.ts';
   import { afterNavigate, goto } from '$app/navigation';
-  import { user } from '$lib/auth';
+  import { user, getAuthSession } from '#lib/auth.ts';
   import {
     FORUM_CATEGORIES,
     createForumThread,
@@ -9,22 +10,26 @@
     isForumCategory,
     type ForumCategoryValue,
     type ForumThreadSummary
-  } from '$lib/api';
+  } from '#lib/api.ts';
   import {
     formatReplyCount,
     forumCategoryLabel,
     resolvePostingStatus,
     type PostingStatus
-  } from '$lib/forum';
-  import { localizeApiError } from '$lib/errorLocalization';
-  import { authorLabel, formatDate } from '$lib/format';
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+  } from '#lib/forum.ts';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
+  import { authorLabel, formatDate } from '#lib/format.ts';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import { Plus } from '@lucide/svelte';
-  import { SITE_NAME } from '$lib/seo';
-  import * as m from '$lib/paraglide/messages';
+  import { SITE_NAME } from '#lib/seo.ts';
+  import * as m from '#lib/paraglide/messages.js';
+
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
+  let lastSessionGeneration: number | null = null;
 
   let threads = $state<ForumThreadSummary[]>([]);
   let nextCursor = $state<string | null>(null);
@@ -74,17 +79,21 @@
   afterNavigate(syncFilterFromUrl);
 
   $effect(() => {
-    if (!filterInitialized) return;
-    const category = filter;
-    void loadFirstPage(category);
-  });
-
-  $effect(() => {
     const username = $user?.username ?? null;
+    const generation = getAuthSession().generation;
+    if (lastSessionGeneration !== generation) {
+      lastSessionGeneration = generation;
+      composerOpen = false;
+      composerSubmitting = false;
+      resetComposer();
+    }
+    if (filterInitialized) void loadFirstPage(filter);
+
+    const current = scope.capture();
     let cancelled = false;
     postingStatus = null;
     void resolvePostingStatus(username).then((status) => {
-      if (!cancelled) postingStatus = status;
+      if (current() && !cancelled) postingStatus = status;
     });
     return () => {
       cancelled = true;
@@ -93,24 +102,26 @@
 
   async function loadFirstPage(category: ForumCategoryValue | null): Promise<void> {
     const token = ++loadToken;
+    const current = scope.capture();
     loading = true;
+    loadingMore = false;
     loadFailed = '';
     loadMoreError = '';
     nextCursor = null;
 
     try {
       const result = await getForumThreads({ category });
-      if (token !== loadToken) return;
+      if (!current() || token !== loadToken) return;
       threads = result.data;
       nextCursor = result.next_cursor;
       totalCount = result.total;
     } catch (error) {
-      if (token !== loadToken) return;
+      if (!current() || token !== loadToken) return;
       threads = [];
       totalCount = null;
       loadFailed = localizeApiError(error, () => m.api_error_forum_query_failed());
     } finally {
-      if (token === loadToken) loading = false;
+      if (current() && token === loadToken) loading = false;
     }
   }
 
@@ -119,27 +130,28 @@
     if (!cursor || loadingMore) return;
 
     const token = loadToken;
+    const current = scope.capture();
     loadingMore = true;
     loadMoreError = '';
 
     try {
       const result = await getForumThreads({ category: filter, cursor });
-      if (token !== loadToken) return;
+      if (!current() || token !== loadToken) return;
       threads = [...threads, ...result.data];
       nextCursor = result.next_cursor;
     } catch (error) {
-      if (token === loadToken) {
+      if (current() && token === loadToken) {
         loadMoreError = localizeApiError(error, () => m.api_error_forum_query_failed());
       }
     } finally {
-      loadingMore = false;
+      if (current() && token === loadToken) loadingMore = false;
     }
   }
 
   function selectCategory(category: ForumCategoryValue | null): void {
     if (category === filter) return;
     const path = category ? `${href('/forum')}${categoryHref(category)}` : href('/forum');
-    void goto(path, { keepFocus: true, noScroll: true });
+    void goto(path, { reset: false });
   }
 
   function closeComposer(): void {
@@ -157,6 +169,7 @@
   async function submitThread(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (composerSubmitting) return;
+    const current = scope.capture();
 
     const title = composerTitle.trim();
     const body = composerBody.trim();
@@ -177,6 +190,7 @@
     try {
       const createdCategory = composerCategory;
       await createForumThread(createdCategory, title, body);
+      if (!current()) return;
       composerOpen = false;
       resetComposer();
       // Make the new thread visible: jump to its category when the active
@@ -187,9 +201,10 @@
         void loadFirstPage(filter);
       }
     } catch (error) {
+      if (!current()) return;
       composerError = localizeApiError(error, () => m.api_error_forum_create_failed());
     } finally {
-      composerSubmitting = false;
+      if (current()) composerSubmitting = false;
     }
   }
 </script>

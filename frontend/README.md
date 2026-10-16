@@ -1,8 +1,17 @@
 # DitPath frontend
 
-The frontend uses SvelteKit 5, TypeScript, Tailwind CSS 4, and Paraglide for English, German, Japanese, Simplified Chinese, and Traditional Chinese. Production uses `adapter-static` and nginx, with no SvelteKit server runtime.
+The frontend uses SvelteKit 3, Svelte 5, TypeScript 6, Tailwind CSS 4, and Paraglide for English, German, Japanese, Simplified Chinese, and Traditional Chinese. Production uses `adapter-static` and nginx, with no SvelteKit server runtime. Shared framework configuration lives in [kit-options.js](scripts/kit-options.js), consumed by Vite, Vitest, and ESLint.
 
 Known pages are prerendered in five locale variants. Forum thread IDs exist only at runtime: [`/forum/[id]`](src/routes/forum/[id]/+page.ts) renders client-side through the HTTP 200 fallback in [nginx.conf](nginx.conf). Other unknown URLs retain HTTP 404.
+
+The [service worker](src/service-worker/index.ts) uses the shared route/locale inventory and
+[offline cache policy](src/lib/offline-cache.ts). Build/static assets are cache-first;
+known page navigations are network-first with their own cached shell as fallback.
+Home, Learn, Practice, and Progress shells are precached in all five locales;
+other known pages become available offline after an online visit.
+API, authenticated, and cross-origin requests bypass caching. On activation, the
+worker removes older DitPath caches, including legacy private entries, while
+preserving unrelated caches. Existing tabs finish before the new worker activates.
 
 ## Development
 
@@ -21,7 +30,7 @@ Sound training stores guided attempts on the device. API access is needed for ac
 
 [package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally.
 
-`npm run check` compiles Paraglide before Svelte checking; `npm run build` compiles it through the Vite plugin. Tests run in Node via [vitest.config.ts](vitest.config.ts), including domain, controller, audio, sync, and repository tests. IndexedDB tests use the `fake-indexeddb` development dependency declared in [package.json](package.json).
+`npm run check` compiles Paraglide before Svelte checking and runs `check:worker` against the separate [service-worker TypeScript config](src/service-worker/tsconfig.json); `npm run build` compiles Paraglide through the Vite plugin. Tests run in Node via [vitest.config.ts](vitest.config.ts), including domain, controller, audio, sync, and repository tests. IndexedDB tests use the `fake-indexeddb` development dependency declared in [package.json](package.json).
 
 For targeted Svelte reviews, use the pinned `@sveltejs/mcp` development dependency:
 
@@ -43,6 +52,7 @@ docker run -p 3000:80 opencw-frontend
 - [AGENTS.md](AGENTS.md): implementation boundaries and required verification evidence.
 - [Learning architecture](docs/learning.md): routes, domain/controller boundaries, storage, and UI acceptance.
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
+- [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.
 - [project.inlang/settings.json](project.inlang/settings.json) and [Paraglide options](scripts/paraglide-options.ts): locale/compiler configuration. SDK-generated inlang notes/cache and `src/lib/paraglide/` are not maintained documentation.
 - [src/app.css](src/app.css) and [layout styles](src/lib/styles/layout.css): tokens, shared controls, and page/navigation layout.

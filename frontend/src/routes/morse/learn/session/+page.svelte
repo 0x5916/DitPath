@@ -1,28 +1,38 @@
 <script lang="ts">
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { page } from '$app/state';
-  import { afterNavigate, goto } from '$app/navigation';
+  import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import { createWebAudioEngine } from '$lib/audio/engine';
-  import { openTrainingDb } from '$lib/data/training-db';
-  import { createAttemptRepository } from '$lib/data/attempt-repository';
-  import { createSessionRepository } from '$lib/data/session-repository';
-  import { GuidedSessionController } from '$lib/training/v2/session-controller.svelte';
-  import type { InputMode } from '$lib/training/v2/types';
-  import SessionShell from '$lib/components/learning/SessionShell.svelte';
-  import AudioPrompt from '$lib/components/learning/AudioPrompt.svelte';
-  import AnswerInput from '$lib/components/learning/AnswerInput.svelte';
-  import CharacterGrid from '$lib/components/learning/CharacterGrid.svelte';
-  import PromptFeedback from '$lib/components/learning/PromptFeedback.svelte';
-  import ContrastRepair from '$lib/components/learning/ContrastRepair.svelte';
-  import SessionResult from '$lib/components/learning/SessionResult.svelte';
-  import { acceptsSessionContinue } from '$lib/components/learning/keyboard';
-  import * as m from '$lib/paraglide/messages';
-  import { LESSONS } from '$lib/training/sequence';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { createWebAudioEngine } from '#lib/audio/engine.ts';
+  import { openTrainingDb } from '#lib/data/training-db.ts';
+  import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
+  import { createSessionRepository } from '#lib/data/session-repository.ts';
+  import { GuidedSessionController } from '#lib/training/v2/session-controller.svelte.ts';
+  import type { InputMode } from '#lib/training/v2/types.ts';
+  import SessionShell from '#lib/components/learning/SessionShell.svelte';
+  import AudioPrompt from '#lib/components/learning/AudioPrompt.svelte';
+  import AnswerInput from '#lib/components/learning/AnswerInput.svelte';
+  import CharacterGrid from '#lib/components/learning/CharacterGrid.svelte';
+  import PromptFeedback from '#lib/components/learning/PromptFeedback.svelte';
+  import ContrastRepair from '#lib/components/learning/ContrastRepair.svelte';
+  import SessionResult from '#lib/components/learning/SessionResult.svelte';
+  import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import { LESSONS } from '#lib/training/sequence.ts';
+  import { AlertCircle } from '@lucide/svelte';
+  import { saveBeforeSessionNavigation, type PendingSessionNavigation } from './navigation';
 
   let controller = $state<GuidedSessionController | null>(null);
-  let db = $state<IDBDatabase | null>(null);
+  let db: IDBDatabase | null = null;
+  let initializing = $state(true);
+  let initializationError = $state(false);
+  let leaving = $state(false);
+  let pendingAction = $state<'exit' | 'repeat' | 'next' | null>(null);
+  let pendingNavigation = $state.raw<PendingSessionNavigation | null>(null);
+  let bypassDestination: string | null = null;
+  let allowUnload = false;
+  let cancelHistoryRestore: (() => void) | null = null;
   let comparingContrast = $state(false);
   let onVisibility: (() => void) | null = null;
   let initialization = 0;
@@ -37,31 +47,51 @@
     return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, LESSONS.length) : 1;
   });
 
+  async function releaseSession(
+    ctrl: GuidedSessionController | null,
+    database: IDBDatabase | null
+  ) {
+    try {
+      if (ctrl) {
+        ctrl.abandon();
+        await ctrl.dispose();
+      }
+    } finally {
+      database?.close();
+    }
+  }
+
   async function startSession(requestedStep: number) {
     const generation = ++initialization;
     sessionStep = requestedStep;
-    if (controller && controller.phase !== 'complete') controller.abandon();
-    controller?.dispose();
+    const previousController = controller;
+    const previousDb = db;
     controller = null;
+    db = null;
+    initializing = true;
+    initializationError = false;
+    pendingAction = null;
+    pendingNavigation = null;
     comparingContrast = false;
+    let database: IDBDatabase | null = null;
     try {
-      const database = db ?? (await openTrainingDb());
+      await releaseSession(previousController, previousDb);
+      if (destroyed || generation !== initialization) return;
+      database = await openTrainingDb();
       if (destroyed || generation !== initialization) {
-        if (database !== db) database.close();
+        database.close();
         return;
       }
-      db = database;
-
       const attemptRepo = createAttemptRepository(database);
       const sessionRepo = createSessionRepository(database);
-
-      // Load recent attempts to provide historical context for scheduler and progression
       const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
         new Date(Date.now() - 30 * 86400000).toISOString(),
         new Date().toISOString()
       );
-      if (destroyed || generation !== initialization) return;
-
+      if (destroyed || generation !== initialization) {
+        database.close();
+        return;
+      }
       const ctrl = new GuidedSessionController({
         step: requestedStep,
         audioEngine: createWebAudioEngine(),
@@ -69,11 +99,17 @@
         sessionRepo,
         allHistoricalAttempts: recentAttempts
       });
-
       controller = ctrl;
+      db = database;
       await ctrl.start();
     } catch (err) {
-      console.error('Failed to initialize guided session:', err);
+      database?.close();
+      if (!destroyed && generation === initialization) {
+        initializationError = true;
+        console.error('Failed to initialize guided session:', err);
+      }
+    } finally {
+      if (!destroyed && generation === initialization) initializing = false;
     }
   }
 
@@ -84,31 +120,137 @@
   });
 
   afterNavigate(() => {
+    bypassDestination = null;
+    allowUnload = false;
     if (sessionStep !== null && sessionStep !== step) void startSession(step);
   });
 
   onDestroy(() => {
     destroyed = true;
     initialization += 1;
+    cancelHistoryRestore?.();
     if (onVisibility && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibility);
       onVisibility = null;
     }
-    if (controller) {
-      controller.dispose();
-      controller = null;
-    }
-    if (db) {
-      db.close();
-      db = null;
-    }
+    // Svelte cleanup is synchronous. This owned promise closes storage after queued writes settle.
+    void releaseSession(controller, db).catch((err) =>
+      console.error('Session cleanup failed:', err)
+    );
+    controller = null;
+    db = null;
   });
 
-  function handleExit() {
-    if (controller) {
-      controller.abandon();
+  function waitForHistoryRestore(sourceHref: string): Promise<void> {
+    if (window.location.href === sourceHref) return Promise.resolve();
+    return new Promise((resolve) => {
+      const finish = () => {
+        window.removeEventListener('popstate', onPop);
+        cancelHistoryRestore = null;
+        resolve();
+      };
+      const onPop = () => {
+        if (window.location.href === sourceHref) finish();
+      };
+      cancelHistoryRestore = finish;
+      window.addEventListener('popstate', onPop);
+    });
+  }
+
+  async function continueNavigation(navigation: PendingSessionNavigation, discard = false) {
+    if (leaving || !controller) return;
+    leaving = true;
+    try {
+      await saveBeforeSessionNavigation(controller, navigation, {
+        discard,
+        isActive: () => !destroyed
+      });
+    } finally {
+      leaving = false;
     }
-    void goto(localizedHref('/morse/learn'));
+  }
+
+  beforeNavigate((navigation) => {
+    if (allowUnload || (navigation.to && navigation.to.url.href === bypassDestination)) {
+      bypassDestination = null;
+      return;
+    }
+    const ctrl = controller;
+    if (!ctrl) return;
+    if (!navigation.to) {
+      // A tab close/reload cannot be replayed asynchronously; the browser owns this decision.
+      if (ctrl.persistenceStatus !== 'saved') navigation.cancel();
+      return;
+    }
+    const source = navigation.from?.url ?? page.url;
+    const target = navigation.to.url;
+    if (source.pathname === target.pathname && source.search === target.search) return;
+    if (ctrl.persistenceStatus === 'saved' && ['complete', 'abandoned'].includes(ctrl.phase))
+      return;
+    navigation.cancel();
+    if (leaving) return;
+    const delta = navigation.type === 'popstate' ? navigation.delta : null;
+    const destination = target.href;
+    const pending: PendingSessionNavigation = {
+      restored: delta === null ? Promise.resolve() : waitForHistoryRestore(source.href),
+      resume: () => {
+        bypassDestination = destination;
+        if (delta !== null) window.history.go(delta);
+        else if (navigation.willUnload) {
+          allowUnload = true;
+          window.location.assign(destination);
+        } else return goto(destination);
+      }
+    };
+    pendingAction = null;
+    pendingNavigation = pending;
+    void continueNavigation(pending);
+  });
+
+  async function leaveSession(action: 'exit' | 'repeat' | 'next', discard = false) {
+    if (leaving) return;
+    leaving = true;
+    pendingAction = action;
+    pendingNavigation = null;
+    const ctrl = controller;
+    const nextStep = (ctrl?.summary?.step ?? step) + 1;
+    try {
+      ctrl?.abandon();
+      if (!discard && ctrl && !(await ctrl.flushPersistence())) return;
+      if (destroyed) return;
+      await releaseSession(ctrl, db);
+      if (destroyed) return;
+      db = null;
+      if (action === 'repeat') await startSession(step);
+      else {
+        const destination = localizedHref(
+          action === 'next' ? `/morse/learn/session?step=${nextStep}` : '/morse/learn'
+        );
+        bypassDestination = new URL(destination, page.url.href).href;
+        await goto(destination);
+      }
+    } finally {
+      leaving = false;
+    }
+  }
+
+  async function retrySaving() {
+    if (await controller?.retryPersistence()) {
+      if (destroyed) return;
+      if (pendingNavigation) await continueNavigation(pendingNavigation);
+      else if (pendingAction) await leaveSession(pendingAction);
+    }
+  }
+
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (!allowUnload && controller && controller.persistenceStatus !== 'saved') {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
+  function handleExit() {
+    void leaveSession('exit');
   }
 
   function handlePauseToggle() {
@@ -143,29 +285,45 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (!controller || !acceptsSessionContinue(event, controller.phase)) return;
+    if (
+      leaving ||
+      pendingAction ||
+      pendingNavigation ||
+      !controller ||
+      !acceptsSessionContinue(event, controller.phase)
+    )
+      return;
     event.preventDefault();
     handleContinue();
   }
 
   function handleNextLesson() {
-    const nextStep = (controller?.summary?.step ?? step) + 1;
-    void goto(localizedHref(`/morse/learn/session?step=${nextStep}`));
+    void leaveSession('next');
   }
 
   function handleRepeatLesson() {
-    void startSession(step);
+    void leaveSession('repeat');
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
 <svelte:head>
-  <title>Lesson {step} · DitPath</title>
+  <title>{m.lesson_page_title({ step })}</title>
 </svelte:head>
 
-{#if !browser || !controller}
-  <div class="loading-stage">
+{#if initializationError}
+  <main class="loading-stage">
+    <div class="recovery-panel" role="alert">
+      <AlertCircle size={24} aria-hidden="true" />
+      <p>{m.lesson_initialization_error()}</p>
+      <button type="button" class="btn-primary" onclick={() => startSession(step)}
+        >{m.lesson_retry_start()}</button
+      >
+    </div>
+  </main>
+{:else if !browser || initializing || !controller}
+  <div class="loading-stage" role="status" aria-label={m.lesson_loading()}>
     <div class="skeleton loading-box"></div>
   </div>
 {:else}
@@ -173,22 +331,49 @@
     currentPromptIndex={controller.currentPromptIndex}
     totalPrompts={controller.totalPrompts}
     isPaused={controller.phase === 'paused'}
-    canPause={['introducing', 'ready', 'playing', 'answering', 'paused'].includes(controller.phase)}
+    canPause={!leaving &&
+      ['introducing', 'ready', 'playing', 'answering', 'paused'].includes(controller.phase)}
     onExit={handleExit}
     onExitRequest={handleExitRequest}
     onExitCancel={handleExitCancel}
     onPauseToggle={handlePauseToggle}
   >
+    {#if controller.persistenceStatus === 'failed'}
+      <div class="recovery-panel" role="alert">
+        <AlertCircle size={20} aria-hidden="true" />
+        <p>{m.lesson_save_failed()}</p>
+        <button type="button" class="btn-primary" disabled={leaving} onclick={retrySaving}
+          >{m.lesson_retry_save()}</button
+        >
+        {#if pendingAction || pendingNavigation}
+          <p>{m.lesson_save_discard_hint()}</p>
+          <button
+            type="button"
+            class="btn-ghost"
+            disabled={leaving}
+            onclick={() =>
+              pendingNavigation
+                ? continueNavigation(pendingNavigation, true)
+                : pendingAction && leaveSession(pendingAction, true)}
+            >{m.lesson_leave_unsaved()}</button
+          >
+        {/if}
+      </div>
+    {:else if controller.persistenceStatus === 'saving' && controller.phase !== 'complete'}
+      <p role="status">{m.lesson_saving()}</p>
+    {/if}
     {#if controller.phase === 'paused' && !resumeAfterExit}
       <div class="paused-banner">
-        <h2>Session Paused</h2>
+        <h2>{m.lesson_paused()}</h2>
         <button type="button" class="btn-primary" onclick={() => controller?.resume()}>
-          Resume session
+          {m.lesson_resume()}
         </button>
       </div>
     {:else if controller.phase === 'complete' && controller.summary}
       <SessionResult
         summary={controller.summary}
+        persistenceStatus={controller.persistenceStatus}
+        busy={leaving}
         onNextLesson={handleNextLesson}
         onRepeatLesson={handleRepeatLesson}
         onFinish={handleExit}
@@ -213,7 +398,7 @@
         onPlayExpected={() => controller?.playFeedback(controller.currentPrompt!.spec.expectedText)}
         onCompare={() => (comparingContrast = true)}
       />
-    {:else if controller.currentPrompt}
+    {:else if controller.currentPrompt && !['abandoned', 'idle'].includes(controller.phase)}
       <div class="prompt-stage">
         <AudioPrompt
           phase={controller.phase}
@@ -268,6 +453,28 @@
     align-items: center;
     justify-content: center;
     background-color: var(--bg-base);
+  }
+
+  .recovery-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    max-width: 28rem;
+    margin: var(--space-4) 0;
+    padding: var(--space-4);
+    border: 1px solid var(--status-bad);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    text-align: center;
+  }
+
+  .recovery-panel p {
+    margin: 0;
+  }
+  .recovery-panel button {
+    min-height: 3rem;
   }
 
   .loading-box {

@@ -1,14 +1,19 @@
 <script lang="ts">
-  import { calculateDuration, buildAudioPlan } from '$lib/training/timing';
-  import type { AudioPlan } from '$lib/training/timing';
-  import { createWebAudioEngine } from '$lib/audio/engine';
-  import type { AudioEngine } from '$lib/audio/engine';
-  import { formatClock } from '$lib/format';
+  import { calculateDuration } from '#lib/training/timing.ts';
+  import { createWebAudioEngine } from '#lib/audio/engine.ts';
+  import type { AudioEngine } from '#lib/audio/engine.ts';
+  import { formatClock } from '#lib/format.ts';
   import { onDestroy, untrack } from 'svelte';
-  import { Play, Square, Pause, SlidersHorizontal, SkipForward } from '@lucide/svelte';
-  import { user } from '$lib/auth';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import { Play, Square, Pause, SlidersHorizontal, SkipForward, CircleAlert } from '@lucide/svelte';
+  import {
+    createPlaybackController,
+    idlePlayback,
+    normalizePlaybackSettings,
+    type PlaybackSettings
+  } from '#lib/practice/playback.ts';
+  import { user } from '#lib/auth.ts';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     text?: string;
@@ -41,8 +46,8 @@
     charWpm = $bindable(20),
     effWpm = $bindable(12),
     freq = $bindable(600),
-    startDelay = 0,
-    volume = 1.0,
+    startDelay = $bindable(0),
+    volume = $bindable(1.0),
     playLabel = '',
     label = '',
     showSettings = false,
@@ -61,13 +66,22 @@
      playing, so the clock and the playhead always match the audio. The engine
      is created once for the component's lifetime. */
   const engine = untrack(() => createEngine());
-  let started = $state(false);
-  let paused = $state(false);
-  let progress = $state(0);
-  let timer = $state(0);
+  let playback = $state.raw(idlePlayback());
+  let started = $derived(playback.started);
+  let paused = $derived(playback.paused);
+  let progress = $derived(playback.progress);
+  let timer = $derived(playback.timer);
   let rafId = 0;
-  let activeText = $state('');
-  let activePlan = $state<AudioPlan | null>(null);
+  const transport = createPlaybackController({
+    engine,
+    getSettings: () => ({ charWpm, effWpm, freq, volume, startDelay }),
+    onChange: (state) => (playback = state),
+    onStart: (settings) => {
+      applySettings(settings);
+      onStart();
+    },
+    onEnded: () => onEnded()
+  });
   let settingsOpen = $state(false);
   let settingsEl = $state<HTMLDetailsElement | null>(null);
   let settingsPanelEl = $state<HTMLDivElement | null>(null);
@@ -289,7 +303,8 @@
       }
     }
     function onDocumentKeydown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.repeat || event.isComposing || event.keyCode === 229)
+        return;
       event.preventDefault();
       settingsOpen = false;
       settingsEl?.querySelector('summary')?.focus();
@@ -304,125 +319,45 @@
 
   /* The transport clock quotes the active playback exactly; while idle it
      previews the text at the current settings. */
-  let duration = $derived(
-    started && activePlan
-      ? activePlan.totalDuration + activePlan.startDelay
-      : calculateDuration(activeText, charWpm, effWpm) + startDelay
-  );
+  let settings = $derived(normalizePlaybackSettings({ charWpm, effWpm, freq, volume, startDelay }));
   let elapsedTime = $derived(Math.max(timer, 0));
-  let totalTime = $derived(Math.max(duration - startDelay, 0));
+  let totalTime = $derived(
+    playback.plan?.totalDuration ?? calculateDuration(text, settings.charWpm, settings.effWpm)
+  );
 
   $effect(() => {
-    if (!started) activeText = text;
+    const source = text;
+    untrack(() => transport.replaceText(source));
   });
 
-  /** Reset the local transport view; the engine has already released its audio. */
-  function resetTransport() {
-    cancelAnimationFrame(rafId);
-    started = false;
-    paused = false;
-    progress = 0;
-    timer = 0;
-    activePlan = null;
-  }
-
-  function tick() {
+  $effect(() => {
     if (!started) return;
-    const plan = activePlan;
-    const elapsed = engine.elapsed();
-    if (plan && elapsed > 0) {
-      timer = elapsed - plan.startDelay;
-      const total = plan.totalDuration + plan.startDelay;
-      progress = total > 0 ? Math.min(elapsed / total, 1) : 1;
-    }
+    const tick = () => {
+      transport.update();
+      rafId = requestAnimationFrame(tick);
+    };
     rafId = requestAnimationFrame(tick);
-  }
-
-  function startPlayback(sourceText: string) {
-    const plan = buildAudioPlan(sourceText, {
-      charWpm,
-      effWpm,
-      frequency: freq,
-      volume,
-      startDelay
-    });
-    activeText = sourceText;
-    activePlan = plan;
-    started = true;
-    paused = false;
-    timer = 0;
-    progress = 0;
-    engine.play(plan);
-    onStart();
-    cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(tick);
-  }
-
-  /* The engine owns the playback lifecycle; this subscription only mirrors it
-     into component state and tells the page when playback is over. */
-  const unsubscribeEnded = engine.subscribe((event) => {
-    if (event !== 'ended') return;
-    resetTransport();
-    onEnded();
+    return () => cancelAnimationFrame(rafId);
   });
 
-  async function togglePlayPause() {
-    if (!started) {
-      startPlayback(activeText);
-      return;
-    }
-    if (paused) {
-      await engine.resume();
-      paused = false;
-    } else {
-      await engine.pause();
-      paused = true;
-    }
+  function applySettings(next: PlaybackSettings) {
+    ({ charWpm, effWpm, freq, volume, startDelay } = next);
   }
 
-  /**
-   * Stop playback. A notified stop lets the engine's ended event drive the
-   * reset; a silent one (used when immediately replaying) resets locally.
-   */
-  async function stop(emitEnded = true) {
-    const wasActive = engine.isActive();
-    await engine.stop({ notify: emitEnded && wasActive });
-    if (!emitEnded || !wasActive) {
-      resetTransport();
-      if (emitEnded) onEnded();
-    }
-  }
-
-  async function skipNext() {
-    if (!started) return;
-
-    const source = activeText.toUpperCase();
-    if (!source) return;
-
-    const total = activePlan?.totalDuration ?? 0;
-    const ratio = total > 0 ? elapsedTime / total : 1;
-    const nextIndex = Math.min(source.length, Math.floor(ratio * source.length) + 1);
-    const remaining = source.slice(nextIndex);
-
-    if (!remaining) {
-      // Nothing left to skip to: end the playback properly so the page's
-      // transport state does not keep thinking a transmission is running.
-      await stop(true);
-      activeText = text;
-      return;
-    }
-
-    await stop(false);
-    startPlayback(remaining);
+  function commitSetting(key: keyof PlaybackSettings, event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const next = normalizePlaybackSettings({ ...settings, [key]: input.valueAsNumber });
+    applySettings(next);
+    input.value = String(next[key]);
+    onSettingsInput();
   }
 
   export async function playNow() {
-    if (!text) return;
-    startPlayback(text);
+    transport.play(text);
   }
 
   export async function stopNow() {
-    await stop(true);
+    await transport.stop();
   }
 
   export function isStarted() {
@@ -432,8 +367,7 @@
   onDestroy(() => {
     // `onDestroy` also runs during SSR teardown, where there is no rAF API.
     if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
-    unsubscribeEnded();
-    void engine.dispose();
+    void transport.dispose();
   });
 </script>
 
@@ -463,7 +397,7 @@
           <button
             type="button"
             class="btn-icon"
-            onclick={() => stop()}
+            onclick={() => transport.stop()}
             aria-label={m.player_stop()}
             title={m.player_stop()}
           >
@@ -477,7 +411,8 @@
             : playTone === 'quiet'
               ? 'btn-ghost player-play-btn'
               : 'btn-primary player-play-btn'}
-          onclick={togglePlayPause}
+          onclick={() => transport.toggle(text)}
+          disabled={playback.busy}
           aria-label={started && !paused ? m.player_pause() : effectivePlayLabel}
         >
           {#if started && !paused}
@@ -492,7 +427,7 @@
           <button
             type="button"
             class="btn-icon"
-            onclick={skipNext}
+            onclick={() => transport.skip()}
             aria-label={m.player_skip_next()}
             title={m.player_skip_next()}
           >
@@ -524,33 +459,33 @@
               <span class="label-text">{m.trainer_label_char_wpm()}</span>
               <input
                 type="number"
-                bind:value={charWpm}
+                value={charWpm}
                 min="5"
                 max="50"
                 class="input"
-                oninput={() => onSettingsInput()}
+                onchange={(event) => commitSetting('charWpm', event)}
               />
             </label>
             <label class="player-settings-field">
               <span class="label-text">{m.trainer_label_eff_wpm()}</span>
               <input
                 type="number"
-                bind:value={effWpm}
+                value={effWpm}
                 min="5"
-                max="50"
+                max={settings.charWpm}
                 class="input"
-                oninput={() => onSettingsInput()}
+                onchange={(event) => commitSetting('effWpm', event)}
               />
             </label>
             <label class="player-settings-field">
               <span class="label-text">{m.trainer_label_freq()}</span>
               <input
                 type="number"
-                bind:value={freq}
+                value={freq}
                 min="300"
                 max="2000"
                 class="input"
-                oninput={() => onSettingsInput()}
+                onchange={(event) => commitSetting('freq', event)}
               />
             </label>
             <label class="player-settings-field">
@@ -558,12 +493,12 @@
               <div class="player-volume-row">
                 <input
                   type="range"
-                  bind:value={volume}
+                  value={volume}
                   min="0"
                   max="1"
                   step="0.05"
                   class="player-volume-slider"
-                  oninput={() => onSettingsInput()}
+                  onchange={(event) => commitSetting('volume', event)}
                 />
                 <span class="player-volume-value">{Math.round(volume * 100)}%</span>
               </div>
@@ -572,12 +507,12 @@
               <span class="label-text">{m.trainer_label_start_delay()}</span>
               <input
                 type="number"
-                bind:value={startDelay}
+                value={startDelay}
                 min="0"
                 max="10"
                 step="0.5"
                 class="input"
-                oninput={() => onSettingsInput()}
+                onchange={(event) => commitSetting('startDelay', event)}
               />
             </label>
             {#if !$user}
@@ -590,14 +525,29 @@
       {/if}
     </div>
   </div>
+  {#if playback.failed}
+    <p class="player-error" role="alert">
+      <CircleAlert size={16} aria-hidden="true" />
+      {m.player_audio_error()}
+    </p>
+  {/if}
 </div>
 
 <style>
   .player-wrapper {
-    --player-control-height: 2.5rem;
+    --player-control-height: var(--answer-target-min, 3rem);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .player-error {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    color: var(--status-bad);
+    font-size: var(--text-sm);
   }
 
   /* Reads env(safe-area-inset-*) for the placement script; out of flow and
@@ -672,6 +622,11 @@
     row-gap: 0.35rem;
     flex: 1 1 auto;
     min-width: 0;
+  }
+
+  .player-media-controls button {
+    min-width: var(--player-control-height);
+    min-height: var(--player-control-height);
   }
 
   .player-inline-timer {
@@ -806,7 +761,7 @@
     .player-media-controls {
       flex: 1 1 auto;
       min-width: 0;
-      gap: 0.4rem;
+      gap: var(--space-2);
     }
 
     .player-inline-timer {

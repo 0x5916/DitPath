@@ -1,6 +1,6 @@
 import type { LayoutLoad } from './$types';
-import type { LocalePreference } from '$lib/locale';
-import { baseLocale, deLocalizeHref, locales, localizeHref } from '$lib/paraglide/runtime';
+import type { LocalePreference } from '#lib/locale.ts';
+import { baseLocale, deLocalizeHref, locales, localizeHref } from '#lib/paraglide/runtime.js';
 import {
   buildAbsoluteUrl,
   DEFAULT_OG_IMAGE_PATH,
@@ -9,7 +9,7 @@ import {
   normalizePathname,
   resolveSeoMetadata,
   SITE_NAME
-} from '$lib/seo';
+} from '#lib/seo.ts';
 
 // The whole app is prerendered at build time; there is no server at runtime.
 export const prerender = true;

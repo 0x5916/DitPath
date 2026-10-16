@@ -1,5 +1,6 @@
 <script lang="ts">
   import { acceptsSessionShortcut } from './keyboard';
+  import * as m from '#lib/paraglide/messages.js';
   interface Props {
     options: string[];
     disabled?: boolean;
@@ -20,14 +21,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="character-grid" role="group" aria-label="Character options">
+<div class="character-grid" role="group" aria-label={m.lesson_character_options()}>
   {#each options as option (option)}
     <button
       type="button"
       class="grid-cell"
       {disabled}
       onclick={() => onSelect(option)}
-      aria-label={`Select ${option}`}
+      aria-label={m.lesson_select_character({ character: option })}
     >
       <span class="grid-char">{option}</span>
     </button>
@@ -84,5 +85,15 @@
     font-size: 1.75rem;
     font-weight: 700;
     line-height: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .grid-cell {
+      transition: none;
+    }
+
+    .grid-cell:active:not(:disabled) {
+      transform: none;
+    }
   }
 </style>

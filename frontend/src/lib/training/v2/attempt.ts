@@ -7,7 +7,7 @@
  * - Audio replays do not mark answers incorrect.
  * - Negative latencies and impossible timestamps are rejected.
  * - Normalizes case and whitespace; supports punctuation symbols.
- * - The existing continuous-passage CER scorer in `$lib/score.ts` remains untouched.
+ * - The existing continuous-passage CER scorer in `#lib/score.ts` remains untouched.
  */
 
 import { createAttemptId } from './ids';

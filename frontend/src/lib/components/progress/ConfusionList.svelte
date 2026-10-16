@@ -1,79 +1,62 @@
 <script lang="ts">
-  import { SvelteSet } from 'svelte/reactivity';
   import type { ConfusionPair } from '../../training/v2/types';
-  import { RotateCcw, AlertTriangle } from '@lucide/svelte';
+  import { ArrowRight, AlertTriangle } from '@lucide/svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
-  interface Props {
+  let {
+    confusionPairs,
+    slowChars
+  }: {
     confusionPairs: ConfusionPair[];
     slowChars: string[];
-    onStartReview?: (characters: string[]) => void;
-  }
-
-  let { confusionPairs = [], slowChars = [], onStartReview = () => {} }: Props = $props();
-
+  } = $props();
   let hasItems = $derived(confusionPairs.length > 0 || slowChars.length > 0);
-
-  function handleReviewAll() {
-    const chars = new SvelteSet<string>();
-    for (const p of confusionPairs) {
-      chars.add(p.expected);
-      chars.add(p.actual);
-    }
-    for (const c of slowChars) {
-      chars.add(c);
-    }
-    onStartReview(Array.from(chars));
-  }
 </script>
 
-<div class="confusion-card" role="region" aria-label="Acoustic confusion diagnostics">
+<div class="confusion-card" role="region" aria-label={m.progress_diagnostics_label()}>
   <div class="card-head">
     <div class="head-title-row">
-      <span class="text-ok">
-        <AlertTriangle size={18} />
-      </span>
-      <h3 class="card-title">Needs Attention</h3>
+      <span class="text-ok"><AlertTriangle size={18} aria-hidden="true" /></span>
+      <h3 class="card-title">{m.progress_attention()}</h3>
     </div>
-    <p class="card-desc">
-      Characters with recurring acoustic confusions or slower recognition latencies.
-    </p>
+    <p class="card-desc">{m.progress_diagnostics_description()}</p>
   </div>
 
   {#if !hasItems}
-    <p class="clean-note">No recurring confusion patterns detected. Great listening!</p>
+    <p class="clean-note">{m.progress_no_patterns()}</p>
   {:else}
     <div class="diagnostic-lists">
       {#if confusionPairs.length > 0}
         <div class="sub-list">
-          <span class="sub-list-title">Acoustic confusions:</span>
+          <span class="sub-list-title">{m.progress_confusions()}</span>
           <div class="pair-rows">
             {#each confusionPairs as pair (`${pair.expected}-${pair.actual}`)}
               <div class="pair-row">
-                <span class="pair-symbols">{pair.expected} ↔ {pair.actual}</span>
-                <span class="pair-count">{pair.confusionCount} confusions</span>
+                <span class="pair-symbols">{pair.expected} → {pair.actual}</span>
+                <span class="pair-count"
+                  >{m.progress_confusion_count({ count: pair.confusionCount })}</span
+                >
               </div>
             {/each}
           </div>
         </div>
       {/if}
-
       {#if slowChars.length > 0}
         <div class="sub-list">
-          <span class="sub-list-title">Slow recognition (>2.0s):</span>
+          <span class="sub-list-title">{m.progress_slow()}</span>
           <div class="slow-chips">
-            {#each slowChars as ch (ch)}
-              <span class="slow-chip">{ch}</span>
-            {/each}
+            {#each slowChars as character (character)}<span class="slow-chip">{character}</span
+              >{/each}
           </div>
         </div>
       {/if}
     </div>
-
     <div class="card-action">
-      <button type="button" class="btn-primary review-btn" onclick={handleReviewAll}>
-        <RotateCcw size={16} />
-        <span>Review weak characters</span>
-      </button>
+      <a class="btn-primary review-btn" href={localizedHref('/morse/practice')}>
+        <ArrowRight size={16} aria-hidden="true" />
+        <span>{m.progress_open_practice()}</span>
+      </a>
     </div>
   {/if}
 </div>

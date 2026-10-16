@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,14 +16,15 @@ import (
 )
 
 func main() {
-	if configs.GetGinMode() != "release" {
-		if err := godotenv.Load(".env"); err != nil {
-			slog.Error("Failed to load environment variables", "err", err)
-			os.Exit(1)
-		}
+	if err := loadEnvironment(configs.GetGinMode(), ".env"); err != nil {
+		slog.Error("Failed to load environment variables", "err", err)
+		os.Exit(1)
 	}
 	configs.Load()
-	databases.Connect()
+	if err := databases.Connect(); err != nil {
+		slog.Error("Failed to initialize database", "err", err)
+		os.Exit(1)
+	}
 
 	r := gin.Default()
 
@@ -57,4 +59,14 @@ func main() {
 	}
 
 	server.GracefulShutdown(srv)
+}
+
+func loadEnvironment(mode, filename string) error {
+	if mode == "release" {
+		return nil
+	}
+	if err := godotenv.Load(filename); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }

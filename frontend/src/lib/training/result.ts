@@ -2,7 +2,7 @@
  * A completed, assessed attempt and the port through which it is recorded.
  *
  * The trainer records results through a `ResultRecorder`; the browser adapter
- * lives in `$lib/progressSync`, and tests use a fake. Abandoned attempts are
+ * lives in `#lib/progressSync`, and tests use a fake. Abandoned attempts are
  * simply never turned into an `AttemptResult`.
  */
 

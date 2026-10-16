@@ -1,12 +1,17 @@
 <script lang="ts">
-  import { login, user } from '$lib/auth';
-  import { localizeApiError } from '$lib/errorLocalization';
+  import { onDestroy } from 'svelte';
+  import { createSessionScope } from '#lib/session-scope.ts';
+  import { login, user, AuthStorageError, isAuthSessionCurrent } from '#lib/auth.ts';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
-  import AuthCard from '$lib/components/AuthCard.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import PasswordInput from '$lib/components/PasswordInput.svelte';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import AuthCard from '#lib/components/AuthCard.svelte';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import PasswordInput from '#lib/components/PasswordInput.svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
+
+  const scope = createSessionScope();
+  onDestroy(scope.dispose);
 
   let username = $state('');
   let password = $state('');
@@ -17,21 +22,30 @@
   // showing a login form for an account they're already in.
   $effect(() => {
     if ($user) {
-      void goto(localizedHref('/'), { replaceState: true });
+      void goto(localizedHref('/'), { replace: true });
     }
   });
 
   async function handleLogin(e: SubmitEvent) {
     e.preventDefault();
+    if (loading) return;
+    let current = scope.begin();
     err = '';
     loading = true;
     try {
       await login(username, password);
-      await goto(localizedHref('/'));
     } catch (error) {
+      if (
+        error instanceof AuthStorageError &&
+        error.session &&
+        isAuthSessionCurrent(error.session)
+      ) {
+        current = scope.capture();
+      }
+      if (!current() || (error instanceof Error && error.name === 'AbortError')) return;
       err = localizeApiError(error, () => m.login_error_unknown());
     } finally {
-      loading = false;
+      if (current()) loading = false;
     }
   }
 </script>

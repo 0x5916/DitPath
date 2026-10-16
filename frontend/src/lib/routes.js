@@ -1,4 +1,4 @@
-// The one route list. The prerender entries in `svelte.config.js` and the
+// The one route list. The prerender entries in `scripts/kit-options.js` and the
 // SEO/sitemap code both read it from here, so adding a route cannot leave one
 // of them behind.
 

@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { user } from '$lib/auth';
+  import { onDestroy, onMount, untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
+  import { getAuthSession, user } from '#lib/auth.ts';
+  import { createSessionScope } from '#lib/session-scope.ts';
   import {
     saveCWSettings,
     getUserInfo,
@@ -11,15 +13,15 @@
     updatePassword,
     savePageSettings,
     type PageSettings
-  } from '$lib/api';
-  import { langPreference, setLangPreference } from '$lib/i18n.svelte';
-  import { locales } from '$lib/paraglide/runtime';
+  } from '#lib/api.ts';
+  import { langPreference, setLangPreference } from '#lib/i18n.svelte.ts';
+  import { locales } from '#lib/paraglide/runtime.js';
   import {
     getLocaleLongLabel,
     normalizeLocalePreference,
     type LocalePreference
-  } from '$lib/locale';
-  import { LESSONS } from '$lib/morse';
+  } from '#lib/locale.ts';
+  import { LESSONS } from '#lib/morse.ts';
   import {
     applyClientPageSettings,
     applyPageLanguagePreference,
@@ -29,17 +31,17 @@
     readStoredLesson,
     restoreSettingsFromServer,
     saveClientCwSettings
-  } from '$lib/cwSync';
-  import { localizeApiError } from '$lib/errorLocalization';
-  import { createWebAudioEngine, type AudioEngine } from '$lib/audio/engine';
-  import { buildAudioPlan } from '$lib/training/timing';
-  import { deleteTrainingDb } from '$lib/data/training-db';
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import SaveButton from '$lib/components/SaveButton.svelte';
+  } from '#lib/cwSync.ts';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
+  import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
+  import { buildAudioPlan } from '#lib/training/timing.ts';
+  import { deleteTrainingDb } from '#lib/data/training-db.ts';
+  import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import SaveButton from '#lib/components/SaveButton.svelte';
   import { Volume2, Trash2 } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   // Account section
   let username = $state('');
@@ -93,10 +95,30 @@
 
   let loading = $state(true);
   let loadError = $state('');
-  let lastAuthLoaded = $state<boolean | null>(null);
+  let lastAuthLoaded: string | null = null;
+  const sessionScope = createSessionScope();
+  const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
+  let destroyed = false;
+  onDestroy(() => {
+    destroyed = true;
+    sessionScope.dispose();
+    for (const timer of timers) clearTimeout(timer);
+  });
+
+  function later(callback: () => void, delay: number): void {
+    const current = sessionScope.capture();
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      if (current()) callback();
+    }, delay);
+    timers.add(timer);
+  }
 
   let confirmClearOpen = $state(false);
   let clearSuccess = $state(false);
+  let clearing = $state(false);
+  let clearBlocked = $state(false);
+  let clearError = $state('');
 
   let toneAudio: AudioEngine | null = null;
   const canTestTone = $derived(
@@ -134,13 +156,26 @@
   }
 
   async function handleClearLocalData() {
+    if (clearing) return;
+    clearing = true;
+    clearSuccess = false;
+    clearBlocked = false;
+    clearError = '';
     try {
-      await deleteTrainingDb();
+      await deleteTrainingDb(undefined, () => {
+        if (!destroyed) clearBlocked = true;
+      });
+      if (destroyed) return;
       confirmClearOpen = false;
       clearSuccess = true;
-      setTimeout(() => (clearSuccess = false), 3000);
-    } catch (err) {
-      console.error('Failed to clear local training data:', err);
+      later(() => (clearSuccess = false), 3000);
+    } catch {
+      if (!destroyed) clearError = m.settings_data_error();
+    } finally {
+      if (!destroyed) {
+        clearing = false;
+        clearBlocked = false;
+      }
     }
   }
 
@@ -158,11 +193,10 @@
   );
 
   $effect(() => {
-    const isAuthenticated = Boolean($user);
-    if (lastAuthLoaded === isAuthenticated) return;
-
-    lastAuthLoaded = isAuthenticated;
-    loadAll();
+    const identity = JSON.stringify([getAuthSession().generation, $user?.username ?? null]);
+    if (lastAuthLoaded === identity) return;
+    lastAuthLoaded = identity;
+    untrack(() => void loadAll());
   });
 
   function applyCwState(cw: {
@@ -197,10 +231,29 @@
 
   function showSavedFlag(setter: (value: boolean) => void, durationMs: number = 3000) {
     setter(true);
-    setTimeout(() => setter(false), durationMs);
+    later(() => setter(false), durationMs);
   }
 
   async function loadAll() {
+    const current = sessionScope.begin();
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+    username = '';
+    callSign = '';
+    initialCallSign = '';
+    email = '';
+    initialEmail = '';
+    emailVerified = false;
+    currentPassword = '';
+    newPassword = '';
+    confirmPassword = '';
+    callSignSaving = emailSaving = passwordSaving = pageSaving = cwSaving = false;
+    callSignSaved = emailSaved = passwordSaved = pageSaved = cwSaved = false;
+    callSignError = emailError = passwordError = pageError = cwError = '';
+    verificationSendLoading = verificationCheckLoading = false;
+    resetEmailVerificationState();
+    if (!clearing) confirmClearOpen = false;
+    clearSuccess = false;
     loading = true;
     loadError = '';
 
@@ -221,6 +274,7 @@
 
     try {
       const [info, settings] = await Promise.all([getUserInfo(), restoreSettingsFromServer()]);
+      if (!current()) return;
       const { cw, page } = settings;
       username = info.username;
       callSign = (info.call_sign ?? '').trim().toUpperCase();
@@ -232,29 +286,35 @@
       applyCwState(cw);
       applyPageState(page);
     } catch (e) {
+      if (!current()) return;
       loadError = localizeApiError(e, () => m.settings_load_error());
     } finally {
-      loading = false;
+      if (current()) loading = false;
     }
   }
 
   async function saveCallSign(e: SubmitEvent) {
+    const current = sessionScope.capture();
     e.preventDefault();
-    if (!callSignDirty) return;
+    if (!callSignDirty || callSignSaving) return;
+    const submitted = callSign.trim().toUpperCase();
     callSignSaving = true;
     callSignError = '';
     callSignSaved = false;
     try {
-      await updateCallSign(callSign.trim().toUpperCase());
-      callSign = callSign.trim().toUpperCase();
-      initialCallSign = callSign;
+      await updateCallSign(submitted);
+      if (!current()) return;
+      initialCallSign = submitted;
+      if (callSign.trim().toUpperCase() !== submitted) return;
+      callSign = submitted;
       showSavedFlag((value) => {
         callSignSaved = value;
       });
     } catch (err) {
+      if (!current()) return;
       callSignError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      callSignSaving = false;
+      if (current()) callSignSaving = false;
     }
   }
 
@@ -267,27 +327,36 @@
   }
 
   async function saveEmail(e: SubmitEvent) {
+    const current = sessionScope.capture();
     e.preventDefault();
-    if (!emailDirty) return;
+    if (!emailDirty || emailSaving || verificationSendLoading || verificationCheckLoading) return;
+    const submitted = email.trim();
     emailSaving = true;
     emailError = '';
     emailSaved = false;
     try {
-      await updateEmail(email);
-      initialEmail = email;
+      await updateEmail(submitted);
+      if (!current()) return;
+      initialEmail = submitted;
       emailVerified = false;
       resetEmailVerificationState();
+      if (email.trim() !== submitted) return;
+      email = submitted;
       showSavedFlag((value) => {
         emailSaved = value;
       });
     } catch (err) {
+      if (!current()) return;
       emailError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      emailSaving = false;
+      if (current()) emailSaving = false;
     }
   }
 
   async function requestEmailVerificationCode() {
+    const current = sessionScope.capture();
+    if (emailSaving || verificationSendLoading || verificationCheckLoading) return;
+    const submittedEmail = initialEmail;
     if (emailDirty) {
       verificationSendError = m.settings_email_verify_save_email_first();
       return;
@@ -304,17 +373,23 @@
 
     try {
       await sendVerificationEmail();
+      if (!current()) return;
+      if (emailDirty || initialEmail !== submittedEmail) return;
       verificationSent = true;
-      setTimeout(() => (verificationSent = false), 8000);
+      later(() => (verificationSent = false), 8000);
     } catch (err) {
+      if (!current()) return;
       verificationSendError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      verificationSendLoading = false;
+      if (current()) verificationSendLoading = false;
     }
   }
 
   async function submitEmailVerification(e: SubmitEvent) {
     e.preventDefault();
+    const current = sessionScope.capture();
+    if (emailSaving || verificationSendLoading || verificationCheckLoading) return;
+    const submittedEmail = initialEmail;
 
     if (emailDirty) {
       verificationCheckError = m.settings_email_verify_save_email_first();
@@ -333,21 +408,24 @@
 
     try {
       await verifyEmail(code);
+      if (!current() || emailDirty || initialEmail !== submittedEmail) return;
       emailVerified = true;
       verificationCode = '';
       verificationSent = false;
       verificationSuccess = true;
-      setTimeout(() => (verificationSuccess = false), 5000);
+      later(() => (verificationSuccess = false), 5000);
     } catch (err) {
+      if (!current()) return;
       verificationCheckError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      verificationCheckLoading = false;
+      if (current()) verificationCheckLoading = false;
     }
   }
 
   async function saveCW(e: SubmitEvent) {
+    const current = sessionScope.capture();
     e.preventDefault();
-    if (!cwDirty) return;
+    if (!cwDirty || cwSaving) return;
     cwSaving = true;
     cwError = '';
     cwSaved = false;
@@ -366,25 +444,35 @@
 
       if ($user) {
         await saveCWSettings(normalized);
+        if (!current()) return;
       }
 
       initialCharWpm = normalized.char_wpm;
       initialEffWpm = normalized.eff_wpm;
       initialFreq = normalized.freq;
       initialStartDelay = normalized.start_delay;
+      if (
+        charWpm !== normalized.char_wpm ||
+        effWpm !== normalized.eff_wpm ||
+        freq !== normalized.freq ||
+        startDelay !== normalized.start_delay
+      )
+        return;
       showSavedFlag((value) => {
         cwSaved = value;
       });
     } catch (err) {
+      if (!current()) return;
       cwError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      cwSaving = false;
+      if (current()) cwSaving = false;
     }
   }
 
   async function savePassword(e: SubmitEvent) {
+    const current = sessionScope.capture();
     e.preventDefault();
-    if (!passwordDirty) return;
+    if (!passwordDirty || passwordSaving) return;
     passwordSaving = true;
     passwordError = '';
     passwordSaved = false;
@@ -403,6 +491,7 @@
 
     try {
       await updatePassword(currentPassword, newPassword);
+      if (!current()) return;
       currentPassword = '';
       newPassword = '';
       confirmPassword = '';
@@ -410,15 +499,17 @@
         passwordSaved = value;
       });
     } catch (err) {
+      if (!current()) return;
       passwordError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      passwordSaving = false;
+      if (current()) passwordSaving = false;
     }
   }
 
   async function savePage(e: SubmitEvent) {
+    const current = sessionScope.capture();
     e.preventDefault();
-    if (!pageDirty) return;
+    if (!pageDirty || pageSaving) return;
     pageSaving = true;
     pageError = '';
     pageSaved = false;
@@ -432,17 +523,22 @@
 
       if ($user) {
         await savePageSettings(pagePayload);
+        if (!current()) return;
       }
 
-      applyClientPageSettings(pagePayload, LESSONS.length, setLangPreference);
-      initialPageLesson = pageLesson;
+      applyClientPageSettings(pagePayload, LESSONS.length, setLangPreference, {
+        applyLanguage: false
+      });
+      initialPageLesson = pagePayload.cur_lesson;
+      if (pageLesson !== pagePayload.cur_lesson) return;
       showSavedFlag((value) => {
         pageSaved = value;
       });
     } catch (err) {
+      if (!current()) return;
       pageError = localizeApiError(err, () => m.settings_save_error());
     } finally {
-      pageSaving = false;
+      if (current()) pageSaving = false;
     }
   }
 </script>
@@ -456,6 +552,9 @@
     <LoadingSpinner />
   {:else if loadError}
     <ErrorAlert message={loadError} />
+    <button type="button" class="btn-ghost" onclick={() => void loadAll()}
+      >{m.common_retry()}</button
+    >
   {:else}
     {#if !$user}
       <div class="notice">
@@ -582,6 +681,7 @@
             <input
               type="password"
               bind:value={currentPassword}
+              disabled={passwordSaving}
               class="input"
               minlength="8"
               autocomplete="current-password"
@@ -593,6 +693,7 @@
             <input
               type="password"
               bind:value={newPassword}
+              disabled={passwordSaving}
               class="input"
               minlength="8"
               autocomplete="new-password"
@@ -604,6 +705,7 @@
             <input
               type="password"
               bind:value={confirmPassword}
+              disabled={passwordSaving}
               class="input"
               minlength="8"
               autocomplete="new-password"
@@ -707,40 +809,61 @@
 
     <!-- Data Management -->
     <section class="panel panel--ledger">
-      <h2 class="card-title">Data Management</h2>
+      <h2 class="card-title">{m.settings_data_title()}</h2>
       <div class="settings-form">
-        <p class="field-hint">
-          Manage local training attempts, session histories, and offline caches saved in your
-          browser.
-        </p>
+        <p class="field-hint">{m.settings_data_description()}</p>
 
         <div class="data-actions-row">
           <button
             type="button"
             class="btn-ghost text-danger"
-            onclick={() => (confirmClearOpen = true)}
+            disabled={clearing}
+            aria-expanded={confirmClearOpen}
+            aria-controls="confirm-clear-data"
+            onclick={() => {
+              clearError = '';
+              confirmClearOpen = true;
+            }}
           >
             <Trash2 size={16} />
-            <span>Clear local session data</span>
+            <span>{m.settings_data_clear()}</span>
           </button>
           {#if clearSuccess}
-            <span class="clear-success-label">Local training data cleared</span>
+            <span class="clear-success-label" role="status">{m.settings_data_cleared()}</span>
           {/if}
         </div>
 
         {#if confirmClearOpen}
-          <div class="confirm-clear-box" role="alertdialog" aria-labelledby="confirm-clear-title">
-            <p id="confirm-clear-title" class="confirm-clear-text">
-              Are you sure? This will delete all locally stored DitPath attempts and session records
-              from this browser. Your server account credentials and cloud profile will remain
-              intact.
-            </p>
+          <div
+            id="confirm-clear-data"
+            class="confirm-clear-box"
+            role="group"
+            aria-labelledby="confirm-clear-title"
+            aria-busy={clearing}
+          >
+            <p id="confirm-clear-title" class="confirm-clear-text">{m.settings_data_confirm()}</p>
+            {#if clearBlocked}
+              <p class="field-hint" role="status">{m.settings_data_waiting()}</p>
+            {/if}
+            {#if clearError}
+              <ErrorAlert message={clearError} />
+            {/if}
             <div class="confirm-actions">
-              <button type="button" class="btn-primary" onclick={handleClearLocalData}>
-                Confirm deletion
+              <button
+                type="button"
+                class="btn-primary"
+                disabled={clearing}
+                onclick={handleClearLocalData}
+              >
+                {clearing ? m.common_loading() : m.settings_data_delete()}
               </button>
-              <button type="button" class="btn-ghost" onclick={() => (confirmClearOpen = false)}>
-                Cancel
+              <button
+                type="button"
+                class="btn-ghost"
+                disabled={clearing}
+                onclick={() => (confirmClearOpen = false)}
+              >
+                {m.forum_cancel()}
               </button>
             </div>
           </div>

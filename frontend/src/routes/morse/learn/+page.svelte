@@ -2,24 +2,25 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import { LESSONS } from '$lib/training/sequence';
-  import { openTrainingDb } from '$lib/data/training-db';
-  import { createSessionRepository, type SessionRepository } from '$lib/data/session-repository';
-  import { createAttemptRepository } from '$lib/data/attempt-repository';
-  import { migrateLegacyLocalStorage } from '$lib/data/legacy-migration';
-  import { getMasteryBlockers, reduceCharacterMastery } from '$lib/training/v2/mastery';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
+  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
+  import { createSessionRepository, type SessionRepository } from '#lib/data/session-repository.ts';
+  import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
+  import { migrateLegacyLocalStorage } from '#lib/data/legacy-migration.ts';
+  import { getMasteryBlockers } from '#lib/training/v2/mastery.ts';
+  import { deriveCourseGuidance } from '#lib/training/v2/course-guidance.ts';
   import {
     DEFAULT_MASTERY_POLICY as policy,
     type CharacterMastery,
     type TrainingSessionRecord
-  } from '$lib/training/v2/types';
-  import LearnHero, { type HeroStateKind } from '$lib/components/learning/LearnHero.svelte';
-  import CoursePath from '$lib/components/learning/CoursePath.svelte';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import { user } from '$lib/auth';
+  } from '#lib/training/v2/types.ts';
+  import LearnHero, { type HeroStateKind } from '#lib/components/learning/LearnHero.svelte';
+  import CoursePath from '#lib/components/learning/CoursePath.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import { user } from '#lib/auth.ts';
   import { Dumbbell } from '@lucide/svelte';
-  import * as m from '$lib/paraglide/messages';
+  import * as m from '#lib/paraglide/messages.js';
 
   let loading = $state(true);
   let errorMsg = $state('');
@@ -29,6 +30,10 @@
   let masteryMap = $state<Map<string, CharacterMastery>>(new Map());
   let reviewChars = $state<string[]>([]);
   let hasAttempts = $state(false);
+  let courseComplete = $state(false);
+  let mounted = false;
+  let loadVersion = 0;
+  let activeDb: IDBDatabase | null = null;
   let sessionRepo: SessionRepository | null = null;
   let sessionActionPending = $state(false);
   let sessionActionError = $state('');
@@ -38,7 +43,7 @@
     if (errorMsg) return 'error';
     if (inProgressSession) return 'resume';
     if (reviewChars.length > 0) return 'review-due';
-    if (currentStep >= LESSONS.length) return 'complete';
+    if (courseComplete) return 'complete';
     if (currentStep === 1 && !hasAttempts) return 'new';
     return 'next';
   });
@@ -53,66 +58,61 @@
     })
   );
 
-  onMount(async () => {
+  async function loadLessons() {
+    const version = ++loadVersion;
+    loading = true;
+    errorMsg = '';
+    let db: IDBDatabase | null = null;
+    let initialized = false;
     try {
-      const db = await openTrainingDb();
-
-      // 1. Run safe legacy local storage migration if not already done
+      db = await openTrainingDb();
+      if (!mounted || version !== loadVersion) return;
+      activeDb = db;
       const migration = await migrateLegacyLocalStorage(db);
-      if (migration.suggestedStep > 1) {
-        suggestedStep = migration.suggestedStep;
-      }
-
-      sessionRepo = createSessionRepository(db);
+      if (!mounted || version !== loadVersion) return;
+      const repository = createSessionRepository(db);
       const attemptRepo = createAttemptRepository(db);
-
-      // 2. Check for active/interrupted session
-      inProgressSession = await sessionRepo.getLatestInProgressSession();
-
-      // 3. Query historical attempts to derive character masteries
-      const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
-        new Date(Date.now() - 60 * 86400000).toISOString(),
-        new Date().toISOString()
-      );
-      hasAttempts = recentAttempts.length > 0;
-
-      const map = new SvelteMap<string, CharacterMastery>();
-      const needReview: string[] = [];
-
-      let maxUnlocked = 1;
-
-      for (let s = 1; s <= LESSONS.length; s++) {
-        const chars = LESSONS[s - 1].split('');
-        let allStable = true;
-
-        for (const ch of chars) {
-          const charMastery = reduceCharacterMastery(ch, recentAttempts);
-          map.set(ch, charMastery);
-
-          if (charMastery.status === 'review') {
-            needReview.push(ch);
-          }
-          if (charMastery.status !== 'stable') {
-            allStable = false;
-          }
-        }
-
-        if (allStable && s < LESSONS.length) {
-          maxUnlocked = s + 1;
-        } else if (!allStable) {
-          break;
-        }
+      const now = Date.now();
+      const nowIso = new Date(now).toISOString();
+      const [unfinished, recentAttempts, attemptCount] = await Promise.all([
+        repository.getLatestInProgressSession(),
+        attemptRepo.getAttemptsByTimeRange(new Date(now - 60 * 86400000).toISOString(), nowIso),
+        attemptRepo.countAttempts()
+      ]);
+      if (!mounted || version !== loadVersion) return;
+      const guidance = deriveCourseGuidance(recentAttempts, nowIso);
+      currentStep = guidance.currentStep;
+      masteryMap = new SvelteMap(guidance.masteryMap);
+      reviewChars = guidance.reviewChars;
+      courseComplete = guidance.courseComplete;
+      hasAttempts = attemptCount > 0;
+      inProgressSession = unfinished;
+      suggestedStep = migration.suggestedStep > 1 ? migration.suggestedStep : undefined;
+      sessionRepo = repository;
+      initialized = true;
+    } catch (error) {
+      if (mounted && version === loadVersion) {
+        console.error('Failed to load Learn home data:', error);
+        errorMsg = m.learn_data_error_description();
       }
-
-      currentStep = maxUnlocked;
-      masteryMap = map;
-      reviewChars = needReview;
-      loading = false;
-    } catch (err) {
-      console.error('Failed to load Learn home data:', err);
-      errorMsg = err instanceof Error ? err.message : 'Storage initialization failed';
-      loading = false;
+    } finally {
+      if (!initialized && db) {
+        closeTrainingDb(db);
+        if (activeDb === db) activeDb = null;
+      }
+      if (mounted && version === loadVersion) loading = false;
     }
+  }
+
+  onMount(() => {
+    mounted = true;
+    void loadLessons();
+    return () => {
+      mounted = false;
+      loadVersion++;
+      sessionRepo = null;
+      if (activeDb) closeTrainingDb(activeDb);
+    };
   });
 
   function handleStartLesson(step: number) {
@@ -136,13 +136,14 @@
         'abandoned',
         new Date().toISOString()
       );
+      if (!mounted) return false;
       inProgressSession = null;
       return true;
     } catch {
-      sessionActionError = m.learn_session_update_error();
+      if (mounted) sessionActionError = m.learn_session_update_error();
       return false;
     } finally {
-      sessionActionPending = false;
+      if (mounted) sessionActionPending = false;
     }
   }
 </script>
@@ -170,6 +171,9 @@
       onResume={handleResumeSession}
       onDiscardResume={handleDiscardResume}
     />
+    {#if errorMsg}
+      <button type="button" class="btn-primary" onclick={loadLessons}>{m.progress_retry()}</button>
+    {/if}
     {#if sessionActionError}<p role="alert">{sessionActionError}</p>{/if}
 
     {#if !loading && !errorMsg && (hasAttempts || inProgressSession) && masteryChecks.length > 0}

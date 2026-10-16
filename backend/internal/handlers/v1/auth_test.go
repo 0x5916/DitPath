@@ -51,7 +51,7 @@ func TestRefreshConcurrentSingleUse(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	raw, _, err := utils.IssueTokenPair(db, user.ID, time.Now())
+	raw, _, err := utils.IssueTokenPair(db, user.ID, user.Password, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestRefreshConcurrentSingleUse(t *testing.T) {
 	ready := make(chan struct{}, workers)
 	release := make(chan struct{})
 	if err := db.Callback().Query().After("gorm:query").Register("test:refresh-barrier", func(tx *gorm.DB) {
-		if tx.Statement.Table == "refresh_tokens" {
+		if tx.Statement.Table == "refresh_tokens" && len(tx.Statement.Selects) == 1 && tx.Statement.Selects[0] == "user_id" {
 			ready <- struct{}{}
 			<-release
 		}

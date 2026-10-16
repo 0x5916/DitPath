@@ -1,18 +1,28 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { user } from '$lib/auth';
-  import { getUserInfo, getCWSettings, getProgress } from '$lib/api';
-  import type { ProgressRecord } from '$lib/api';
-  import { readClientCwSettings } from '$lib/cwSync';
-  import { getLocalProgressRecords } from '$lib/progressSync';
+  import { onDestroy, onMount, untrack } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
+  import { getAuthSession, user } from '#lib/auth.ts';
+  import { createSessionScope } from '#lib/session-scope.ts';
+  import { getUserInfo, getCWSettings, getProgressSummary } from '#lib/api.ts';
+  import type { ProgressRecord, ProgressDay } from '#lib/api.ts';
+  import { readClientCwSettings } from '#lib/cwSync.ts';
+  import { getLocalProgressRecords } from '#lib/progressSync.ts';
   import { Calendar, Check, X } from '@lucide/svelte';
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-  import ErrorAlert from '$lib/components/ErrorAlert.svelte';
-  import GuestNotice from '$lib/components/GuestNotice.svelte';
-  import { localizeApiError } from '$lib/errorLocalization';
-  import { accuracyClass, formatDate, formatLesson, percentage } from '$lib/format';
-  import { localizedHref } from '$lib/i18n.svelte';
-  import * as m from '$lib/paraglide/messages';
+  import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
+  import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import { localizeApiError } from '#lib/errorLocalization.ts';
+  import { accuracyClass, formatDate, formatLesson, percentage } from '#lib/format.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import { getLocale } from '#lib/paraglide/runtime.js';
+
+  const loadScope = createSessionScope();
+  const yearScope = createSessionScope();
+  onDestroy(() => {
+    loadScope.dispose();
+    yearScope.dispose();
+  });
 
   let loading = $state(true);
   let loadError = $state('');
@@ -28,8 +38,13 @@
   let effWpm = $state(0);
   let freq = $state(0);
   let records = $state<ProgressRecord[]>([]);
+  let progressDays = $state<ProgressDay[] | null>(null);
+  let yearLoading = $state(false);
+  let yearError = $state('');
+  let loadToken = 0;
+  let yearToken = 0;
   let heatmapScrollEl = $state<HTMLDivElement | null>(null);
-  let lastAuthLoaded = $state<boolean | null>(null);
+  let lastAuthLoaded = $state<string | null | undefined>(undefined);
 
   // Locale-dependent, so it is derived on the component instance: a
   // module-level constant would not be re-evaluated when the language changes.
@@ -44,16 +59,21 @@
   ]);
   const CURRENT_YEAR = new Date().getFullYear();
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: 'short' });
+  const MONTH_FORMATTER = $derived(
+    new Intl.DateTimeFormat(getLocale(), { month: 'short', timeZone: 'UTC' })
+  );
   const DAY_OF_MONTH_UTC_FORMATTER = new Intl.DateTimeFormat('en-US', {
     day: 'numeric',
     timeZone: 'UTC'
   });
-  const DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  const DAY_FORMATTER = $derived(
+    new Intl.DateTimeFormat(getLocale(), {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC'
+    })
+  );
 
   type HeatmapCell = {
     dateMs: number;
@@ -72,19 +92,20 @@
   };
 
   let availableYears = $derived(getAvailableYears(memberCreatedAtMs));
-  let yearTotalSessions = $derived(countSessionsForYear(records, selectedYear));
-  let heatmapWeeks = $derived(buildHeatmap(records, memberCreatedAtMs, selectedYear));
+  const dailyCounts = $derived(progressDays ?? progressRecordDays(records));
+  let yearTotalSessions = $derived(countSessionsForYear(dailyCounts, selectedYear));
+  let heatmapWeeks = $derived(buildHeatmap(dailyCounts, memberCreatedAtMs, selectedYear));
   let heatmapWeekCount = $derived(Math.max(1, heatmapWeeks.length));
   let todayDayMs = $derived(utcDayStart(Date.now()));
-  let recentRecords = $derived([...records].reverse().slice(0, 20));
   let isGuest = $derived(!$user);
+  let recentRecords = $derived(isGuest ? [...records].reverse().slice(0, 20) : records);
 
   $effect(() => {
-    const isAuthenticated = Boolean($user);
-    if (lastAuthLoaded === isAuthenticated) return;
+    const identity = JSON.stringify([getAuthSession().generation, $user?.username ?? null]);
+    if (lastAuthLoaded === identity) return;
 
-    lastAuthLoaded = isAuthenticated;
-    loadAll();
+    lastAuthLoaded = identity;
+    untrack(() => void loadAll());
   });
 
   function scrollHeatmapToEnd() {
@@ -152,6 +173,12 @@
   });
 
   async function loadAll() {
+    const current = loadScope.begin();
+    const token = ++loadToken;
+    ++yearToken;
+    yearLoading = false;
+    yearError = '';
+    progressDays = null;
     loading = true;
     loadError = '';
 
@@ -169,7 +196,7 @@
       callSign = null;
       emailVerified = false;
       memberCreatedAtMs = utcDayStart(earliestCreatedAtMs);
-      memberSince = new Date(earliestCreatedAtMs).toLocaleDateString(undefined, {
+      memberSince = new Date(earliestCreatedAtMs).toLocaleDateString(getLocale(), {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -184,12 +211,17 @@
     }
 
     try {
-      const [info, cw, prog] = await Promise.all([getUserInfo(), getCWSettings(), getProgress()]);
+      const [info, cw, prog] = await Promise.all([
+        getUserInfo(),
+        getCWSettings(),
+        getProgressSummary(CURRENT_YEAR)
+      ]);
+      if (!current() || token !== loadToken) return;
       username = info.username;
       email = info.email;
       callSign = info.call_sign;
       emailVerified = info.email_verified;
-      memberSince = new Date(info.created_at).toLocaleDateString(undefined, {
+      memberSince = new Date(info.created_at).toLocaleDateString(getLocale(), {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -202,12 +234,47 @@
       charWpm = cw.char_wpm;
       effWpm = cw.eff_wpm;
       freq = cw.freq;
-      records = prog;
+      records = prog.recent;
+      progressDays = prog.days;
     } catch (e) {
-      loadError = localizeApiError(e, () => m.common_load_error());
+      if (current() && token === loadToken)
+        loadError = localizeApiError(e, () => m.common_load_error());
     } finally {
-      loading = false;
+      if (current() && token === loadToken) loading = false;
     }
+  }
+
+  async function selectYear(year: number): Promise<void> {
+    const current = yearScope.begin();
+    selectedYear = year;
+    if (isGuest) return;
+    const token = ++yearToken;
+    yearLoading = true;
+    yearError = '';
+    // Clear the old year's aggregate while loading; never label it as the new year.
+    progressDays = [];
+    try {
+      const result = await getProgressSummary(year);
+      if (!current() || token !== yearToken) return;
+      progressDays = result.days;
+      records = result.recent;
+    } catch (error) {
+      if (current() && token === yearToken)
+        yearError = localizeApiError(error, () => m.common_load_error());
+    } finally {
+      if (current() && token === yearToken) yearLoading = false;
+    }
+  }
+
+  function progressRecordDays(items: ProgressRecord[]): ProgressDay[] {
+    const counts = new SvelteMap<string, number>();
+    for (const item of items) {
+      const value = Date.parse(item.created_at);
+      if (Number.isNaN(value)) continue;
+      const date = new Date(value).toISOString().slice(0, 10);
+      counts.set(date, (counts.get(date) ?? 0) + 1);
+    }
+    return [...counts].map(([date, count]) => ({ date, count }));
   }
 
   function utcDayStart(ms: number): number {
@@ -263,20 +330,20 @@
     return years;
   }
 
-  function countSessionsForYear(items: ProgressRecord[], year: number): number {
+  function countSessionsForYear(items: ProgressDay[], year: number): number {
     let count = 0;
     for (const rec of items) {
-      const parsedMs = Date.parse(rec.created_at);
+      const parsedMs = Date.parse(rec.date);
       if (Number.isNaN(parsedMs)) continue;
       if (new Date(parsedMs).getUTCFullYear() === year) {
-        count += 1;
+        count += rec.count;
       }
     }
     return count;
   }
 
   function buildHeatmap(
-    items: ProgressRecord[],
+    items: ProgressDay[],
     createdAtMs: number | null,
     year: number
   ): HeatmapWeek[] {
@@ -293,7 +360,7 @@
     const byDay: Record<string, number> = {};
 
     for (const rec of items) {
-      const parsedMs = Date.parse(rec.created_at);
+      const parsedMs = Date.parse(rec.date);
       if (Number.isNaN(parsedMs)) continue;
 
       const dayMs = utcDayStart(parsedMs);
@@ -302,7 +369,7 @@
       if (dayMs > todayMs) continue;
 
       const key = toDateKey(dayMs);
-      byDay[key] = (byDay[key] ?? 0) + 1;
+      byDay[key] = (byDay[key] ?? 0) + rec.count;
     }
 
     let maxCount = 0;
@@ -355,6 +422,9 @@
     <LoadingSpinner />
   {:else if loadError}
     <ErrorAlert message={loadError} />
+    <button type="button" class="btn-ghost" onclick={() => void loadAll()}
+      >{m.common_retry()}</button
+    >
   {:else}
     {#if isGuest}
       <div class="notice">
@@ -427,9 +497,7 @@
               type="button"
               class="segmented-item"
               aria-pressed={year === selectedYear}
-              onclick={() => {
-                selectedYear = year;
-              }}
+              onclick={() => void selectYear(year)}
             >
               {year}
             </button>
@@ -437,6 +505,8 @@
         </div>
       </div>
 
+      {#if yearLoading}<LoadingSpinner />{/if}
+      {#if yearError}<ErrorAlert message={yearError} />{/if}
       <p class="profile-heatmap-scroll-hint">{m.profile_heatmap_scroll_hint()}</p>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard scrolling for this region) -->
       <div

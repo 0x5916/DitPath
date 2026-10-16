@@ -1,9 +1,13 @@
 <script lang="ts">
   import type { SessionSummary } from '../../training/v2/types';
-  import { CheckCircle2, RotateCcw } from '@lucide/svelte';
+  import { CheckCircle2, RotateCcw, AlertCircle, LoaderCircle } from '@lucide/svelte';
+  import type { SessionPersistenceStatus } from '../../training/v2/session-controller.svelte';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     summary: SessionSummary;
+    persistenceStatus: SessionPersistenceStatus;
+    busy?: boolean;
     onNextLesson?: () => void;
     onRepeatLesson?: () => void;
     onFinish: () => void;
@@ -11,6 +15,8 @@
 
   let {
     summary,
+    persistenceStatus,
+    busy = false,
     onNextLesson = () => {},
     onRepeatLesson = () => {},
     onFinish = () => {}
@@ -19,48 +25,48 @@
   let accuracyPercent = $derived(Math.round(summary.accuracy * 100));
   let latencySec = $derived(
     summary.medianLatencyMs !== null
-      ? (summary.medianLatencyMs / 1000).toFixed(1) + ' s'
-      : 'Not enough data'
+      ? m.lesson_result_seconds({ seconds: (summary.medianLatencyMs / 1000).toFixed(1) })
+      : m.lesson_result_insufficient()
   );
 </script>
 
-<div class="result-card" role="region" aria-label="Session Results">
+<div class="result-card" role="region" aria-label={m.lesson_result_label()}>
   <div class="result-header">
     <div class="result-badge">
       <CheckCircle2 size={24} class="result-icon" />
-      <h2 class="result-title">Session Complete</h2>
+      <h2 class="result-title">{m.lesson_result_title()}</h2>
     </div>
     {#if summary.unlockedNextStep}
       <p class="result-subtitle text-good">
-        You are ready to add the next character to your course path.
+        {m.lesson_result_unlocked()}
       </p>
     {:else if summary.weakCharacters.length > 0}
       <p class="result-subtitle">
-        Good practice! {summary.weakCharacters.join(', ')} still needs a bit more automaticity.
+        {m.lesson_result_weak({ characters: summary.weakCharacters.join(', ') })}
       </p>
     {:else}
-      <p class="result-subtitle">Good practice! Continue building your sound recognition.</p>
+      <p class="result-subtitle">{m.lesson_result_continue()}</p>
     {/if}
   </div>
 
   <div class="metrics-grid">
     <div class="metric-item">
-      <span class="metric-label">Accuracy</span>
+      <span class="metric-label">{m.lesson_result_accuracy()}</span>
       <span class="metric-val">{accuracyPercent}%</span>
     </div>
     <div class="metric-item">
-      <span class="metric-label">Median recognition</span>
+      <span class="metric-label">{m.lesson_result_latency()}</span>
       <span class="metric-val">{latencySec}</span>
     </div>
     <div class="metric-item">
-      <span class="metric-label">Replays</span>
+      <span class="metric-label">{m.lesson_result_replays()}</span>
       <span class="metric-val">{summary.totalReplays}</span>
     </div>
   </div>
 
   {#if summary.weakCharacters.length > 0}
     <div class="weak-section">
-      <span class="weak-label">Needs another look:</span>
+      <span class="weak-label">{m.lesson_result_weak_label()}</span>
       <div class="weak-chips">
         {#each summary.weakCharacters as ch (ch)}
           <span class="weak-chip">{ch}</span>
@@ -71,19 +77,40 @@
 
   <div class="result-actions">
     {#if summary.unlockedNextStep}
-      <button type="button" class="btn-primary" onclick={onNextLesson}> Start next lesson </button>
+      <button
+        type="button"
+        class="btn-primary"
+        disabled={busy || persistenceStatus === 'saving'}
+        onclick={onNextLesson}>{m.lesson_result_next()}</button
+      >
     {:else}
-      <button type="button" class="btn-primary" onclick={onRepeatLesson}>
+      <button
+        type="button"
+        class="btn-primary"
+        disabled={busy || persistenceStatus === 'saving'}
+        onclick={onRepeatLesson}
+      >
         <RotateCcw size={16} />
-        <span>Practise again</span>
+        <span>{m.lesson_result_repeat()}</span>
       </button>
     {/if}
 
-    <button type="button" class="btn-ghost" onclick={onFinish}> Finish for today </button>
+    <button
+      type="button"
+      class="btn-ghost"
+      disabled={busy || persistenceStatus === 'saving'}
+      onclick={onFinish}>{m.lesson_result_finish()}</button
+    >
   </div>
 
-  <footer class="result-footer">
-    <span class="sync-note">Saved on this device</span>
+  <footer class="result-footer" role="status">
+    {#if persistenceStatus === 'saved'}
+      <CheckCircle2 size={16} aria-hidden="true" /><span>{m.lesson_saved()}</span>
+    {:else if persistenceStatus === 'saving'}
+      <LoaderCircle size={16} aria-hidden="true" /><span>{m.lesson_saving()}</span>
+    {:else}
+      <AlertCircle size={16} aria-hidden="true" /><span>{m.lesson_save_failed()}</span>
+    {/if}
   </footer>
 </div>
 
@@ -196,11 +223,10 @@
   }
 
   .result-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     font-size: var(--text-xs);
     color: var(--text-muted);
-  }
-
-  .sync-note {
-    opacity: 0.8;
   }
 </style>

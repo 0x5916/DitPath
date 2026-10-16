@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { localizedHref as href } from '$lib/i18n.svelte';
-  import { SITE_NAME } from '$lib/seo';
-  import * as m from '$lib/paraglide/messages';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { SITE_NAME } from '#lib/seo.ts';
+  import * as m from '#lib/paraglide/messages.js';
 </script>
 
 <svelte:head>
