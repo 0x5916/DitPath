@@ -101,8 +101,10 @@ type ListThreadsQuery struct {
 // ── V2 Training API (see backend/docs/training-events-v2.md) ──
 
 const (
-	// TrainingV2SchemaVersion is the only accepted events payload schema version.
+	// TrainingV2SchemaVersion preserves the first-write-wins event payload schema.
 	TrainingV2SchemaVersion = 1
+	// TrainingEventStrictSchemaVersion enforces immutable event retry content.
+	TrainingEventStrictSchemaVersion = 2
 	// TrainingV2MaxBatchEvents bounds the number of events per upload batch.
 	TrainingV2MaxBatchEvents = 100
 	// TrainingV2MaxPayloadBytes bounds the total request body size of a batch.

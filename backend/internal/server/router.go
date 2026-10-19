@@ -72,6 +72,12 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	cwProgress.GET("/progress", progressHandler.GetAllProgress)
 	cwProgress.PUT("/progress", progressHandler.AddProgress)
 
+	registerTrainingRoutes(protected, db)
+	historyHandler := v2handlers.TrainingHandler{DB: db}
+	protected.POST("/training/sessions/batch", historyHandler.PostSessionsBatch)
+	protected.GET("/training/sessions", historyHandler.GetSessions)
+	protected.GET("/training/changes", historyHandler.GetChanges)
+
 	forumHandler := handlers.ForumHandler{DB: db}
 	forumCreateRateLimit := middlewares.ForumCreateRateLimit()
 
@@ -95,18 +101,23 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	})
 }
 
-// RouterV2Setup registers the V2 training synchronization API
-// (see backend/docs/training-events-v2.md). All endpoints require a bearer
-// token and reuse the V1 auth and user-loading middleware. The legacy
-// /v1/cw/progress endpoint remains active and unaffected.
+// RouterV2Setup retains temporary aliases for clients migrating to /v1/training.
+// Both namespaces use the same handlers, authentication, and persisted data.
 func RouterV2Setup(engine *gin.Engine) {
+	routerV2Setup(engine, databases.DB)
+}
+
+func routerV2Setup(engine *gin.Engine, db *gorm.DB) {
 	v2 := engine.Group("/v2")
 
 	protected := v2.Group("/")
 	protected.Use(middlewares.AuthRequired())
-	protected.Use(middlewares.LoadUser(databases.DB))
+	protected.Use(middlewares.LoadUser(db))
+	registerTrainingRoutes(protected, db)
+}
 
-	trainingHandler := v2handlers.TrainingHandler{DB: databases.DB}
+func registerTrainingRoutes(protected *gin.RouterGroup, db *gorm.DB) {
+	trainingHandler := v2handlers.TrainingHandler{DB: db}
 	training := protected.Group("/training")
 	training.POST("/events/batch", trainingHandler.PostEventsBatch)
 	training.GET("/snapshot", trainingHandler.GetSnapshot)

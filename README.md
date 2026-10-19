@@ -24,7 +24,8 @@ Set `PUBLIC_API_BASE` in the frontend environment to the backend's `/v1` URL. Gu
 | [UI backlog](frontend/docs/ui-ux-audit.md)             | Source findings and remaining design work           |
 | [Backend](backend/README.md)                           | Local API development and tests                     |
 | [API](backend/API.md)                                  | Registered endpoints and request/response contracts |
-| [V2 training sync](backend/docs/training-events-v2.md) | Batch ingestion, snapshots, idempotency             |
+| [V1 training sync](backend/docs/training-events-v2.md) | Current batch ingestion, snapshots, compatibility aliases |
+| [Approved history specification](backend/docs/training-history-v1-spec.md) | Implemented history storage, change downloads, account synchronization, and compatibility gates |
 | [Deployment](DEPLOYMENT.md)                            | Host setup, configuration, exposure, recovery       |
 | [Operational scripts](scripts/README.md)               | Commands, flags, safety behavior                    |
 | [Database tuning](db/README.md)                        | Resource detection and PostgreSQL overrides         |

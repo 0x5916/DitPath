@@ -5,6 +5,7 @@ import {
   createCopyAttempt,
   emptyCopyAttempt,
   copyPlaybackEvent,
+  createPracticeSessionRecord,
   reviewCopyAttempt,
   copyInputLimit,
   boundCopyInput
@@ -15,6 +16,36 @@ const settings = normalizePlaybackSettings({});
 const create = () => createCopyAttempt(1, settings, undefined, () => 0);
 
 describe('free copy attempt', () => {
+  it('records a reviewed passage with its original playback time, score and settings', () => {
+    const ready = createCopyAttempt(3, { ...settings, freq: 700 }, undefined, () => 0);
+    expect(createPracticeSessionRecord(ready, 'practice-1')).toBeNull();
+    expect(copyPlaybackEvent(ready, 'stop').startedAt).toBeUndefined();
+    const started = copyPlaybackEvent(ready, 'start', '2026-10-16T00:00:00.000Z');
+    const reviewed = reviewCopyAttempt(started, 'wrong', '2026-10-16T00:01:30.000Z');
+    const record = createPracticeSessionRecord(reviewed, 'practice-1');
+    expect(record).toEqual({
+      schemaVersion: 1,
+      id: 'practice-1',
+      mode: 'practice',
+      accuracy: 0,
+      step: 3,
+      charWpm: settings.charWpm,
+      effWpm: settings.effWpm,
+      freqHz: 700,
+      startedAt: '2026-10-16T00:00:00.000Z',
+      completedAt: '2026-10-16T00:01:30.000Z',
+      status: 'completed',
+      promptCount: 1,
+      completedPromptCount: 1
+    });
+    const replaying = copyPlaybackEvent(reviewed, 'start', '2026-10-16T00:02:00.000Z');
+    expect(createPracticeSessionRecord(replaying, 'practice-1')).toEqual(record);
+    expect(createCopyAttempt(3, settings, replaying).startedAt).toBeUndefined();
+    expect(
+      createPracticeSessionRecord({ ...reviewed, startedAt: undefined }, 'missing')
+    ).toBeNull();
+  });
+
   it('keeps prerender state deterministic and unstarted', () => {
     expect(emptyCopyAttempt()).toEqual(emptyCopyAttempt());
     expect(emptyCopyAttempt().exercise.text).toBe('');

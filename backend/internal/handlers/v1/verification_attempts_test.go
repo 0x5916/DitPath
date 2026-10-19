@@ -152,21 +152,38 @@ func TestVerificationGuessBudgetEligibility(t *testing.T) {
 }
 
 func TestVerificationExhaustionRetainsIssuanceCooldown(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
-	otp := emailTestOTP(t, db, user, "123456")
-	if err := db.Model(&otp).Updates(map[string]any{"created_at": time.Now(), "failed_attempts": VerificationMaxFailedAttempts}).Error; err != nil {
-		t.Fatal(err)
+	for _, test := range []struct {
+		name, retry string
+		age         time.Duration
+	}{
+		{name: "fresh", retry: "60"},
+		{name: "fractional-remainder", retry: "1", age: 59*time.Second + 600*time.Millisecond},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := emailTestDB(t)
+			user := emailTestUser(t, db, "")
+			otp := emailTestOTP(t, db, user, "123456")
+			// Share one clock: the host and PostgreSQL clocks can differ.
+			now := time.Date(2026, time.October, 20, 0, 0, 0, 123456000, time.UTC)
+			if err := db.Model(&otp).Updates(map[string]any{"created_at": now.Add(-test.age), "failed_attempts": VerificationMaxFailedAttempts}).Error; err != nil {
+				t.Fatal(err)
+			}
+			var deliveries atomic.Int32
+			h := &AuthHandler{DB: db, Now: func() time.Time { return now }, SendEmail: func(string, string) error { deliveries.Add(1); return nil }}
+			response := emailRequest(h.VerifyEmail, user, `{"code":"123456"}`)
+			emailResponse(t, response, 429, common.ErrorCodeVerificationAttemptsExceeded)
+			if response.Header().Get("Retry-After") != test.retry {
+				t.Fatalf("verification Retry-After=%q, want %q", response.Header().Get("Retry-After"), test.retry)
+			}
+			response = emailRequest(h.SendVerificationEmail, user, "")
+			emailResponse(t, response, 429, common.ErrorCodeVerificationRateLimited)
+			if response.Header().Get("Retry-After") != test.retry || deliveries.Load() != 0 {
+				t.Fatalf("resend Retry-After=%q deliveries=%d, want %q and no delivery", response.Header().Get("Retry-After"), deliveries.Load(), test.retry)
+			}
+			verificationAttempts(t, db, otp, VerificationMaxFailedAttempts)
+			emailState(t, db, user, user.Email, false, otp, false, false)
+		})
 	}
-	h := &AuthHandler{DB: db}
-	response := emailRequest(h.VerifyEmail, user, `{"code":"123456"}`)
-	emailResponse(t, response, 429, common.ErrorCodeVerificationAttemptsExceeded)
-	seconds, err := strconv.Atoi(response.Header().Get("Retry-After"))
-	if err != nil || seconds < 1 || seconds > 60 {
-		t.Fatalf("cooldown Retry-After=%q", response.Header().Get("Retry-After"))
-	}
-	emailResponse(t, emailRequest(h.SendVerificationEmail, user, ""), 429, common.ErrorCodeVerificationRateLimited)
-	verificationAttempts(t, db, otp, VerificationMaxFailedAttempts)
 }
 
 func TestVerificationGuessStorageFailure(t *testing.T) {

@@ -4,7 +4,11 @@ import { closeTrainingDb, deleteTrainingDb, openTrainingDb } from './training-db
 import { createAttemptRepository } from './attempt-repository';
 import { createSessionRepository } from './session-repository';
 import { createOutboxRepository } from './outbox-repository';
-import type { AttemptEvent, TrainingSessionRecord } from '../training/v2/types';
+import {
+  isValidTrainingSessionRecord,
+  type AttemptEvent,
+  type TrainingSessionRecord
+} from '../training/v2/types';
 
 describe('Local Data Repositories', () => {
   let db: IDBDatabase;
@@ -137,6 +141,80 @@ describe('Local Data Repositories', () => {
   });
 
   describe('SessionRepository', () => {
+    it('round-trips practice history without hiding an unfinished guided lesson', async () => {
+      const repo = createSessionRepository(db);
+      const guided: TrainingSessionRecord = {
+        schemaVersion: 1,
+        id: 'guided',
+        step: 1,
+        charWpm: 20,
+        effWpm: 12,
+        freqHz: 600,
+        startedAt: '2026-10-16T10:00:00.000Z',
+        status: 'in-progress',
+        promptCount: 12,
+        completedPromptCount: 3
+      };
+      const practice: TrainingSessionRecord = {
+        ...guided,
+        id: 'practice',
+        mode: 'practice',
+        accuracy: 0,
+        startedAt: '2026-10-16T11:00:00.000Z',
+        completedAt: '2026-10-16T11:01:30.000Z',
+        status: 'completed',
+        promptCount: 1,
+        completedPromptCount: 1
+      };
+      expect(isValidTrainingSessionRecord(guided)).toBe(true);
+      expect(isValidTrainingSessionRecord(practice)).toBe(true);
+      for (const fields of [
+        { mode: 'unknown' },
+        { accuracy: -0.1 },
+        { accuracy: 1.1 },
+        { accuracy: NaN }
+      ])
+        expect(isValidTrainingSessionRecord({ ...practice, ...fields })).toBe(false);
+      await repo.saveSession(guided);
+      await repo.saveSession(practice);
+      await repo.saveSession(practice);
+      expect(await repo.getSession('practice')).toEqual(practice);
+      expect(await repo.getSessions()).toHaveLength(2);
+      expect((await repo.getLatestInProgressSession())?.id).toBe('guided');
+      await repo.updateSessionProgress('guided', 12, 'completed');
+      expect(await repo.getLatestInProgressSession()).toBeNull();
+    });
+
+    it('applies the history limit after filtering completed guided and practice sessions', async () => {
+      const repo = createSessionRepository(db);
+      const completed: TrainingSessionRecord = {
+        schemaVersion: 1,
+        id: 'guided',
+        step: 1,
+        charWpm: 20,
+        effWpm: 12,
+        freqHz: 600,
+        startedAt: '2026-10-15T10:00:00.000Z',
+        status: 'completed',
+        promptCount: 1,
+        completedPromptCount: 1
+      };
+      await repo.saveSession(completed);
+      await repo.saveSession({ ...completed, id: 'practice', mode: 'practice' });
+      for (let index = 0; index < 25; index++) {
+        await repo.saveSession({
+          ...completed,
+          id: `unfinished-${index}`,
+          startedAt: '2026-10-16T10:00:00.000Z',
+          status: index % 2 ? 'in-progress' : 'abandoned'
+        });
+      }
+      const history = await repo.getSessions(20, 'completed');
+      expect(history.map((record) => record.id).sort()).toEqual(['guided', 'practice']);
+      expect(await repo.getSessions(1, 'completed')).toHaveLength(1);
+      expect(await repo.getSessions(20)).toHaveLength(20);
+    });
+
     it('queries the complete indexed session time range without a fixed recent-session cap', async () => {
       const repo = createSessionRepository(db);
       const base: TrainingSessionRecord = {

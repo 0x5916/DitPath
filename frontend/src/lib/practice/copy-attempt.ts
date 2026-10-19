@@ -3,6 +3,7 @@ import { LESSONS } from '../training/sequence';
 import { calculateDuration } from '../training/timing';
 import { createSession, canCheck, transition, type SessionState } from '../training/session';
 import { createAttemptResult, type AttemptResult } from '../training/result';
+import type { TrainingSessionRecord } from '../training/v2/types';
 import { score, diffWords, type DiffToken } from '../score';
 import { normalizePlaybackSettings, type PlaybackSettings } from './playback';
 
@@ -11,6 +12,7 @@ export interface CopyAttempt {
   settings: PlaybackSettings;
   session: SessionState;
   duration: number;
+  startedAt?: string;
   review: { result: AttemptResult; diffTokens: DiffToken[] } | null;
 }
 
@@ -29,7 +31,7 @@ export function normalizePracticeLesson(lesson: number): number {
   return Number.isFinite(lesson) ? Math.min(LESSONS.length, Math.max(1, Math.trunc(lesson))) : 1;
 }
 
-/** Free copy practice has no guided-mastery or result-persistence port. */
+/** Free copy practice keeps passage scores separate from guided mastery. */
 export function createCopyAttempt(
   lesson: number,
   values: PlaybackSettings,
@@ -48,9 +50,44 @@ export function createCopyAttempt(
   };
 }
 
-export function copyPlaybackEvent(attempt: CopyAttempt, type: 'start' | 'stop'): CopyAttempt {
+export function copyPlaybackEvent(
+  attempt: CopyAttempt,
+  type: 'start' | 'stop',
+  timestamp?: string
+): CopyAttempt {
   const next = transition(attempt.session, { type });
-  return next.ok ? { ...attempt, session: next.state } : attempt;
+  return next.ok
+    ? {
+        ...attempt,
+        session: next.state,
+        startedAt:
+          attempt.startedAt ??
+          (type === 'start' ? (timestamp ?? new Date().toISOString()) : undefined)
+      }
+    : attempt;
+}
+
+/** Converts a reviewed passage into activity history without recognition evidence. */
+export function createPracticeSessionRecord(
+  attempt: CopyAttempt,
+  id: string
+): TrainingSessionRecord | null {
+  if (!attempt.review || !attempt.startedAt) return null;
+  return {
+    schemaVersion: 1,
+    id,
+    mode: 'practice',
+    accuracy: attempt.review.result.accuracy,
+    step: attempt.exercise.lesson,
+    charWpm: attempt.settings.charWpm,
+    effWpm: attempt.settings.effWpm,
+    freqHz: attempt.settings.freq,
+    startedAt: attempt.startedAt,
+    completedAt: attempt.review.result.completedAt,
+    status: 'completed',
+    promptCount: 1,
+    completedPromptCount: 1
+  };
 }
 
 /** Allow a whole extra passage of mistakes, with work proportional to the exercise. */

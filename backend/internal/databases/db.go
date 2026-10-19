@@ -66,6 +66,9 @@ func migrate(db schemaDatabase) error {
 		&models.ForumReply{},
 		&models.TrainingEvent{},
 		&models.TrainingProfile{},
+		&models.TrainingSession{},
+		&models.TrainingSyncState{},
+		&models.TrainingChange{},
 	); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}
@@ -77,7 +80,24 @@ func migrate(db schemaDatabase) error {
 	if err := ensureForumIndexes(db); err != nil {
 		return fmt.Errorf("migrate forum indexes: %w", err)
 	}
+	if err := ensureTrainingIndexes(db); err != nil {
+		return fmt.Errorf("migrate training indexes: %w", err)
+	}
 
+	return nil
+}
+
+func ensureTrainingIndexes(db schemaDatabase) error {
+	statements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_training_sessions_legacy_source ON training_sessions (user_id, source_kind, source_record_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_training_sessions_history ON training_sessions (user_id, occurred_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_training_sessions_filter ON training_sessions (user_id, mode, status, occurred_at DESC, id DESC);`,
+	}
+	for _, stmt := range statements {
+		if err := db.Exec(stmt).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

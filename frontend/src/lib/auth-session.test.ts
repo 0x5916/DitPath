@@ -46,6 +46,21 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('auth session transitions', () => {
+  it('partitions by canonical immutable JWT subject rather than username', () => {
+    setSession('alice');
+    expect(auth.getAuthAccountId()).toBeNull();
+    const subject = '11111111-1111-4111-8111-111111111111';
+    localStorage.setItem(
+      AUTH_STORAGE_KEYS.accessToken,
+      `header.${btoa(JSON.stringify({ sub: subject, username: 'other-display-name' }))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '')}.signature`
+    );
+    expect(auth.getAuthAccountId()).toBe(subject);
+    localStorage.setItem(AUTH_STORAGE_KEYS.username, 'renamed');
+    expect(auth.getAuthAccountId()).toBe(subject);
+  });
   it('fences an older login after a newer login commits', async () => {
     const old = deferred<Response>();
     fetchMock.mockReturnValueOnce(old.promise).mockResolvedValueOnce(credentials('bob'));

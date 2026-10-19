@@ -51,6 +51,8 @@ const (
 	ErrorCodeTrainingIngestFailed         = "TRAINING_INGEST_FAILED"
 	ErrorCodeTrainingSnapshotFailed       = "TRAINING_SNAPSHOT_FAILED"
 	ErrorCodeTrainingSettingsFailed       = "TRAINING_SETTINGS_UPDATE_FAILED"
+	ErrorCodeTrainingSyncInitializing     = "TRAINING_SYNC_INITIALIZING"
+	ErrorCodeTrainingCursorResetRequired  = "TRAINING_CURSOR_RESET_REQUIRED"
 )
 
 // Per-event rejection codes reported in TrainingEventBatchResponse.RejectedEvents.
@@ -61,6 +63,9 @@ const (
 	RejectCodeInvalidClassification = "INVALID_CLASSIFICATION"
 	RejectCodeInvalidPromptKind     = "INVALID_PROMPT_KIND"
 	RejectCodeInvalidInputMode      = "INVALID_INPUT_MODE"
+	RejectCodeIDConflict            = "ID_CONFLICT"
+	RejectCodeMissingSessionEvents  = "MISSING_SESSION_EVENTS"
+	RejectCodeSessionEventConflict  = "SESSION_EVENT_SET_CONFLICT"
 )
 
 func NewErrorResponse(code string, message string) ErrorResponse {

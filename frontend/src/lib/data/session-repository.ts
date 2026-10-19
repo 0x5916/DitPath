@@ -1,20 +1,26 @@
-/**
- * Session Repository for DitPath local storage.
- *
- * Manages guided session metadata and lifecycle states (in-progress, completed, abandoned).
- */
-
-import type { SessionProgressStatus, TrainingSessionRecord } from '../training/v2/types';
+/** Owner-scoped guided and practice session history. */
+import type {
+  HistorySessionRecord,
+  SessionProgressStatus,
+  TrainingSessionRecord
+} from '../training/v2/types';
 import { reqToPromise, withTransaction } from './training-db';
-import { TRAINING_STORES } from './training-schema';
+import { OWNED_STORES } from './training-schema';
+import {
+  isNativeSession,
+  ownedRecords,
+  persistSession,
+  stripOwner,
+  type Owned
+} from './owned-training';
+import { notifyTrainingDataChange } from './training-data-events';
 
 export interface SessionRepository {
   saveSession(session: TrainingSessionRecord): Promise<void>;
   getSession(id: string): Promise<TrainingSessionRecord | null>;
-  /** Offers only the latest session; newer sessions supersede older unfinished ones. */
   getLatestInProgressSession(): Promise<TrainingSessionRecord | null>;
-  getSessions(limit?: number): Promise<TrainingSessionRecord[]>;
-  getSessionsByTimeRange(startIso: string, endIso: string): Promise<TrainingSessionRecord[]>;
+  getSessions(limit?: number, status?: SessionProgressStatus): Promise<HistorySessionRecord[]>;
+  getSessionsByTimeRange(startIso: string, endIso: string): Promise<HistorySessionRecord[]>;
   updateSessionProgress(
     id: string,
     completedPromptCount: number,
@@ -23,111 +29,69 @@ export interface SessionRepository {
   ): Promise<void>;
 }
 
-export function createSessionRepository(db: IDBDatabase): SessionRepository {
+const sessionTime = (record: HistorySessionRecord) =>
+  record.occurredAt ?? record.completedAt ?? record.startedAt ?? '';
+export function createSessionRepository(
+  db: IDBDatabase,
+  ownerKey = 'unclaimed'
+): SessionRepository {
+  const stores = [OWNED_STORES.sessions, OWNED_STORES.attempts, OWNED_STORES.outbox];
+  const all = () =>
+    withTransaction(db, OWNED_STORES.sessions, 'readonly', async (stores) =>
+      (await ownedRecords<HistorySessionRecord>(stores[OWNED_STORES.sessions], ownerKey)).sort(
+        (a, b) => sessionTime(b).localeCompare(sessionTime(a)) || b.id.localeCompare(a.id)
+      )
+    );
   return {
-    async saveSession(session: TrainingSessionRecord): Promise<void> {
-      await withTransaction(db, TRAINING_STORES.sessions, 'readwrite', async (stores) => {
-        await reqToPromise(stores[TRAINING_STORES.sessions].put(session));
-      });
-    },
-
-    async getSession(id: string): Promise<TrainingSessionRecord | null> {
-      return await withTransaction(db, TRAINING_STORES.sessions, 'readonly', async (stores) => {
-        const result = await reqToPromise<TrainingSessionRecord | undefined>(
-          stores[TRAINING_STORES.sessions].get(id)
-        );
-        return result ?? null;
-      });
-    },
-
-    async getLatestInProgressSession(): Promise<TrainingSessionRecord | null> {
-      return await withTransaction(db, TRAINING_STORES.sessions, 'readonly', async (stores) => {
-        const store = stores[TRAINING_STORES.sessions];
-        const index = store.index('startedAt');
-
-        // Open cursor descending (prev) to inspect most recent sessions first
-        return new Promise<TrainingSessionRecord | null>((resolve, reject) => {
-          const request = index.openCursor(null, 'prev');
-
-          request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor) {
-              resolve(null);
-              return;
-            }
-
-            const record = cursor.value as TrainingSessionRecord;
-            resolve(record.status === 'in-progress' ? record : null);
-          };
-
-          request.onerror = () => {
-            reject(request.error ?? new Error('Failed to query in-progress session cursor'));
-          };
-        });
-      });
-    },
-
-    async getSessions(limit?: number): Promise<TrainingSessionRecord[]> {
-      return await withTransaction(db, TRAINING_STORES.sessions, 'readonly', async (stores) => {
-        const store = stores[TRAINING_STORES.sessions];
-        const index = store.index('startedAt');
-
-        return new Promise<TrainingSessionRecord[]>((resolve, reject) => {
-          const results: TrainingSessionRecord[] = [];
-          const request = index.openCursor(null, 'prev');
-
-          request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor || (limit && results.length >= limit)) {
-              resolve(results);
-              return;
-            }
-            results.push(cursor.value as TrainingSessionRecord);
-            cursor.continue();
-          };
-
-          request.onerror = () => {
-            reject(request.error ?? new Error('Failed to query sessions cursor'));
-          };
-        });
-      });
-    },
-
-    async getSessionsByTimeRange(
-      startIso: string,
-      endIso: string
-    ): Promise<TrainingSessionRecord[]> {
-      return withTransaction(db, TRAINING_STORES.sessions, 'readonly', (stores) =>
-        reqToPromise<TrainingSessionRecord[]>(
-          stores[TRAINING_STORES.sessions]
-            .index('startedAt')
-            .getAll(IDBKeyRange.bound(startIso, endIso))
-        )
+    async saveSession(session) {
+      await withTransaction(db, stores, 'readwrite', (stores) =>
+        persistSession(stores, ownerKey, session)
       );
+      notifyTrainingDataChange(ownerKey, true);
     },
-
-    async updateSessionProgress(
-      id: string,
-      completedPromptCount: number,
-      status?: SessionProgressStatus,
-      completedAt?: string
-    ): Promise<void> {
-      await withTransaction(db, TRAINING_STORES.sessions, 'readwrite', async (stores) => {
-        const store = stores[TRAINING_STORES.sessions];
-        const existing = await reqToPromise<TrainingSessionRecord | undefined>(store.get(id));
-        if (!existing) {
-          throw new Error(`Cannot update non-existent session ${id}`);
-        }
-
-        const updated: TrainingSessionRecord = {
-          ...existing,
-          completedPromptCount,
-          status: status ?? existing.status,
-          completedAt: completedAt ?? existing.completedAt
-        };
-
-        await reqToPromise(store.put(updated));
+    async getSession(id) {
+      return withTransaction(db, OWNED_STORES.sessions, 'readonly', async (stores) => {
+        const record = await reqToPromise<Owned<HistorySessionRecord> | undefined>(
+          stores[OWNED_STORES.sessions].get([ownerKey, id])
+        );
+        const value = record ? stripOwner(record) : null;
+        return value && isNativeSession(value) ? value : null;
       });
+    },
+    async getLatestInProgressSession() {
+      const latest = (await all())
+        .filter(isNativeSession)
+        .filter((record) => record.mode !== 'practice')
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+      return latest?.status === 'in-progress' ? latest : null;
+    },
+    async getSessions(limit, status) {
+      const records = (await all()).filter(
+        (record) => status === undefined || record.status === status
+      );
+      return limit ? records.slice(0, limit) : records;
+    },
+    async getSessionsByTimeRange(startIso, endIso) {
+      return (await all())
+        .filter((record) => sessionTime(record) >= startIso && sessionTime(record) <= endIso)
+        .sort((a, b) => sessionTime(a).localeCompare(sessionTime(b)) || a.id.localeCompare(b.id));
+    },
+    async updateSessionProgress(id, completedPromptCount, status, completedAt) {
+      await withTransaction(db, stores, 'readwrite', async (stores) => {
+        const record = await reqToPromise<Owned<HistorySessionRecord> | undefined>(
+          stores[OWNED_STORES.sessions].get([ownerKey, id])
+        );
+        const value = record ? stripOwner(record) : null;
+        if (!value || !isNativeSession(value))
+          throw new Error(`Cannot update non-existent session ${id}`);
+        await persistSession(stores, ownerKey, {
+          ...value,
+          completedPromptCount,
+          status: status ?? value.status,
+          ...(completedAt !== undefined ? { completedAt } : {})
+        });
+      });
+      notifyTrainingDataChange(ownerKey, true);
     }
   };
 }

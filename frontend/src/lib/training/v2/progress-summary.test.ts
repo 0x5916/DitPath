@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeProgress } from './progress-summary';
-import type { AttemptEvent, TrainingSessionRecord } from './types';
+import { sessionOccurredAt, summarizeProgress } from './progress-summary';
+import type { AttemptEvent, HistorySessionRecord, TrainingSessionRecord } from './types';
 
 const NOW = '2026-10-16T12:00:00.000Z';
 
@@ -44,6 +44,17 @@ function session(overrides: Partial<TrainingSessionRecord> = {}): TrainingSessio
 }
 
 describe('local progress summary', () => {
+  it('uses observed completion across midnight, then downloaded occurrence, without inventing an end', () => {
+    const record = session({
+      startedAt: '2026-10-15T23:59:00.000Z',
+      completedAt: '2026-10-16T00:01:00.000Z'
+    });
+    expect(sessionOccurredAt(record)).toBe('2026-10-16T00:01:00.000Z');
+    expect(sessionOccurredAt({ ...record, occurredAt: NOW })).toBe(NOW);
+    expect(sessionOccurredAt({ ...record, completedAt: undefined })).toBe(record.startedAt);
+    expect(sessionOccurredAt({ startedAt: null, completedAt: null })).toBe('');
+  });
+
   it('distinguishes missing accuracy evidence from a measured zero', () => {
     const empty = summarizeProgress([], [], NOW);
     expect(empty).toMatchObject({
@@ -81,8 +92,8 @@ describe('local progress summary', () => {
         ...sessions,
         session({ status: 'abandoned' }),
         session({ status: 'in-progress' }),
-        session({ startedAt: '2026-10-08T12:00:00.000Z' }),
-        session({ startedAt: '2026-10-17T12:00:00.000Z' })
+        session({ startedAt: '2026-10-08T12:00:00.000Z', completedAt: '2026-10-08T12:01:00.000Z' }),
+        session({ startedAt: '2026-10-17T12:00:00.000Z', completedAt: '2026-10-17T12:01:00.000Z' })
       ],
       NOW
     );
@@ -94,7 +105,7 @@ describe('local progress summary', () => {
     const backwards = session({ completedAt: '2026-10-16T10:59:59.000Z' });
     const future = session({ completedAt: '2026-10-17T12:00:00.000Z' });
     expect(summarizeProgress([], [missing, backwards, future], NOW)).toMatchObject({
-      sessionCount: 3,
+      sessionCount: 2,
       timedSessionCount: 0,
       totalMinutes: null
     });
@@ -102,6 +113,49 @@ describe('local progress summary', () => {
       sessionCount: 2,
       timedSessionCount: 1,
       totalMinutes: 1.5
+    });
+  });
+
+  it('includes practice activity without treating it as guided recognition evidence', () => {
+    const practice = session({ mode: 'practice', accuracy: 1 });
+    const result = summarizeProgress([], [practice], NOW);
+    expect(result).toMatchObject({
+      hasRecentActivity: true,
+      sessionCount: 1,
+      guidedSessionCount: 0,
+      practiceSessionCount: 1,
+      totalMinutes: 1.5,
+      accuracyPercent: null
+    });
+    expect(result.masteryMap.get('K')?.totalAttempts).toBe(0);
+    expect(
+      summarizeProgress([attempt({ isCorrect: false })], [session(), practice], NOW)
+    ).toMatchObject({ guidedSessionCount: 1, practiceSessionCount: 1, accuracyPercent: 0 });
+  });
+
+  it('includes legacy summaries by occurrence without inventing mode or elapsed time', () => {
+    const legacy: HistorySessionRecord = {
+      schemaVersion: 1,
+      id: 'legacy',
+      step: 1,
+      mode: 'legacy',
+      status: 'completed',
+      occurredAt: NOW,
+      startedAt: null,
+      completedAt: null,
+      charWpm: null,
+      effWpm: null
+    };
+    const summary = summarizeProgress([], [legacy], NOW);
+    expect(summary).toMatchObject({
+      hasRecentActivity: true,
+      sessionCount: 1,
+      guidedSessionCount: 0,
+      practiceSessionCount: 0,
+      legacySessionCount: 1,
+      timedSessionCount: 0,
+      totalMinutes: null,
+      accuracyPercent: null
     });
   });
 

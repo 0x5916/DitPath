@@ -6,7 +6,10 @@
 
 import type { AttemptEvent } from '../training/v2/types';
 import { reqToPromise, withTransaction } from './training-db';
-import { TRAINING_STORES } from './training-schema';
+import { OWNED_STORES } from './training-schema';
+import { enqueueFrozen, ownedRecords, payloadKey, stripOwner, type Owned } from './owned-training';
+import { notifyTrainingDataChange } from './training-data-events';
+import type { TrainingSessionRecord } from '../training/v2/types';
 
 export interface AttemptRepository {
   /** Saves an attempt event idempotently (saving the same ID overwrites cleanly without error). */
@@ -19,70 +22,95 @@ export interface AttemptRepository {
   countAttempts(): Promise<number>;
 }
 
-function getKeyRange(): typeof IDBKeyRange {
-  if (typeof IDBKeyRange !== 'undefined') return IDBKeyRange;
-  if (typeof window !== 'undefined' && window.IDBKeyRange) return window.IDBKeyRange;
-  throw new Error('IDBKeyRange is not available in current environment');
-}
-
-export function createAttemptRepository(db: IDBDatabase): AttemptRepository {
+export function createAttemptRepository(
+  db: IDBDatabase,
+  ownerKey = 'unclaimed'
+): AttemptRepository {
+  const save = async (attempts: AttemptEvent[]) => {
+    await withTransaction(
+      db,
+      [OWNED_STORES.attempts, OWNED_STORES.sessions, OWNED_STORES.outbox],
+      'readwrite',
+      async (stores) => {
+        for (const attempt of attempts) {
+          const store = stores[OWNED_STORES.attempts];
+          const existing = await reqToPromise<Owned<AttemptEvent> | undefined>(
+            store.get([ownerKey, attempt.id])
+          );
+          if (existing && ownerKey.startsWith('account:')) {
+            if (payloadKey(stripOwner(existing)) !== payloadKey(attempt))
+              throw new Error(`Immutable attempt conflict: ${attempt.id}`);
+            continue;
+          }
+          const sessionStore = stores[OWNED_STORES.sessions];
+          const session = await reqToPromise<Owned<TrainingSessionRecord> | undefined>(
+            sessionStore.get([ownerKey, attempt.sessionId])
+          );
+          if (
+            !existing &&
+            session?.status !== 'in-progress' &&
+            session &&
+            ownerKey.startsWith('account:')
+          ) {
+            throw new Error(`Cannot add evidence to finalized session ${session.id}`);
+          }
+          await reqToPromise(store.put({ ...attempt, ownerKey }));
+          if (!existing && session)
+            await reqToPromise(
+              sessionStore.put({
+                ...session,
+                completedPromptCount: Math.min(
+                  session.promptCount,
+                  session.completedPromptCount + 1
+                )
+              })
+            );
+          await enqueueFrozen(stores, ownerKey, 'attempt', attempt);
+        }
+      }
+    );
+    notifyTrainingDataChange(ownerKey, true);
+  };
+  const all = () =>
+    withTransaction(db, OWNED_STORES.attempts, 'readonly', (stores) =>
+      ownedRecords<AttemptEvent>(stores[OWNED_STORES.attempts], ownerKey)
+    );
   return {
     async saveAttempt(attempt: AttemptEvent): Promise<void> {
-      await withTransaction(db, TRAINING_STORES.attempts, 'readwrite', async (stores) => {
-        await reqToPromise(stores[TRAINING_STORES.attempts].put(attempt));
-      });
+      await save([attempt]);
     },
 
     async saveAttempts(attempts: AttemptEvent[]): Promise<void> {
       if (attempts.length === 0) return;
-      await withTransaction(db, TRAINING_STORES.attempts, 'readwrite', async (stores) => {
-        const store = stores[TRAINING_STORES.attempts];
-        for (const attempt of attempts) {
-          await reqToPromise(store.put(attempt));
-        }
-      });
+      await save(attempts);
     },
 
     async getAttempt(id: string): Promise<AttemptEvent | null> {
-      return await withTransaction(db, TRAINING_STORES.attempts, 'readonly', async (stores) => {
-        const result = await reqToPromise<AttemptEvent | undefined>(
-          stores[TRAINING_STORES.attempts].get(id)
+      return await withTransaction(db, OWNED_STORES.attempts, 'readonly', async (stores) => {
+        const result = await reqToPromise<Owned<AttemptEvent> | undefined>(
+          stores[OWNED_STORES.attempts].get([ownerKey, id])
         );
-        return result ?? null;
+        return result ? stripOwner(result) : null;
       });
     },
 
     async getAttemptsBySession(sessionId: string): Promise<AttemptEvent[]> {
-      return await withTransaction(db, TRAINING_STORES.attempts, 'readonly', async (stores) => {
-        const index = stores[TRAINING_STORES.attempts].index('sessionId');
-        const results = await reqToPromise<AttemptEvent[]>(index.getAll(sessionId));
-        return results ?? [];
-      });
+      return (await all()).filter((attempt) => attempt.sessionId === sessionId);
     },
 
     async getAttemptsByCharacter(character: string, limit?: number): Promise<AttemptEvent[]> {
-      return await withTransaction(db, TRAINING_STORES.attempts, 'readonly', async (stores) => {
-        const index = stores[TRAINING_STORES.attempts].index('targetCharacter');
-        const results = await reqToPromise<AttemptEvent[]>(
-          index.getAll(character, limit ? Math.max(1, limit) : undefined)
-        );
-        return results ?? [];
-      });
+      const results = (await all()).filter((attempt) => attempt.targetCharacter === character);
+      return limit ? results.slice(0, Math.max(1, limit)) : results;
     },
 
     async getAttemptsByTimeRange(startIso: string, endIso: string): Promise<AttemptEvent[]> {
-      return await withTransaction(db, TRAINING_STORES.attempts, 'readonly', async (stores) => {
-        const index = stores[TRAINING_STORES.attempts].index('createdAt');
-        const range = getKeyRange().bound(startIso, endIso);
-        const results = await reqToPromise<AttemptEvent[]>(index.getAll(range));
-        return results ?? [];
-      });
+      return (await all())
+        .filter((attempt) => attempt.createdAt >= startIso && attempt.createdAt <= endIso)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
 
     async countAttempts(): Promise<number> {
-      return await withTransaction(db, TRAINING_STORES.attempts, 'readonly', async (stores) => {
-        return await reqToPromise<number>(stores[TRAINING_STORES.attempts].count());
-      });
+      return (await all()).length;
     }
   };
 }

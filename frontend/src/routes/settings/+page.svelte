@@ -35,7 +35,7 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
   import { buildAudioPlan } from '#lib/training/timing.ts';
-  import { deleteTrainingDb } from '#lib/data/training-db.ts';
+  import { openTrainingDb, closeTrainingDb, clearTrainingCache } from '#lib/data/training-db.ts';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
@@ -162,15 +162,23 @@
     clearBlocked = false;
     clearError = '';
     try {
-      await deleteTrainingDb(undefined, () => {
-        if (!destroyed) clearBlocked = true;
-      });
+      const db = await openTrainingDb();
+      try {
+        await clearTrainingCache(db);
+      } finally {
+        closeTrainingDb(db);
+      }
       if (destroyed) return;
       confirmClearOpen = false;
       clearSuccess = true;
       later(() => (clearSuccess = false), 3000);
-    } catch {
-      if (!destroyed) clearError = m.settings_data_error();
+    } catch (error) {
+      if (!destroyed)
+        clearError =
+          error instanceof Error &&
+          error.message === 'Pending training uploads must be synchronized before clearing history'
+            ? m.history_clear_pending()
+            : m.settings_data_error();
     } finally {
       if (!destroyed) {
         clearing = false;

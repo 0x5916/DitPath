@@ -8,7 +8,8 @@
     copyPlaybackEvent,
     reviewCopyAttempt,
     copyInputLimit,
-    boundCopyInput
+    boundCopyInput,
+    type CopyAttempt
   } from '../../practice/copy-attempt';
   import { normalizePlaybackSettings } from '../../practice/playback';
   import { practiceKeyIntent } from '../../practice/keyboard';
@@ -25,6 +26,10 @@
     freq?: number;
     volume?: number;
     startDelay?: number;
+    onStart?: () => void;
+    onReview?: (attempt: CopyAttempt) => void;
+    persistenceStatus?: 'saving' | 'saved' | 'failed' | null;
+    onRetrySave?: () => void;
   }
 
   let {
@@ -33,7 +38,11 @@
     effWpm = 12,
     freq = 600,
     volume = 1.0,
-    startDelay = 0.5
+    startDelay = 0.5,
+    onStart,
+    onReview,
+    persistenceStatus = null,
+    onRetrySave
   }: Props = $props();
 
   let settings = $state(normalizePlaybackSettings({}));
@@ -56,6 +65,7 @@
     stopNow: () => Promise<void>;
     isStarted: () => boolean;
   } | null>(null);
+  let savePending = $derived(persistenceStatus === 'saving' || persistenceStatus === 'failed');
 
   $effect.pre(() => {
     const next = normalizePlaybackSettings({ charWpm, effWpm, freq, volume, startDelay });
@@ -126,6 +136,7 @@
   }
 
   function regenerate(nextLesson = activeLesson) {
+    if (savePending) return;
     clearNewExerciseArm();
     if (focusTimer) clearTimeout(focusTimer);
     void player?.stopNow();
@@ -153,6 +164,7 @@
   }
 
   function handleStart() {
+    onStart?.();
     attempt = copyPlaybackEvent(attempt, 'start');
     if (focusTimer) clearTimeout(focusTimer);
     focusTimer = setTimeout(() => {
@@ -169,6 +181,7 @@
     if (!checkEnabled) return;
     void player?.stopNow();
     attempt = reviewCopyAttempt(attempt, inputText);
+    onReview?.(attempt);
     showOverlay = true;
   }
 
@@ -215,7 +228,7 @@
           type="button"
           class="btn-icon"
           onclick={handlePrevLesson}
-          disabled={activeLesson <= 1}
+          disabled={savePending || activeLesson <= 1}
           aria-label={m.trainer_lesson_prev()}
           title={m.trainer_lesson_prev()}
         >
@@ -226,7 +239,7 @@
           type="button"
           class="btn-icon"
           onclick={handleNextLesson}
-          disabled={activeLesson >= LESSONS.length}
+          disabled={savePending || activeLesson >= LESSONS.length}
           aria-label={m.trainer_lesson_next()}
           title={m.trainer_lesson_next()}
         >
@@ -333,6 +346,7 @@
         class="btn-ghost"
         class:is-armed={newExerciseArmed}
         onclick={requestNewExercise}
+        disabled={savePending}
       >
         {newExerciseLabel}
       </button>
@@ -353,6 +367,8 @@
       onNext={handleNextLesson}
       onPrev={handlePrevLesson}
       onRegenerate={() => regenerate()}
+      {persistenceStatus}
+      {onRetrySave}
     />
   {/if}
 </div>

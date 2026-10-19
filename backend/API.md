@@ -1,6 +1,6 @@
 # DitPath V1 API
 
-The backend registers `/v1` and `/v2`. This reference covers every V1 route; [V2 training synchronization](docs/training-events-v2.md) has a separate contract. Requests with bodies use JSON. Protected routes require `Authorization: Bearer ACCESS_TOKEN` and an existing user.
+The canonical API uses `/v1`; three `/v2/training` routes remain temporary compatibility aliases. This reference covers every V1 route; [training synchronization](docs/training-events-v2.md) details the implemented event and download contracts. Requests with bodies use JSON. Protected routes require `Authorization: Bearer ACCESS_TOKEN` and an existing user.
 
 The [router](internal/server/router.go) defines route protection. Exact JSON fields and validation tags are in [request schemas](internal/common/input.go); response types are in [response schemas](internal/common/response.go). Handlers linked below define status codes and side effects.
 
@@ -89,6 +89,35 @@ All routes above require bearer authentication. Call sign is nonempty and at mos
 
 CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page responses use `language` and `cur_lesson`. Existing settings include `updated_at`; absent settings return model defaults, with the individual CW/page fallback using the input shape without that timestamp. The combined settings response includes both response shapes. User info includes nullable `call_sign`, `username`, `email`, `email_verified`, and `created_at`. See [user handler](internal/handlers/v1/user.go), [settings handler](internal/handlers/v1/settings.go), and [CW defaults](internal/models/cw_settings.go) and [page defaults](internal/models/page_settings.go).
 
+## Training synchronization
+
+| Method and canonical path | Success | Temporary compatibility alias |
+| --- | --- | --- |
+| `POST /v1/training/events/batch` | 200: `acknowledged_ids`, `rejected_events` | `POST /v2/training/events/batch` |
+| `POST /v1/training/sessions/batch` | 200: `acknowledged_ids`, `rejected_sessions` | None |
+| `GET /v1/training/sessions` | 200: `sessions`, `limit`, `next_cursor`, `has_more`, `high_water_revision`, optional `summary` | None |
+| `GET /v1/training/changes` | 200: `changes`, `next_cursor`, `has_more` | None |
+| `GET /v1/training/snapshot` | 200: course position, activity, character masteries | `GET /v2/training/snapshot` |
+| `PUT /v1/training/settings` | 200: `updated_at` | `PUT /v2/training/settings` |
+
+All require bearer authentication and an existing user. Canonical paths and aliases call the same handler, share the existing database, and preserve payload schema 1 and first-write-wins event retries. There are no redirects or changes to authentication. See the [implemented training contract](docs/training-events-v2.md) for fields, limits, and errors.
+
+Event uploads accept schemas 1 and 2. Schema 1 keeps first-write-wins retries. Schema 2 requires an installation UUID `client_id`, validates optional RFC3339 `client_sent_at`, rejects client `user_id`, and acknowledges only identical normalized content; changed persisted or repeated IDs receive per-event `ID_CONFLICT`. The [strict validator](internal/handlers/v2/training_strict.go) owns normalization and additional field checks.
+
+Session uploads accept payload `schema_version: 1`, an installation UUID `client_id`, optional RFC3339 `client_sent_at`, and 1–20 raw `sessions`, within 256 KiB. Ownership always comes from authentication; client `user_id` is rejected. The [session input types and validator](internal/common/training_sessions.go) own required fields and bounds. Guided terminal manifests must exactly match all stored account/session events, including unmeasured attempts; scores are server-derived and introductions can have zero attempts. Practice stores its passage score, requires counts 1/1, and produces no mastery evidence. Completed sessions require an end; abandoned guided sessions may retain an unknown end. New native IDs cannot use the reserved `legacy:` prefix.
+
+Terminal records are immutable. Identical retries acknowledge once without allocating another revision, including reordered manifests and equivalent timestamp offsets; changed content returns per-record `ID_CONFLICT`. Missing guided evidence returns retryable `MISSING_SESSION_EVENTS`; unexpected evidence returns permanent `SESSION_EVENT_SET_CONFLICT`. Valid siblings can succeed. After finalization, event uploads through either namespace cannot append outside a guided manifest or attach attempts to practice. Schema-1 event retries retain first-write-wins behavior. Record insertion, revision payloads, and activity commit atomically; database failures return 500 without acknowledgements.
+
+History accepts `mode=all|guided|practice|legacy` (default all), `status=completed|abandoned|all` (default completed), inclusive `from`/exclusive `to` RFC3339 timestamps, `limit=1..100` (default 20), opaque `cursor`, and `include_summary=true|false` (default false). Records include nullable legacy metadata and string `sync_revision`; private account IDs and hashes are omitted. Signed cursors bind the account, filters, feed epoch, and fixed committed high-water revision, ordered by occurrence time and server ID descending. Summaries cover the complete matching range at that revision, independently of the page: `completed_counts` by guided/practice/legacy, `completed_with_measured_timing`, and `recorded_elapsed_ms`. Unknown durations stay excluded. See the [history reader](internal/handlers/v2/session_history.go).
+
+Change downloads accept an opaque `cursor` and `limit=1..100` (default 100). The [download handler](internal/handlers/v2/training_changes.go) returns ascending string revisions with `kind` and immutable `record`, within a complete-response 1 MiB limit. Every page supplies `next_cursor`, including empty/drained checkpoints. Signed account/epoch cursors retain a fixed committed ceiling while paging; the request after draining captures newer commits, including late offline records. Cursors for session history and change downloads are distinct.
+
+Additive startup migration registers history, revision-state, and change-payload tables without replacing existing tables. Account bootstrap backfills at most 100 old attempts and 100 legacy progress rows per request, preserving original IDs/provenance and unknown measurements. Until bootstrap completes, history and change downloads return retryable `503 TRAINING_SYNC_INITIALIZING` with `Retry-After: 1`; retry the request. Malformed/wrong-account/filter cursors return 400; retired epochs return `410 TRAINING_CURSOR_RESET_REQUIRED`. Legacy progress writes atomically mirror into unified history; native sessions never write back into the legacy table, and legacy response shapes/order/counts remain unchanged.
+
+The [frontend synchronization engine](../frontend/src/lib/training-sync-engine.ts) uploads schema-2 attempts before terminal sessions, then restores history through this feed. Its [owner-scoped repository](../frontend/src/lib/data/training-sync-repository.ts) atomically persists records/outbox entries and downloaded pages/checkpoints, retains failed or unacknowledged work, and journals explicit unclaimed-history imports. The [runtime](../frontend/src/lib/training-sync.svelte.ts) fences account changes and retries on local saves, login, reconnect, and returning to the app; see the [frontend guide](../frontend/docs/learning.md) for UI behavior.
+
+The [approved specification](docs/training-history-v1-spec.md) retains the V2 retirement gate: supported consumers must migrate and the compatibility window/release must be approved before removing the three aliases. Existing V1 settings writers preserve the stored training daily goal when omitted.
+
 ## Legacy progress
 
 | Method and path       | Request                                                                   | Success                           |
@@ -96,7 +125,7 @@ CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page response
 | `GET /v1/cw/progress` | Optional `limit`, `cursor`, or `year` summary mode                        | 200: bounded page or year summary |
 | `PUT /v1/cw/progress` | `lesson`, `char_wpm`, `eff_wpm`, `accuracy`, optional `client_created_at` | 201: `message`                    |
 
-Both require bearer authentication. Lesson must be nonzero; speeds each accept 5–50 and accuracy 0–1. `client_created_at` is a JSON timestamp. Response entries contain `lesson` as a string, speed fields, accuracy, server `created_at`, and nullable `client_created_at`. Pages default to and allow at most 100 records, ordered by server `created_at,id` descending, with `data`, `limit`, and nullable `next_cursor`. Treat cursors as opaque. `year=1..9999` selects summary mode: `days` contains complete UTC-day counts for that year (at most 366 entries), and `recent` contains the newest 20 records overall. Summary mode cannot combine with `limit`/`cursor`; invalid or duplicate arguments return `400 INVALID_QUERY_PARAMETER`. The profile consumes this summary so its heatmap covers the full selected year. There is no registered bulk-progress route. See [progress handler](internal/handlers/v1/progress.go).
+Both require bearer authentication. Lesson must be nonzero; speeds each accept 5–50 and accuracy 0–1. `client_created_at` is a JSON timestamp. Response entries contain `lesson` as a string, speed fields, accuracy, server `created_at`, and nullable `client_created_at`. Pages default to and allow at most 100 records, ordered by server `created_at,id` descending, with `data`, `limit`, and nullable `next_cursor`. Treat cursors as opaque. `year=1..9999` selects summary mode: `days` contains complete UTC-day counts for that year (at most 366 entries), and `recent` contains the newest 20 records overall. Summary mode cannot combine with `limit`/`cursor`; invalid or duplicate arguments return `400 INVALID_QUERY_PARAMETER`. Legacy consumers can use this summary for a complete annual heatmap; the current frontend Profile reads unified owner-scoped history. There is no registered bulk-progress route. See [progress handler](internal/handlers/v1/progress.go).
 
 ## Forum
 

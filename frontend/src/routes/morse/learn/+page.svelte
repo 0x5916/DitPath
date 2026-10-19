@@ -19,6 +19,13 @@
   import CoursePath from '#lib/components/learning/CoursePath.svelte';
   import MorseSectionNav from '#lib/components/MorseSectionNav.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import {
+    getTrainingOwner,
+    trainingSyncState,
+    subscribeTrainingSync,
+    syncTrainingNow
+  } from '#lib/training-sync.ts';
   import { user } from '#lib/auth.ts';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -37,6 +44,7 @@
   let sessionRepo: SessionRepository | null = null;
   let sessionActionPending = $state(false);
   let sessionActionError = $state('');
+  let loadedOwner: string | null = null;
 
   let heroKind = $derived.by<HeroStateKind>(() => {
     if (loading) return 'loading';
@@ -59,19 +67,34 @@
   );
 
   async function loadLessons() {
+    const owner = getTrainingOwner();
+    if (loadedOwner !== owner) {
+      loadedOwner = owner;
+      sessionActionPending = false;
+      sessionActionError = '';
+    }
     const version = ++loadVersion;
+    if (activeDb) closeTrainingDb(activeDb);
+    activeDb = null;
+    sessionRepo = null;
+    inProgressSession = null;
+    masteryMap = new SvelteMap();
+    reviewChars = [];
+    hasAttempts = false;
+    currentStep = 1;
+    courseComplete = false;
     loading = true;
     errorMsg = '';
     let db: IDBDatabase | null = null;
     let initialized = false;
     try {
       db = await openTrainingDb();
-      if (!mounted || version !== loadVersion) return;
+      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
       activeDb = db;
       const migration = await migrateLegacyLocalStorage(db);
-      if (!mounted || version !== loadVersion) return;
-      const repository = createSessionRepository(db);
-      const attemptRepo = createAttemptRepository(db);
+      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
+      const repository = createSessionRepository(db, owner);
+      const attemptRepo = createAttemptRepository(db, owner);
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
       const [unfinished, recentAttempts, attemptCount] = await Promise.all([
@@ -79,7 +102,7 @@
         attemptRepo.getAttemptsByTimeRange(new Date(now - 60 * 86400000).toISOString(), nowIso),
         attemptRepo.countAttempts()
       ]);
-      if (!mounted || version !== loadVersion) return;
+      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
       const guidance = deriveCourseGuidance(recentAttempts, nowIso);
       currentStep = guidance.currentStep;
       masteryMap = new SvelteMap(guidance.masteryMap);
@@ -87,11 +110,12 @@
       courseComplete = guidance.courseComplete;
       hasAttempts = attemptCount > 0;
       inProgressSession = unfinished;
-      suggestedStep = migration.suggestedStep > 1 ? migration.suggestedStep : undefined;
+      suggestedStep =
+        owner === 'unclaimed' && migration.suggestedStep > 1 ? migration.suggestedStep : undefined;
       sessionRepo = repository;
       initialized = true;
     } catch (error) {
-      if (mounted && version === loadVersion) {
+      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
         console.error('Failed to load Learn home data:', error);
         errorMsg = m.learn_data_error_description();
       }
@@ -100,14 +124,21 @@
         closeTrainingDb(db);
         if (activeDb === db) activeDb = null;
       }
-      if (mounted && version === loadVersion) loading = false;
+      if (mounted && version === loadVersion && owner === getTrainingOwner()) loading = false;
     }
   }
 
   onMount(() => {
     mounted = true;
-    void loadLessons();
+    let revision = '';
+    const unsubscribe = subscribeTrainingSync((state) => {
+      const next = `${state.owner}:${state.version}`;
+      if (revision === next) return;
+      revision = next;
+      void loadLessons();
+    });
     return () => {
+      unsubscribe();
       mounted = false;
       loadVersion++;
       sessionRepo = null;
@@ -127,23 +158,24 @@
 
   async function handleDiscardResume(): Promise<boolean> {
     if (!sessionRepo || !inProgressSession || sessionActionPending) return false;
+    const owner = getTrainingOwner();
     sessionActionPending = true;
     sessionActionError = '';
     try {
       await sessionRepo.updateSessionProgress(
         inProgressSession.id,
         inProgressSession.completedPromptCount,
-        'abandoned',
-        new Date().toISOString()
+        'abandoned'
       );
-      if (!mounted) return false;
+      if (!mounted || owner !== getTrainingOwner()) return false;
       inProgressSession = null;
       return true;
     } catch {
-      if (mounted) sessionActionError = m.learn_session_update_error();
+      if (mounted && owner === getTrainingOwner())
+        sessionActionError = m.learn_session_update_error();
       return false;
     } finally {
-      if (mounted) sessionActionPending = false;
+      if (mounted && owner === getTrainingOwner()) sessionActionPending = false;
     }
   }
 </script>
@@ -159,6 +191,15 @@
       <h1 class="page-title">{m.nav_learn()}</h1>
       <p class="learn-subtitle">{m.learn_subtitle()}</p>
     </header>
+
+    <TrainingSyncStatus
+      owner={trainingSyncState.owner}
+      pending={trainingSyncState.pending}
+      error={trainingSyncState.error}
+      syncing={trainingSyncState.syncing}
+      synced={trainingSyncState.synced}
+      onSync={() => void syncTrainingNow()}
+    />
 
     <LearnHero
       kind={heroKind}

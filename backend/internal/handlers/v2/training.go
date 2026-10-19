@@ -17,14 +17,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-// TrainingHandler serves the V2 training synchronization API:
+// TrainingHandler serves canonical V1 training routes and temporary V2 aliases:
 //
-//	POST /v2/training/events/batch
-//	GET  /v2/training/snapshot
-//	PUT  /v2/training/settings
+//	POST /v1/training/events/batch
+//	GET  /v1/training/snapshot
+//	PUT  /v1/training/settings
 //
 // See backend/docs/training-events-v2.md for the wire contract. The legacy
 // /v1/cw/progress endpoint remains active and is not affected.
@@ -79,8 +78,8 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, common.TrainingV2MaxPayloadBytes)
 
-	var input common.TrainingEventBatchInput
-	if err := c.ShouldBindJSON(&input); err != nil {
+	var raw json.RawMessage
+	if err := c.ShouldBindJSON(&raw); err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
 			c.JSON(http.StatusRequestEntityTooLarge, common.NewErrorResponse(
@@ -92,11 +91,32 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 		return
 	}
 
-	if input.SchemaVersion != common.TrainingV2SchemaVersion {
-		c.JSON(http.StatusBadRequest, common.NewErrorResponse(
-			common.ErrorCodeTrainingSchemaVersion, "Unsupported schema_version; expected 1"))
+	var input common.TrainingEventBatchInput
+	if json.Unmarshal(raw, &input) != nil {
+		c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidRequestBody, "Invalid request body"))
 		return
 	}
+	strict := input.SchemaVersion == common.TrainingEventStrictSchemaVersion
+	if input.SchemaVersion != common.TrainingV2SchemaVersion && !strict {
+		c.JSON(http.StatusBadRequest, common.NewErrorResponse(
+			common.ErrorCodeTrainingSchemaVersion, "Unsupported schema_version; expected 1 or 2"))
+		return
+	}
+
+	if strict {
+		clientID, err := uuid.Parse(input.ClientID)
+		if err != nil || clientID == uuid.Nil || containsUserID(raw) {
+			c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidRequestBody, "Schema 2 requires a client_id UUID and forbids user_id"))
+			return
+		}
+		if input.ClientSentAt != nil {
+			if _, err := time.Parse(time.RFC3339Nano, *input.ClientSentAt); err != nil {
+				c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidRequestBody, "client_sent_at must be RFC3339"))
+				return
+			}
+		}
+	}
+
 	if len(input.Events) == 0 {
 		c.JSON(http.StatusBadRequest, common.NewErrorResponse(
 			common.ErrorCodeInvalidRequestBody, "events must not be empty"))
@@ -109,48 +129,67 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 	}
 
 	valid, rejected := validateTrainingEvents(input.Events)
+	if strict {
+		valid, rejected = validateStrictTrainingEvents(input.Events)
+	}
+	acknowledged := make([]string, 0, len(valid))
 
 	if len(valid) > 0 {
 		events := make([]models.TrainingEvent, 0, len(valid))
-		latestClientTime := time.Time{}
 		for _, item := range valid {
-			events = append(events, models.TrainingEvent{
-				UserID:          user.ID,
-				EventID:         item.input.ID,
-				SessionID:       item.input.SessionID,
-				PromptID:        item.input.PromptID,
-				PromptKind:      item.input.PromptKind,
-				TargetCharacter: strings.TrimSpace(item.input.TargetCharacter),
-				EnteredText:     strings.TrimSpace(item.input.EnteredText),
-				IsCorrect:       *item.input.IsCorrect,
-				Classification:  item.input.Classification,
-				LatencyMS:       *item.input.LatencyMS,
-				ReplayCount:     *item.input.ReplayCount,
-				InputMode:       item.input.InputMode,
-				CharWPM:         *item.input.CharWPM,
-				EffWPM:          *item.input.EffWPM,
-				FreqHz:          *item.input.FreqHz,
-				ClientCreatedAt: item.createdAt,
-			})
-			if item.createdAt.After(latestClientTime) {
-				latestClientTime = item.createdAt
-			}
+			events = append(events, trainingEventModel(item, user.ID))
 		}
 
-		// ON CONFLICT DO NOTHING honours the (user_id, event_id) idempotency key.
-		if err := h.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&events).Error; err != nil {
+		if err := h.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+			state, err := training.LockHistoryAccount(tx, user.ID)
+			if err != nil {
+				return err
+			}
+			var latest *time.Time
+			for i := range events {
+				event := &events[i]
+				var stored models.TrainingEvent
+				err := tx.Take(&stored, "user_id = ? AND event_id = ?", user.ID, event.EventID).Error
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					rejection, err := checkTerminalEvent(tx, *event)
+					if err != nil {
+						return err
+					}
+					if rejection != nil {
+						rejected = append(rejected, *rejection)
+						continue
+					}
+					if err := tx.Create(event).Error; err != nil {
+						return err
+					}
+					if err := training.RecordAttemptChange(tx, state, event); err != nil {
+						return err
+					}
+					stored = *event
+				} else if err != nil {
+					return err
+				} else if strict && !sameTrainingEvent(stored, *event) {
+					rejected = append(rejected, *rejectEvent(event.EventID, common.RejectCodeIDConflict, "Event content is immutable"))
+					continue
+				}
+				// Schema 1 retries keep first-write-wins semantics and activity from
+				// the canonical stored event, never the conflicting retry payload.
+				if latest == nil || stored.ClientCreatedAt.After(*latest) {
+					active := stored.ClientCreatedAt
+					latest = &active
+				}
+				acknowledged = append(acknowledged, event.EventID)
+			}
+			if latest != nil {
+				return training.TouchHistoryProfile(tx, user.ID, *latest)
+			}
+			return nil
+		}); err != nil {
 			slog.Error("Failed to ingest training events", "user_id", user.ID, "count", len(events), "err", err)
 			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
 				common.ErrorCodeTrainingIngestFailed, "Failed to store training events"))
 			return
 		}
-
-		h.touchTrainingProfile(user.ID, latestClientTime)
-	}
-
-	acknowledged := make([]string, 0, len(valid))
-	for _, item := range valid {
-		acknowledged = append(acknowledged, item.input.ID)
 	}
 
 	c.JSON(http.StatusOK, common.TrainingEventBatchResponse{
@@ -227,7 +266,7 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 
 // PutSettings updates cloud-synchronized CW and learning preferences. It
 // upserts the shared cw_settings row (the same source of truth as the V1
-// settings endpoint) and stores the V2-only target_daily_minutes field.
+// settings endpoint) and stores the training target_daily_minutes field.
 func (h TrainingHandler) PutSettings(c *gin.Context) {
 	var input common.TrainingSettingsInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -262,34 +301,6 @@ func (h TrainingHandler) PutSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.TrainingSettingsUpdateResponse{UpdatedAt: updatedAt})
-}
-
-// touchTrainingProfile creates the profile on first ingestion (seeding the
-// course position from the legacy page settings) and advances last_active_at.
-func (h TrainingHandler) touchTrainingProfile(userID uuid.UUID, lastActive time.Time) {
-	seedStep := 1
-	var pageSettings models.PageSettings
-	if err := h.DB.Take(&pageSettings, "user_id = ?", userID).Error; err == nil && pageSettings.CurLesson > 1 {
-		seedStep = pageSettings.CurLesson
-	}
-
-	profile := models.TrainingProfile{UserID: userID}
-	createErr := h.DB.Where(&profile).
-		Attrs(models.TrainingProfile{SuggestedStep: seedStep, UnlockedStep: seedStep}).
-		FirstOrCreate(&profile).Error
-	if createErr != nil {
-		// A concurrent first batch may have created the row; fall back to the winner.
-		if err := h.DB.Where("user_id = ?", userID).Take(&profile).Error; err != nil {
-			slog.Error("Failed to upsert training profile", "user_id", userID, "err", createErr)
-			return
-		}
-	}
-
-	if profile.LastActiveAt == nil || lastActive.After(*profile.LastActiveAt) {
-		if err := h.DB.Model(&profile).Update("last_active_at", lastActive).Error; err != nil {
-			slog.Error("Failed to update training profile activity", "user_id", userID, "err", err)
-		}
-	}
 }
 
 // validateTrainingEvents validates raw batch members individually so a single

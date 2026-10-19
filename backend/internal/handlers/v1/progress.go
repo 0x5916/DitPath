@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"opencw/internal/common"
 	"opencw/internal/models"
+	"opencw/internal/training"
 	"opencw/internal/utils"
 	"strconv"
 	"time"
@@ -75,7 +76,20 @@ func (h ProgressHandler) AddProgress(c *gin.Context) {
 		ClientCreatedAt: input.ClientCreatedAt,
 	}
 
-	if err := h.DB.Create(&progress).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		state, err := training.LockHistoryAccount(tx, user.ID)
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&progress).Error; err != nil {
+			return err
+		}
+		// Mirror database-normalized timestamps into immutable history payloads.
+		if err := tx.Take(&progress, "id = ?", progress.ID).Error; err != nil {
+			return err
+		}
+		return training.MirrorLegacyProgress(tx, state, progress)
+	}); err != nil {
 		slog.Error("Failed to create progress", "user_id", user.ID, "lesson", progress.Lesson, "err", err)
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeProgressCreateFailed, "Failed to create progress"))
 		return

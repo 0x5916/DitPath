@@ -69,6 +69,7 @@ export class GuidedSessionController {
   #persistenceRun: Promise<void> | null = null;
   #initialRecord: TrainingSessionRecord | null = null;
   #disposePromise: Promise<void> | null = null;
+  #completedPromptCount = 0;
 
   // Svelte 5 reactive state
   state = $state<GuidedSessionState>({
@@ -175,6 +176,11 @@ export class GuidedSessionController {
       return false;
     }
 
+    if (event.type === 'continue') {
+      this.#completedPromptCount = this.state.currentPromptIndex + 1;
+    } else if (event.type === 'submit-answer') {
+      this.#completedPromptCount = this.state.currentPromptIndex + 1;
+    }
     this.state = transitionResult.state;
     this.#executeEffects(transitionResult.effects);
     return true;
@@ -188,20 +194,18 @@ export class GuidedSessionController {
           break;
         }
         case 'record-attempt': {
-          const { sessionId, attempts } = this.state;
-          const completedPromptCount = attempts.length;
           this.#enqueuePersistence(async () => {
             await this.#attemptRepo.saveAttempt(effect.attempt);
-            await this.#sessionRepo.updateSessionProgress(sessionId, completedPromptCount);
           });
           break;
         }
         case 'session-complete': {
-          const { sessionId, completedAt, totalAttempts } = effect.summary;
+          const { sessionId, completedAt } = effect.summary;
+          const completedPromptCount = this.state.prompts.length;
           this.#enqueuePersistence(() =>
             this.#sessionRepo.updateSessionProgress(
               sessionId,
-              totalAttempts,
+              completedPromptCount,
               'completed',
               completedAt
             )
@@ -209,7 +213,7 @@ export class GuidedSessionController {
           break;
         }
         case 'session-abandoned': {
-          const completedPromptCount = this.state.attempts.length;
+          const completedPromptCount = this.#completedPromptCount;
           const completedAt = this.#nowIso();
           this.#enqueuePersistence(() =>
             this.#sessionRepo.updateSessionProgress(
@@ -308,6 +312,7 @@ export class GuidedSessionController {
       const settings = this.state.prompts[0].spec;
       const record: TrainingSessionRecord = {
         schemaVersion: 1,
+        mode: 'guided',
         id: this.state.sessionId,
         step: this.state.step,
         charWpm: settings.charWpm,
@@ -389,7 +394,15 @@ export class GuidedSessionController {
 
   continue(): boolean {
     this.#stopFeedback();
-    return this.#dispatch({ type: 'continue' });
+    const advanced = this.#dispatch({ type: 'continue' });
+    if (advanced && this.phase !== 'complete') {
+      const sessionId = this.state.sessionId;
+      const completedPromptCount = this.#completedPromptCount;
+      this.#enqueuePersistence(() =>
+        this.#sessionRepo.updateSessionProgress(sessionId, completedPromptCount)
+      );
+    }
+    return advanced;
   }
 
   pause(): void {

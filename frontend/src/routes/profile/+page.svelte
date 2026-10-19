@@ -1,12 +1,22 @@
 <script lang="ts">
-  import { onDestroy, onMount, untrack } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
-  import { getAuthSession, user } from '#lib/auth.ts';
+  import { user } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
-  import { getUserInfo, getCWSettings, getProgressSummary } from '#lib/api.ts';
-  import type { ProgressRecord, ProgressDay } from '#lib/api.ts';
+  import { getUserInfo, getCWSettings } from '#lib/api.ts';
+  import type { ProgressDay } from '#lib/api.ts';
+  import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
+  import { sessionOccurredAt as historyDate } from '#lib/training/v2/progress-summary.ts';
+  import { openTrainingDb, closeTrainingDb } from '#lib/data/training-db.ts';
+  import { createSessionRepository } from '#lib/data/session-repository.ts';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import {
+    getTrainingOwner,
+    trainingSyncState,
+    subscribeTrainingSync,
+    syncTrainingNow
+  } from '#lib/training-sync.ts';
   import { readClientCwSettings } from '#lib/cwSync.ts';
-  import { getLocalProgressRecords } from '#lib/progressSync.ts';
   import { Calendar, Check, X } from '@lucide/svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
@@ -18,10 +28,8 @@
   import { getLocale } from '#lib/paraglide/runtime.js';
 
   const loadScope = createSessionScope();
-  const yearScope = createSessionScope();
   onDestroy(() => {
     loadScope.dispose();
-    yearScope.dispose();
   });
 
   let loading = $state(true);
@@ -31,20 +39,20 @@
   let email = $state('');
   let callSign = $state<string | null>(null);
   let emailVerified = $state(false);
+  let accountInfoKnown = $state(false);
+  let deviceSettings = $state(true);
+  let earliestHistoryMs = $state<number | null>(null);
   let memberSince = $state('');
   let memberCreatedAtMs = $state<number | null>(null);
   let selectedYear = $state(new Date().getFullYear());
-  let charWpm = $state(0);
-  let effWpm = $state(0);
-  let freq = $state(0);
-  let records = $state<ProgressRecord[]>([]);
-  let progressDays = $state<ProgressDay[] | null>(null);
+  let charWpm = $state<number | null>(null);
+  let effWpm = $state<number | null>(null);
+  let freq = $state<number | null>(null);
+  let records = $state<HistorySessionRecord[]>([]);
   let yearLoading = $state(false);
   let yearError = $state('');
   let loadToken = 0;
-  let yearToken = 0;
   let heatmapScrollEl = $state<HTMLDivElement | null>(null);
-  let lastAuthLoaded = $state<string | null | undefined>(undefined);
 
   // Locale-dependent, so it is derived on the component instance: a
   // module-level constant would not be re-evaluated when the language changes.
@@ -91,22 +99,21 @@
     cells: HeatmapCell[];
   };
 
-  let availableYears = $derived(getAvailableYears(memberCreatedAtMs));
-  const dailyCounts = $derived(progressDays ?? progressRecordDays(records));
+  let activityRangeStart = $derived(
+    memberCreatedAtMs === null
+      ? earliestHistoryMs
+      : earliestHistoryMs === null
+        ? memberCreatedAtMs
+        : Math.min(memberCreatedAtMs, earliestHistoryMs)
+  );
+  let availableYears = $derived(getAvailableYears(activityRangeStart));
+  const dailyCounts = $derived(progressRecordDays(records));
   let yearTotalSessions = $derived(countSessionsForYear(dailyCounts, selectedYear));
-  let heatmapWeeks = $derived(buildHeatmap(dailyCounts, memberCreatedAtMs, selectedYear));
+  let heatmapWeeks = $derived(buildHeatmap(dailyCounts, activityRangeStart, selectedYear));
   let heatmapWeekCount = $derived(Math.max(1, heatmapWeeks.length));
   let todayDayMs = $derived(utcDayStart(Date.now()));
   let isGuest = $derived(!$user);
-  let recentRecords = $derived(isGuest ? [...records].reverse().slice(0, 20) : records);
-
-  $effect(() => {
-    const identity = JSON.stringify([getAuthSession().generation, $user?.username ?? null]);
-    if (lastAuthLoaded === identity) return;
-
-    lastAuthLoaded = identity;
-    untrack(() => void loadAll());
-  });
+  let recentRecords = $derived(records.slice(0, 20));
 
   function scrollHeatmapToEnd() {
     if (!heatmapScrollEl) return;
@@ -142,6 +149,13 @@
   }
 
   onMount(() => {
+    let revision = '';
+    const unsubscribe = subscribeTrainingSync((state) => {
+      const next = `${state.owner}:${state.version}`;
+      if (revision === next) return;
+      revision = next;
+      void loadAll();
+    });
     requestAnimationFrame(() => {
       if (selectedYear === CURRENT_YEAR) {
         scrollHeatmapToCurrentWeek();
@@ -150,6 +164,7 @@
         heatmapScrollEl.scrollLeft = 0;
       }
     });
+    return unsubscribe;
   });
 
   $effect(() => {
@@ -173,103 +188,100 @@
   });
 
   async function loadAll() {
-    const current = loadScope.begin();
+    const owner = getTrainingOwner();
+    const active = loadScope.begin();
     const token = ++loadToken;
-    ++yearToken;
-    yearLoading = false;
-    yearError = '';
-    progressDays = null;
+    const current = () => active() && token === loadToken && owner === getTrainingOwner();
     loading = true;
     loadError = '';
-
-    if (!$user) {
-      const cw = readClientCwSettings();
-      const localRecords = getLocalProgressRecords();
-      const parsedCreatedAt = localRecords
-        .map((record) => Date.parse(record.created_at))
-        .filter((value) => !Number.isNaN(value));
-      const earliestCreatedAtMs =
-        parsedCreatedAt.length === 0 ? Date.now() : Math.min(...parsedCreatedAt);
-
-      username = m.nav_guest();
-      email = '';
-      callSign = null;
-      emailVerified = false;
-      memberCreatedAtMs = utcDayStart(earliestCreatedAtMs);
-      memberSince = new Date(earliestCreatedAtMs).toLocaleDateString(getLocale(), {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      selectedYear = new Date().getFullYear();
-      charWpm = cw.char_wpm;
-      effWpm = cw.eff_wpm;
-      freq = cw.freq;
-      records = localRecords;
-      loading = false;
-      return;
-    }
-
+    records = [];
+    username = owner === 'unclaimed' ? m.nav_guest() : ($user?.username ?? '');
+    email = '';
+    callSign = null;
+    emailVerified = false;
+    accountInfoKnown = false;
+    memberSince = m.progress_unmeasured();
+    memberCreatedAtMs = null;
+    earliestHistoryMs = null;
+    charWpm = null;
+    effWpm = null;
+    freq = null;
     try {
-      const [info, cw, prog] = await Promise.all([
-        getUserInfo(),
-        getCWSettings(),
-        getProgressSummary(CURRENT_YEAR)
-      ]);
-      if (!current() || token !== loadToken) return;
-      username = info.username;
-      email = info.email;
-      callSign = info.call_sign;
-      emailVerified = info.email_verified;
-      memberSince = new Date(info.created_at).toLocaleDateString(getLocale(), {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      {
-        const createdAtParsedMs = Date.parse(info.created_at);
-        memberCreatedAtMs = Number.isNaN(createdAtParsedMs) ? null : utcDayStart(createdAtParsedMs);
+      const deviceCw = readClientCwSettings();
+      charWpm = deviceCw.char_wpm;
+      effWpm = deviceCw.eff_wpm;
+      freq = deviceCw.freq;
+    } catch {
+      // Browser settings storage can be blocked independently of IndexedDB history.
+    }
+    deviceSettings = true;
+    let db: IDBDatabase | null = null;
+    try {
+      db = await openTrainingDb();
+      if (!current()) return;
+      const history = await createSessionRepository(db, owner).getSessions();
+      if (!current()) return;
+      records = history.filter((record) => record.status !== 'in-progress');
+      const times = history
+        .map((record) => Date.parse(historyDate(record)))
+        .filter(Number.isFinite);
+      earliestHistoryMs = times.length ? Math.min(...times) : null;
+      if (owner === 'unclaimed') {
+        const createdMs = earliestHistoryMs;
+        memberCreatedAtMs = createdMs === null ? null : utcDayStart(createdMs);
+        memberSince = createdMs === null ? m.progress_unmeasured() : formatMemberSince(createdMs);
+      } else {
+        // Account details are optional: cached history remains usable while offline.
+        void getUserInfo()
+          .then((info) => {
+            if (!current()) return;
+            username = info.username;
+            email = info.email;
+            callSign = info.call_sign;
+            emailVerified = info.email_verified;
+            accountInfoKnown = true;
+            const createdMs = Date.parse(info.created_at);
+            memberCreatedAtMs = Number.isFinite(createdMs) ? utcDayStart(createdMs) : null;
+            memberSince = Number.isFinite(createdMs)
+              ? formatMemberSince(createdMs)
+              : m.progress_unmeasured();
+          })
+          .catch(() => {});
+        void getCWSettings()
+          .then((cw) => {
+            if (!current()) return;
+            charWpm = cw.char_wpm;
+            effWpm = cw.eff_wpm;
+            freq = cw.freq;
+            deviceSettings = false;
+          })
+          .catch(() => {});
       }
-      selectedYear = new Date().getFullYear();
-      charWpm = cw.char_wpm;
-      effWpm = cw.eff_wpm;
-      freq = cw.freq;
-      records = prog.recent;
-      progressDays = prog.days;
-    } catch (e) {
-      if (current() && token === loadToken)
-        loadError = localizeApiError(e, () => m.common_load_error());
-    } finally {
-      if (current() && token === loadToken) loading = false;
-    }
-  }
-
-  async function selectYear(year: number): Promise<void> {
-    const current = yearScope.begin();
-    selectedYear = year;
-    if (isGuest) return;
-    const token = ++yearToken;
-    yearLoading = true;
-    yearError = '';
-    // Clear the old year's aggregate while loading; never label it as the new year.
-    progressDays = [];
-    try {
-      const result = await getProgressSummary(year);
-      if (!current() || token !== yearToken) return;
-      progressDays = result.days;
-      records = result.recent;
     } catch (error) {
-      if (current() && token === yearToken)
-        yearError = localizeApiError(error, () => m.common_load_error());
+      if (current()) loadError = localizeApiError(error, () => m.common_load_error());
     } finally {
-      if (current() && token === yearToken) yearLoading = false;
+      if (db) closeTrainingDb(db);
+      if (current()) loading = false;
     }
   }
 
-  function progressRecordDays(items: ProgressRecord[]): ProgressDay[] {
+  function formatMemberSince(createdMs: number): string {
+    return new Date(createdMs).toLocaleDateString(getLocale(), {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+
+  function selectYear(year: number) {
+    selectedYear = year;
+  }
+
+  function progressRecordDays(items: HistorySessionRecord[]): ProgressDay[] {
     const counts = new SvelteMap<string, number>();
     for (const item of items) {
-      const value = Date.parse(item.created_at);
+      if (item.status !== 'completed') continue;
+      const value = Date.parse(historyDate(item));
       if (Number.isNaN(value)) continue;
       const date = new Date(value).toISOString().slice(0, 10);
       counts.set(date, (counts.get(date) ?? 0) + 1);
@@ -418,6 +430,14 @@
 </script>
 
 <div class="page-stack">
+  <TrainingSyncStatus
+    owner={trainingSyncState.owner}
+    pending={trainingSyncState.pending}
+    error={trainingSyncState.error}
+    syncing={trainingSyncState.syncing}
+    synced={trainingSyncState.synced}
+    onSync={() => void syncTrainingNow()}
+  />
   {#if loading}
     <LoadingSpinner />
   {:else if loadError}
@@ -436,16 +456,20 @@
     <header class="profile-header">
       <!-- Call-sign plate: the one piece of radio identity, in monospace. -->
       <div class="profile-stat profile-plate">
-        <span class="metric-value">{callSign ?? m.profile_call_sign_none()}</span>
+        <span class="metric-value"
+          >{!isGuest && !accountInfoKnown
+            ? m.progress_unmeasured()
+            : (callSign ?? m.profile_call_sign_none())}</span
+        >
         <span class="metric-label">{m.profile_call_sign_label()}</span>
       </div>
       <div class="profile-header-info">
         <h1 class="page-title">{username}</h1>
-        {#if !isGuest}
+        {#if !isGuest && accountInfoKnown}
           <p class="profile-email">{email}</p>
         {/if}
         <div class="meta-row">
-          {#if !isGuest}
+          {#if !isGuest && accountInfoKnown}
             <p class="meta-item">
               {#if emailVerified}
                 <Check
@@ -468,6 +492,9 @@
             </p>
           {/if}
         </div>
+        {#if !isGuest && !accountInfoKnown}<p class="body-text">
+            {m.profile_account_details_unavailable()}
+          </p>{/if}
         <p class="profile-joined">
           <Calendar size={13} />
           {m.profile_member_since()}: {memberSince}
@@ -595,17 +622,20 @@
     <!-- CW settings snapshot: peer readouts in an inset stat strip. -->
     <section class="panel">
       <h2 class="card-title">{m.profile_cw_settings()}</h2>
+      {#if !isGuest && deviceSettings}<p class="body-text">
+          {m.profile_device_settings_hint()}
+        </p>{/if}
       <div class="profile-cw-grid">
         <div class="profile-stat">
-          <span class="metric-value">{charWpm}</span>
+          <span class="metric-value">{charWpm ?? m.progress_unmeasured()}</span>
           <span class="metric-label">{m.profile_cw_char_wpm()}</span>
         </div>
         <div class="profile-stat">
-          <span class="metric-value">{effWpm}</span>
+          <span class="metric-value">{effWpm ?? m.progress_unmeasured()}</span>
           <span class="metric-label">{m.profile_cw_eff_wpm()}</span>
         </div>
         <div class="profile-stat">
-          <span class="metric-value">{freq} Hz</span>
+          <span class="metric-value">{freq === null ? m.progress_unmeasured() : `${freq} Hz`}</span>
           <span class="metric-label">{m.profile_cw_freq()}</span>
         </div>
       </div>
@@ -625,22 +655,40 @@
             <thead>
               <tr>
                 <th class="panel-label">{m.profile_history_lesson()}</th>
+                <th class="panel-label">{m.history_status()}</th>
                 <th class="panel-label">{m.profile_history_accuracy()}</th>
                 <th class="panel-label">{m.profile_history_wpm()}</th>
                 <th class="panel-label">{m.profile_history_date()}</th>
               </tr>
             </thead>
             <tbody>
-              {#each recentRecords as rec, idx (`${rec.created_at}-${rec.lesson}-${idx}`)}
+              {#each recentRecords as rec (rec.id)}
                 <tr>
-                  <td class="profile-lesson-cell">{formatLesson(rec.lesson)}</td>
+                  <td class="profile-lesson-cell"
+                    >{rec.mode === 'legacy'
+                      ? m.history_legacy()
+                      : rec.mode === 'practice'
+                        ? m.progress_history_practice()
+                        : m.progress_history_guided()} · {formatLesson(String(rec.step))}</td
+                  >
                   <td
-                    ><span class="profile-acc {accuracyClass(rec.accuracy)}"
-                      >{percentage(rec.accuracy)}</span
+                    >{rec.status === 'abandoned'
+                      ? m.history_abandoned()
+                      : m.history_completed()}</td
+                  >
+                  <td
+                    ><span
+                      class="profile-acc {rec.accuracy == null ? '' : accuracyClass(rec.accuracy)}"
+                      >{rec.accuracy == null
+                        ? m.progress_unmeasured()
+                        : percentage(rec.accuracy)}</span
                     ></td
                   >
-                  <td class="profile-wpm-cell">{rec.char_wpm} / {rec.eff_wpm}</td>
-                  <td class="profile-date-cell">{formatDate(rec.created_at)}</td>
+                  <td class="profile-wpm-cell"
+                    >{rec.charWpm ?? m.progress_unmeasured()} / {rec.effWpm ??
+                      m.progress_unmeasured()}</td
+                  >
+                  <td class="profile-date-cell">{formatDate(historyDate(rec))}</td>
                 </tr>
               {/each}
             </tbody>

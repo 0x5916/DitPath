@@ -4,7 +4,8 @@
   import { user, initAuth, logout, getAuthSession } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
-  import { flushQueuedProgress, initializeProgressSync } from '#lib/progressSync.ts';
+  import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
+  import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.ts';
   import { LESSONS } from '#lib/morse.ts';
   import { reconcileSettingsWithServer, applyPageLanguagePreference } from '#lib/cwSync.ts';
   import { GITHUB_URL } from '#lib/seo.ts';
@@ -101,10 +102,6 @@
       return;
     }
 
-    void flushQueuedProgress().catch(() => {
-      // Keep app startup resilient if browser storage is temporarily unavailable.
-    });
-
     const session = getAuthSession();
     if (reconciledSettingsForSession === session.generation) return;
     reconciledSettingsForSession = session.generation;
@@ -124,7 +121,7 @@
   });
 
   onMount(() => {
-    initializeProgressSync();
+    return initializeTrainingSync();
   });
 
   function langLabel(locale: Locale): string {
@@ -150,6 +147,13 @@
     const current = scope.capture();
     await pending;
     if (current()) await goto(href('/'));
+  }
+
+  function handlePendingTrainingUnload(event: BeforeUnloadEvent) {
+    if (hasPendingTrainingPersistence()) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
   }
 
   function handleStorage(event: StorageEvent) {
@@ -200,6 +204,7 @@
   // change (Settings, the More page), so refresh it on every navigation.
   afterNavigate(() => {
     theme = readStoredTheme();
+    void syncTrainingNow();
   });
 
   $effect(() => {
@@ -215,7 +220,7 @@
   });
 </script>
 
-<svelte:window onstorage={handleStorage} />
+<svelte:window onstorage={handleStorage} onbeforeunload={handlePendingTrainingUnload} />
 
 <svelte:head>
   <title>{data.seo.title}</title>

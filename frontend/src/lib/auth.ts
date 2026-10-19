@@ -202,13 +202,29 @@ async function runTokenRefresh(session: AuthSession): Promise<boolean> {
 /** Decode a JWT's payload claim set, or null when the token is malformed. */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const payload: unknown = JSON.parse(atob(token.split('.')[1]));
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(part.padEnd(Math.ceil(part.length / 4) * 4, '=')), (c) =>
+      c.charCodeAt(0)
+    );
+    const payload: unknown = JSON.parse(new TextDecoder().decode(bytes));
     return typeof payload === 'object' && payload !== null
       ? (payload as Record<string, unknown>)
       : null;
   } catch {
     return null;
   }
+}
+
+/** Local partition identity comes from the immutable JWT subject, never username. */
+export function getAuthAccountId(): string | null {
+  getAuthSession();
+  const token = readAuth(AUTH_STORAGE_KEYS.accessToken);
+  const subject = token ? decodeJwtPayload(token)?.sub : null;
+  return typeof subject === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subject) &&
+    subject !== '00000000-0000-0000-0000-000000000000'
+    ? subject.toLowerCase()
+    : null;
 }
 
 /** Return true if the token is expired, or cannot be read at all. */

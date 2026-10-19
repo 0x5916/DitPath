@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, Check, Minus, Plus } from '@lucide/svelte';
+  import { X, Check, Minus, Plus, CircleAlert } from '@lucide/svelte';
   import { dialogFocusables, dialogFocusTarget } from './dialog-focus';
   import { scoreGrade, type DiffToken } from '#lib/score.ts';
   import { percentage } from '#lib/format.ts';
@@ -21,6 +21,8 @@
     onNext: () => void;
     onPrev: () => void;
     onRegenerate: () => void;
+    persistenceStatus?: 'saving' | 'saved' | 'failed' | null;
+    onRetrySave?: () => void;
   }
 
   let {
@@ -35,7 +37,9 @@
     onClose,
     onNext,
     onPrev,
-    onRegenerate
+    onRegenerate,
+    persistenceStatus = null,
+    onRetrySave
   }: Props = $props();
 
   let grade = $derived(scoreGrade(result));
@@ -47,6 +51,7 @@
         : m.trainer_score_bad()
   );
   let pct = $derived(percentage(result));
+  let savePending = $derived(persistenceStatus === 'saving' || persistenceStatus === 'failed');
 
   let panelRef = $state<HTMLDivElement | null>(null);
   let restoreFocusTo: HTMLElement | null = null;
@@ -198,16 +203,34 @@
       </div>
     </section>
 
+    {#if persistenceStatus}
+      <div class="overlay-source" role={persistenceStatus === 'failed' ? 'alert' : 'status'}>
+        {#if persistenceStatus === 'failed'}
+          <CircleAlert size={16} aria-hidden="true" />
+          <p>{m.practice_history_failed()}</p>
+          <button type="button" class="btn-primary" onclick={onRetrySave}
+            >{m.lesson_retry_save()}</button
+          >
+        {:else if persistenceStatus === 'saved'}
+          <Check size={16} aria-hidden="true" />
+          <p>{m.practice_history_saved()}</p>
+        {:else}
+          <p>{m.practice_history_saving()}</p>
+        {/if}
+      </div>
+    {/if}
+
     <footer class="overlay-actions">
       {#if hasNextLesson}
-        <button type="button" class="btn-primary" onclick={onNext}>
+        <button type="button" class="btn-primary" onclick={onNext} disabled={savePending}>
           {m.trainer_next_lesson({ lesson: String(nextLessonNum) })}
         </button>
       {/if}
-      <button type="button" class="btn-ghost" onclick={onRegenerate}>{m.trainer_try_again()}</button
+      <button type="button" class="btn-ghost" onclick={onRegenerate} disabled={savePending}
+        >{m.trainer_try_again()}</button
       >
       {#if hasPrevLesson}
-        <button type="button" class="btn-ghost" onclick={onPrev}>
+        <button type="button" class="btn-ghost" onclick={onPrev} disabled={savePending}>
           {m.trainer_prev_lesson({ lesson: String(prevLessonNum) })}
         </button>
       {/if}

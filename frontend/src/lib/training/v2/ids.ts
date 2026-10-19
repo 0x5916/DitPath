@@ -26,6 +26,9 @@ function generateRandomSuffix(length: number, random: () => number): string {
  * Format: `<prefix>_<timestampBase36>_<randomBase36>`
  */
 export function createEntityId(prefix: string, options: IdGeneratorOptions = {}): string {
+  if (!options.random && typeof globalThis.crypto?.randomUUID === 'function') {
+    return `${prefix}_${globalThis.crypto.randomUUID()}`;
+  }
   const now = options.now ? options.now() : Date.now();
   const random = options.random ?? Math.random;
 

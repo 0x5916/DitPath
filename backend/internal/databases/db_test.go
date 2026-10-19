@@ -4,9 +4,13 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
+	"opencw/internal/models"
+
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type migrationProbe struct {
@@ -47,6 +51,9 @@ func TestMigrateStopsAtEveryRequiredFailure(t *testing.T) {
 		{"email lookup index", 4, "migrate user email indexes"},
 		{"verified email uniqueness", 5, "migrate user email indexes"},
 		{"forum index", 6, "migrate forum indexes"},
+		{"legacy training identity", 7, "migrate training indexes"},
+		{"training history index", 8, "migrate training indexes"},
+		{"training filter index", 9, "migrate training indexes"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cause := errors.New("injected schema failure")
@@ -71,12 +78,12 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 	for _, model := range probe.models {
 		models = append(models, reflect.TypeOf(model).Elem().Name())
 	}
-	want := []string{"User", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile"}
+	want := []string{"User", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange"}
 	if !reflect.DeepEqual(models, want) {
 		t.Fatalf("models = %v, want %v", models, want)
 	}
-	if len(probe.statements) != 5 {
-		t.Fatalf("required index statements = %d, want 5", len(probe.statements))
+	if len(probe.statements) != 8 {
+		t.Fatalf("required index statements = %d, want 8", len(probe.statements))
 	}
 	if !strings.Contains(probe.statements[3], "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_verified_email") ||
 		!strings.Contains(probe.statements[3], "email_verified = true AND deleted_at IS NULL") {
@@ -84,5 +91,33 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 	}
 	if !strings.Contains(probe.statements[4], "idx_forum_threads_created_at_id") {
 		t.Fatal("forum index must be established before serving requests")
+	}
+	for i, name := range []string{"idx_training_sessions_legacy_source", "idx_training_sessions_history", "idx_training_sessions_filter"} {
+		if !strings.Contains(probe.statements[i+5], name) {
+			t.Fatalf("training index %s must be established before serving requests", name)
+		}
+	}
+}
+
+func TestTrainingHistoryOwnershipConstraints(t *testing.T) {
+	for _, model := range []interface{}{&models.TrainingSession{}, &models.TrainingSyncState{}, &models.TrainingChange{}} {
+		t.Run(reflect.TypeOf(model).Elem().Name(), func(t *testing.T) {
+			parsed, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			user := parsed.Relationships.Relations["User"]
+			if user == nil || user.ParseConstraint() == nil || user.ParseConstraint().OnDelete != "CASCADE" {
+				t.Fatal("history must be removed when its owning account is deleted")
+			}
+			if parsed.FieldsByDBName["deleted_at"] != nil {
+				t.Fatal("immutable history must not inherit soft-delete filtering")
+			}
+			if _, ok := model.(*models.TrainingChange); ok {
+				if len(parsed.PrimaryFields) != 2 || !parsed.FieldsByName["UserID"].PrimaryKey || !parsed.FieldsByName["Revision"].PrimaryKey || parsed.FieldsByName["Revision"].AutoIncrement {
+					t.Fatal("feed revisions must form a composite account/revision identity")
+				}
+			}
+		})
 	}
 }

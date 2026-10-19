@@ -3,7 +3,7 @@
  */
 
 export const TRAINING_DB_NAME = 'morsestep_training_v1' as const;
-export const TRAINING_DB_VERSION = 1 as const;
+export const TRAINING_DB_VERSION = 2 as const;
 
 export const TRAINING_STORES = {
   attempts: 'attempts',
@@ -14,12 +14,27 @@ export const TRAINING_STORES = {
   meta: 'meta'
 } as const;
 
-export type TrainingStoreName = (typeof TRAINING_STORES)[keyof typeof TRAINING_STORES];
+export const OWNED_STORES = {
+  attempts: 'owned_attempts',
+  sessions: 'owned_sessions',
+  mastery: 'owned_mastery',
+  outbox: 'owned_outbox',
+  meta: 'owned_meta',
+  imports: 'history_imports'
+} as const;
+
+export type TrainingStoreName =
+  | (typeof TRAINING_STORES)[keyof typeof TRAINING_STORES]
+  | (typeof OWNED_STORES)[keyof typeof OWNED_STORES];
 
 /**
  * Executes schema creation and migrations transaction-safely inside onupgradeneeded.
  */
-export function upgradeTrainingDatabase(db: IDBDatabase, oldVersion: number): void {
+export function upgradeTrainingDatabase(
+  db: IDBDatabase,
+  oldVersion: number,
+  transaction?: IDBTransaction
+): void {
   if (oldVersion < 1) {
     // 1. Attempts: immutable record of every prompt response
     if (!db.objectStoreNames.contains(TRAINING_STORES.attempts)) {
@@ -68,5 +83,36 @@ export function upgradeTrainingDatabase(db: IDBDatabase, oldVersion: number): vo
     if (!db.objectStoreNames.contains(TRAINING_STORES.meta)) {
       db.createObjectStore(TRAINING_STORES.meta, { keyPath: 'key' });
     }
+  }
+  if (oldVersion < 2) {
+    const attempts = db.createObjectStore(OWNED_STORES.attempts, { keyPath: ['ownerKey', 'id'] });
+    for (const field of ['sessionId', 'targetCharacter', 'createdAt']) {
+      attempts.createIndex(field, ['ownerKey', field]);
+    }
+    attempts.createIndex('ownerKey', 'ownerKey');
+    const sessions = db.createObjectStore(OWNED_STORES.sessions, { keyPath: ['ownerKey', 'id'] });
+    sessions.createIndex('startedAt', ['ownerKey', 'startedAt']);
+    sessions.createIndex('ownerKey', 'ownerKey');
+    db.createObjectStore(OWNED_STORES.mastery, { keyPath: ['ownerKey', 'character'] });
+    const outbox = db.createObjectStore(OWNED_STORES.outbox, {
+      keyPath: ['ownerKey', 'kind', 'id']
+    });
+    outbox.createIndex('ownerKey', 'ownerKey');
+    db.createObjectStore(OWNED_STORES.meta, { keyPath: ['ownerKey', 'key'] });
+    db.createObjectStore(OWNED_STORES.imports, { keyPath: ['installationId', 'kind', 'id'] });
+    // Keep the original stores as an archive. Their ownership cannot be inferred.
+    // The old queue is intentionally not copied into an account upload outbox.
+    if (transaction)
+      for (const name of ['attempts', 'sessions'] as const) {
+        const request = transaction.objectStore(TRAINING_STORES[name]).openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          transaction
+            .objectStore(OWNED_STORES[name])
+            .put({ ...cursor.value, ownerKey: 'unclaimed' });
+          cursor.continue();
+        };
+      }
   }
 }

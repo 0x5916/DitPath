@@ -20,7 +20,14 @@
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { LESSONS } from '#lib/training/sequence.ts';
+  import { retainTrainingPersistence } from '#lib/pending-training-persistence.ts';
   import { AlertCircle } from '@lucide/svelte';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import {
+    getTrainingOwner,
+    trainingSyncState,
+    subscribeTrainingSync
+  } from '#lib/training-sync.ts';
   import { saveBeforeSessionNavigation, type PendingSessionNavigation } from './navigation';
 
   let controller = $state<GuidedSessionController | null>(null);
@@ -39,6 +46,9 @@
   let destroyed = false;
   let sessionStep: number | null = null;
   let resumeAfterExit = $state(false);
+  let sessionOwner: string | null = null;
+  const controllerOwners = new WeakMap<GuidedSessionController, string>();
+  let discardPersistence = false;
 
   let step = $derived.by(() => {
     if (!browser) return 1;
@@ -49,21 +59,37 @@
 
   async function releaseSession(
     ctrl: GuidedSessionController | null,
-    database: IDBDatabase | null
+    database: IDBDatabase | null,
+    discard = false
   ) {
-    try {
-      if (ctrl) {
-        ctrl.abandon();
-        await ctrl.dispose();
-      }
-    } finally {
+    if (!ctrl) {
       database?.close();
+      return;
     }
+    ctrl.abandon();
+    const cleanup = async () => {
+      try {
+        await ctrl.dispose();
+      } finally {
+        database?.close();
+      }
+    };
+    if (discard) await cleanup();
+    else
+      await retainTrainingPersistence({
+        key: ctrl,
+        owner: controllerOwners.get(ctrl) ?? getTrainingOwner(),
+        save: () => ctrl.retryPersistence(),
+        cleanup
+      });
   }
 
   async function startSession(requestedStep: number) {
+    const owner = getTrainingOwner();
+    sessionOwner = owner;
     const generation = ++initialization;
     sessionStep = requestedStep;
+    discardPersistence = false;
     const previousController = controller;
     const previousDb = db;
     controller = null;
@@ -76,19 +102,19 @@
     let database: IDBDatabase | null = null;
     try {
       await releaseSession(previousController, previousDb);
-      if (destroyed || generation !== initialization) return;
+      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) return;
       database = await openTrainingDb();
-      if (destroyed || generation !== initialization) {
+      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
         database.close();
         return;
       }
-      const attemptRepo = createAttemptRepository(database);
-      const sessionRepo = createSessionRepository(database);
+      const attemptRepo = createAttemptRepository(database, owner);
+      const sessionRepo = createSessionRepository(database, owner);
       const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
         new Date(Date.now() - 30 * 86400000).toISOString(),
         new Date().toISOString()
       );
-      if (destroyed || generation !== initialization) {
+      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
         database.close();
         return;
       }
@@ -99,17 +125,19 @@
         sessionRepo,
         allHistoricalAttempts: recentAttempts
       });
+      controllerOwners.set(ctrl, owner);
       controller = ctrl;
       db = database;
       await ctrl.start();
     } catch (err) {
       database?.close();
-      if (!destroyed && generation === initialization) {
+      if (!destroyed && generation === initialization && owner === getTrainingOwner()) {
         initializationError = true;
         console.error('Failed to initialize guided session:', err);
       }
     } finally {
-      if (!destroyed && generation === initialization) initializing = false;
+      if (!destroyed && generation === initialization && owner === getTrainingOwner())
+        initializing = false;
     }
   }
 
@@ -117,6 +145,24 @@
     void startSession(step);
     onVisibility = () => controller?.handleVisibilityChange(document.hidden);
     document.addEventListener('visibilitychange', onVisibility);
+    return subscribeTrainingSync(() => {
+      if (sessionOwner === null || sessionOwner === getTrainingOwner()) return;
+      initialization++;
+      pendingAction = null;
+      pendingNavigation = null;
+      comparingContrast = false;
+      resumeAfterExit = false;
+      sessionOwner = getTrainingOwner();
+      const previousController = controller;
+      const previousDb = db;
+      controller = null;
+      db = null;
+      initializing = false;
+      initializationError = true;
+      void releaseSession(previousController, previousDb, discardPersistence).catch((error) =>
+        console.error('Session cleanup failed:', error)
+      );
+    });
   });
 
   afterNavigate(() => {
@@ -134,7 +180,7 @@
       onVisibility = null;
     }
     // Svelte cleanup is synchronous. This owned promise closes storage after queued writes settle.
-    void releaseSession(controller, db).catch((err) =>
+    void releaseSession(controller, db, discardPersistence).catch((err) =>
       console.error('Session cleanup failed:', err)
     );
     controller = null;
@@ -159,11 +205,14 @@
 
   async function continueNavigation(navigation: PendingSessionNavigation, discard = false) {
     if (leaving || !controller) return;
+    const owner = getTrainingOwner();
+    const ctrl = controller;
     leaving = true;
     try {
-      await saveBeforeSessionNavigation(controller, navigation, {
+      if (discard) discardPersistence = true;
+      await saveBeforeSessionNavigation(ctrl, navigation, {
         discard,
-        isActive: () => !destroyed
+        isActive: () => !destroyed && owner === getTrainingOwner() && controller === ctrl
       });
     } finally {
       leaving = false;
@@ -213,14 +262,17 @@
     pendingAction = action;
     pendingNavigation = null;
     const ctrl = controller;
+    const owner = getTrainingOwner();
     const nextStep = (ctrl?.summary?.step ?? step) + 1;
     try {
       ctrl?.abandon();
       if (!discard && ctrl && !(await ctrl.flushPersistence())) return;
-      if (destroyed) return;
-      await releaseSession(ctrl, db);
-      if (destroyed) return;
+      if (destroyed || owner !== getTrainingOwner() || ctrl !== controller) return;
+      discardPersistence = discard;
+      await releaseSession(ctrl, db, discard);
+      if (destroyed || owner !== getTrainingOwner() || ctrl !== controller) return;
       db = null;
+      controller = null;
       if (action === 'repeat') await startSession(step);
       else {
         const destination = localizedHref(
@@ -235,8 +287,10 @@
   }
 
   async function retrySaving() {
-    if (await controller?.retryPersistence()) {
-      if (destroyed) return;
+    const ctrl = controller;
+    const owner = getTrainingOwner();
+    if (await ctrl?.retryPersistence()) {
+      if (destroyed || owner !== getTrainingOwner() || ctrl !== controller) return;
       if (pendingNavigation) await continueNavigation(pendingNavigation);
       else if (pendingAction) await leaveSession(pendingAction);
     }
@@ -338,6 +392,15 @@
     onExitCancel={handleExitCancel}
     onPauseToggle={handlePauseToggle}
   >
+    {#if controller.persistenceStatus === 'saved'}
+      <TrainingSyncStatus
+        owner={trainingSyncState.owner}
+        pending={trainingSyncState.pending}
+        error={trainingSyncState.error}
+        syncing={trainingSyncState.syncing}
+        synced={trainingSyncState.synced && ['complete', 'abandoned'].includes(controller.phase)}
+      />
+    {/if}
     {#if controller.persistenceStatus === 'failed'}
       <div class="recovery-panel" role="alert">
         <AlertCircle size={20} aria-hidden="true" />

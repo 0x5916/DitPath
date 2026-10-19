@@ -1,6 +1,6 @@
 import { LESSONS } from '../sequence';
 import { reduceCharacterMasteries } from './mastery';
-import type { AttemptEvent, CharacterMastery, ConfusionPair, TrainingSessionRecord } from './types';
+import type { AttemptEvent, CharacterMastery, ConfusionPair, HistorySessionRecord } from './types';
 
 const DAY_MS = 86_400_000;
 
@@ -9,16 +9,26 @@ export interface ProgressSummary {
   confusionPairs: ConfusionPair[];
   slowChars: string[];
   sessionCount: number;
+  guidedSessionCount: number;
+  practiceSessionCount: number;
+  legacySessionCount: number;
   timedSessionCount: number;
   totalMinutes: number | null;
   accuracyPercent: number | null;
   hasRecentActivity: boolean;
 }
 
+/** Native completion is the occurrence time until its server occurrence is downloaded. */
+export function sessionOccurredAt(
+  session: Pick<HistorySessionRecord, 'occurredAt' | 'completedAt' | 'startedAt'>
+): string {
+  return session.occurredAt ?? session.completedAt ?? session.startedAt ?? '';
+}
+
 /** Derives display metrics without storage, locale, or UI dependencies. */
 export function summarizeProgress(
   attempts: readonly AttemptEvent[],
-  sessions: readonly TrainingSessionRecord[],
+  sessions: readonly HistorySessionRecord[],
   nowIso: string
 ): ProgressSummary {
   const nowMs = Date.parse(nowIso);
@@ -31,14 +41,14 @@ export function summarizeProgress(
       attempt.classification !== 'unmeasured' && Date.parse(attempt.createdAt) >= nowMs - 7 * DAY_MS
   );
   const completed = sessions.filter((session) => {
-    const start = Date.parse(session.startedAt);
+    const start = Date.parse(sessionOccurredAt(session));
     return session.status === 'completed' && start >= nowMs - 7 * DAY_MS && start <= nowMs;
   });
   let durationMs = 0;
   let timedSessionCount = 0;
   for (const session of completed) {
     const end = Date.parse(session.completedAt ?? '');
-    const duration = end - Date.parse(session.startedAt);
+    const duration = end - Date.parse(session.startedAt ?? '');
     if (Number.isFinite(duration) && duration >= 0 && end <= nowMs) {
       durationMs += duration;
       timedSessionCount++;
@@ -92,6 +102,11 @@ export function summarizeProgress(
           a.actual.localeCompare(b.actual)
       ),
     sessionCount: completed.length,
+    guidedSessionCount: completed.filter(
+      (session) => session.mode !== 'practice' && session.mode !== 'legacy'
+    ).length,
+    practiceSessionCount: completed.filter((session) => session.mode === 'practice').length,
+    legacySessionCount: completed.filter((session) => session.mode === 'legacy').length,
     timedSessionCount,
     totalMinutes:
       completed.length > 0 && timedSessionCount === 0

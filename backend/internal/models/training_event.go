@@ -7,7 +7,7 @@ import (
 )
 
 // TrainingEvent is an immutable AttemptEvent record ingested through
-// POST /v2/training/events/batch (see backend/docs/training-events-v2.md).
+// POST /v1/training/events/batch and its temporary V2 alias.
 //
 // Idempotency contract: the client-generated EventID is unique per user, so a
 // re-upload of the same event is acknowledged but never duplicated in storage.
@@ -15,10 +15,10 @@ import (
 // records server ingestion time.
 type TrainingEvent struct {
 	Base
-	UserID          uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_training_events_user_event,priority:1;index:idx_training_events_user_created,priority:1"`
+	UserID          uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_training_events_user_event,priority:1;index:idx_training_events_user_created,priority:1;index:idx_training_events_user_session,priority:1"`
 	User            *User     `gorm:"constraint:OnDelete:CASCADE;"`
 	EventID         string    `gorm:"not null;uniqueIndex:idx_training_events_user_event,priority:2"`
-	SessionID       string    `gorm:"not null"`
+	SessionID       string    `gorm:"not null;index:idx_training_events_user_session,priority:2"`
 	PromptID        string    `gorm:"not null"`
 	PromptKind      string    `gorm:"not null"`
 	TargetCharacter string    `gorm:"not null"`
@@ -32,6 +32,8 @@ type TrainingEvent struct {
 	EffWPM          int       `gorm:"not null"`
 	FreqHz          int       `gorm:"not null"`
 	ClientCreatedAt time.Time `gorm:"not null;index:idx_training_events_user_created,priority:2"`
+	PayloadHash     []byte    `gorm:"type:bytea"`
+	SyncRevision    int64     `gorm:"not null;default:0"`
 }
 
 func (TrainingEvent) TableName() string {

@@ -11,9 +11,12 @@
 import {
   TRAINING_DB_NAME,
   TRAINING_DB_VERSION,
+  OWNED_STORES,
   upgradeTrainingDatabase,
   type TrainingStoreName
 } from './training-schema';
+import { notifyTrainingDataChange } from './training-data-events';
+import { hasPendingTrainingPersistence } from '../pending-training-persistence';
 
 export function isIndexedDbAvailable(customFactory?: IDBFactory): boolean {
   if (customFactory) return true;
@@ -40,7 +43,7 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = request.result;
-      upgradeTrainingDatabase(db, event.oldVersion);
+      upgradeTrainingDatabase(db, event.oldVersion, request.transaction ?? undefined);
     };
 
     request.onsuccess = () => {
@@ -148,4 +151,42 @@ export function closeTrainingDb(db: IDBDatabase): void {
   } catch {
     // Harmless if already closed
   }
+}
+
+/** Clears account caches without erasing device history, import assignments, or pending work. */
+export async function clearTrainingCache(db: IDBDatabase): Promise<void> {
+  if (hasPendingTrainingPersistence()) {
+    throw new Error('Pending training uploads must be synchronized before clearing history');
+  }
+  const affectedOwners = new Set<string>();
+  await withTransaction(db, Object.values(OWNED_STORES), 'readwrite', async (stores) => {
+    if (await reqToPromise(stores[OWNED_STORES.outbox].count())) {
+      throw new Error('Pending training uploads must be synchronized before clearing history');
+    }
+    const sessions = await reqToPromise<{ ownerKey: string; status: string }[]>(
+      stores[OWNED_STORES.sessions].getAll()
+    );
+    if (
+      sessions.some(
+        (session) => session.ownerKey.startsWith('account:') && session.status === 'in-progress'
+      )
+    ) {
+      throw new Error('Pending training uploads must be synchronized before clearing history');
+    }
+    for (const name of [
+      OWNED_STORES.attempts,
+      OWNED_STORES.sessions,
+      OWNED_STORES.mastery,
+      OWNED_STORES.meta
+    ]) {
+      const keys = await reqToPromise<IDBValidKey[]>(stores[name].getAllKeys());
+      for (const key of keys) {
+        if (Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('account:')) {
+          affectedOwners.add(key[0]);
+          await reqToPromise(stores[name].delete(key));
+        }
+      }
+    }
+  });
+  for (const owner of affectedOwners) notifyTrainingDataChange(owner, true);
 }

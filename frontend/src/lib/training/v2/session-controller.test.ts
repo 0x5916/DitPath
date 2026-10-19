@@ -287,7 +287,8 @@ describe('Guided Session Controller (Svelte 5 runes)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fakeAttempts.saveAttempt).toHaveBeenCalled();
     expect(fakeAttempts.saved.length).toBe(1);
-    expect(fakeSessions.updateSessionProgress).toHaveBeenCalledWith(controller.state.sessionId, 1);
+    // The attempt repository commits the answer and owning session progress atomically.
+    expect(fakeSessions.updateSessionProgress).not.toHaveBeenCalled();
 
     controller.dispose();
   });
@@ -468,7 +469,6 @@ describe('guided persistence commit ordering and recovery', () => {
     await disposing;
     expect(attempts.saved).toHaveLength(1);
     expect(sessions.updates.map(({ count, status }) => ({ count, status }))).toEqual([
-      { count: 1, status: undefined },
       { count: 1, status: 'completed' }
     ]);
     expect(controller.persistenceStatus).toBe('saved');
@@ -538,11 +538,39 @@ describe('guided persistence commit ordering and recovery', () => {
     expect(attempts.saved).toHaveLength(2);
     expect(sessions.updates.map(({ count, status }) => ({ count, status }))).toEqual([
       { count: 1, status: undefined },
-      { count: 2, status: undefined },
       { count: 2, status: 'completed' }
     ]);
     expect(controller.persistenceError).toBeNull();
     expect(controller.persistenceStatus).toBe('saved');
+    await controller.dispose();
+  });
+
+  it('counts introductions as completed prompts without creating recognition evidence', async () => {
+    const intro = createMockPrompt('intro', 'K');
+    intro.spec.kind = 'introduction';
+    intro.isScored = false;
+    const attempts = createFakeAttemptRepo();
+    const sessions = createFakeSessionRepo();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [intro, createMockPrompt('recall', 'K')],
+      audioEngine: createFakeAudioEngine(),
+      attemptRepo: attempts,
+      sessionRepo: sessions
+    });
+    await controller.start();
+    controller.continue();
+    await controller.flushPersistence();
+    expect(sessions.sessions[0].completedPromptCount).toBe(1);
+    expect(attempts.saved).toHaveLength(0);
+    answer(controller, 'K');
+    await controller.flushPersistence();
+    expect(sessions.sessions[0]).toMatchObject({
+      status: 'completed',
+      completedPromptCount: 2,
+      promptCount: 2
+    });
+    expect(attempts.saved).toHaveLength(1);
     await controller.dispose();
   });
 

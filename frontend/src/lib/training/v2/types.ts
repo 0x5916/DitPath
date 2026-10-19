@@ -109,6 +109,9 @@ export type SessionProgressStatus = 'in-progress' | 'completed' | 'abandoned';
 export interface TrainingSessionRecord {
   schemaVersion: typeof V2_SCHEMA_VERSION;
   id: string;
+  /** Records saved before mode was introduced are guided lessons. */
+  mode?: 'guided' | 'practice';
+  accuracy?: number;
   step: number;
   charWpm: number;
   effWpm: number;
@@ -118,6 +121,30 @@ export interface TrainingSessionRecord {
   status: SessionProgressStatus;
   promptCount: number;
   completedPromptCount: number;
+  /** Immutable guided attempt manifest, captured when terminal metadata is saved. */
+  eventIds?: string[];
+}
+
+/** History can contain legacy summaries whose original measurements are unknown. */
+export interface HistorySessionRecord {
+  schemaVersion: typeof V2_SCHEMA_VERSION;
+  id: string;
+  mode?: 'guided' | 'practice' | 'legacy';
+  accuracy?: number | null;
+  step: number;
+  charWpm?: number | null;
+  effWpm?: number | null;
+  freqHz?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  occurredAt?: string;
+  occurredAtSource?: string;
+  sourceKind?: 'native' | 'legacy_v1';
+  sourceRecordId?: string;
+  status: SessionProgressStatus;
+  promptCount?: number | null;
+  completedPromptCount?: number | null;
+  eventIds?: string[];
 }
 
 export interface SessionSummary {
@@ -201,6 +228,9 @@ export function isValidTrainingSessionRecord(val: unknown): val is TrainingSessi
   return (
     s.schemaVersion === V2_SCHEMA_VERSION &&
     typeof s.id === 'string' &&
+    (s.mode === undefined || s.mode === 'guided' || s.mode === 'practice') &&
+    (s.accuracy === undefined ||
+      (typeof s.accuracy === 'number' && s.accuracy >= 0 && s.accuracy <= 1)) &&
     typeof s.step === 'number' &&
     typeof s.charWpm === 'number' &&
     typeof s.effWpm === 'number' &&

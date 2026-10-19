@@ -1,10 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import {
+    getTrainingOwner,
+    trainingSyncState,
+    subscribeTrainingSync,
+    syncTrainingNow,
+    importUnclaimedTraining,
+    getUnclaimedTrainingCount
+  } from '#lib/training-sync.ts';
+  import { lang, localizedHref } from '#lib/i18n.svelte.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
   import { createSessionRepository } from '#lib/data/session-repository.ts';
-  import { summarizeProgress, type ProgressSummary } from '#lib/training/v2/progress-summary.ts';
+  import {
+    sessionOccurredAt,
+    summarizeProgress,
+    type ProgressSummary
+  } from '#lib/training/v2/progress-summary.ts';
+  import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
   import CharacterMasteryGrid from '#lib/components/progress/CharacterMasteryGrid.svelte';
   import ConfusionList from '#lib/components/progress/ConfusionList.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
@@ -13,54 +27,92 @@
   let loading = $state(true);
   let loadError = $state(false);
   let summary = $state.raw<ProgressSummary | null>(null);
+  let history = $state.raw<HistorySessionRecord[]>([]);
+  const dateFormat = $derived(
+    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
+  );
   let mounted = false;
   let loadVersion = 0;
   let activeDb: IDBDatabase | null = null;
+  let unclaimedCount = $state(0);
+  let importing = $state(false);
+  let importError = $state(false);
 
   async function loadProgress() {
+    const owner = getTrainingOwner();
     const version = ++loadVersion;
+    summary = null;
+    history = [];
     loading = true;
     loadError = false;
     let db: IDBDatabase | null = null;
     try {
       db = await openTrainingDb();
-      if (!mounted || version !== loadVersion) return;
+      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
       activeDb = db;
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
-      const [attempts, sessions] = await Promise.all([
-        createAttemptRepository(db).getAttemptsByTimeRange(
+      const repository = createSessionRepository(db, owner);
+      const [attempts, sessions, latestSessions] = await Promise.all([
+        createAttemptRepository(db, owner).getAttemptsByTimeRange(
           new Date(now - 60 * 86400000).toISOString(),
           nowIso
         ),
-        createSessionRepository(db).getSessionsByTimeRange(
-          new Date(now - 7 * 86400000).toISOString(),
-          nowIso
-        )
+        repository.getSessionsByTimeRange(new Date(now - 7 * 86400000).toISOString(), nowIso),
+        repository.getSessions()
       ]);
-      if (mounted && version === loadVersion)
+      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
         summary = summarizeProgress(attempts, sessions, nowIso);
+        history = latestSessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
+      }
     } catch (error) {
-      if (mounted && version === loadVersion) {
+      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
         console.error('Failed to load progress data:', error);
         loadError = true;
       }
     } finally {
       if (db) closeTrainingDb(db);
       if (activeDb === db) activeDb = null;
-      if (mounted && version === loadVersion) loading = false;
+      if (mounted && version === loadVersion && owner === getTrainingOwner()) loading = false;
     }
   }
 
   onMount(() => {
     mounted = true;
-    void loadProgress();
+    let revision = '';
+    const unsubscribe = subscribeTrainingSync((state) => {
+      const next = `${state.owner}:${state.version}`;
+      if (revision === next) return;
+      revision = next;
+      void loadProgress();
+      void getUnclaimedTrainingCount()
+        .then((count) => {
+          if (mounted) unclaimedCount = count;
+        })
+        .catch(() => {
+          if (mounted) importError = true;
+        });
+    });
     return () => {
+      unsubscribe();
       mounted = false;
       loadVersion++;
       if (activeDb) closeTrainingDb(activeDb);
     };
   });
+  async function importHistory() {
+    if (importing) return;
+    importing = true;
+    importError = false;
+    try {
+      await importUnclaimedTraining();
+      unclaimedCount = await getUnclaimedTrainingCount();
+    } catch {
+      importError = true;
+    } finally {
+      importing = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -75,6 +127,18 @@
       <p class="progress-subtitle">{m.progress_subtitle()}</p>
     </header>
 
+    <TrainingSyncStatus
+      owner={trainingSyncState.owner}
+      pending={trainingSyncState.pending}
+      syncing={trainingSyncState.syncing}
+      synced={trainingSyncState.synced}
+      error={trainingSyncState.error ?? (importError ? m.history_sync_error() : null)}
+      onSync={() => void syncTrainingNow()}
+      onImport={() => void importHistory()}
+      {unclaimedCount}
+      {importing}
+    />
+
     {#if loading}
       <div class="loading-card" role="status">
         <span class="sr-only">{m.common_loading()}</span>
@@ -88,7 +152,7 @@
         >
       </div>
     {:else if summary}
-      {#if !summary.hasRecentActivity}
+      {#if !summary.hasRecentActivity && history.length === 0}
         <section class="progress-section" aria-labelledby="empty-heading">
           <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
           <p class="progress-subtitle">{m.progress_empty_description()}</p>
@@ -99,10 +163,69 @@
       {:else}
         <PracticeActivity
           sessionCount={summary.sessionCount}
+          guidedSessionCount={summary.guidedSessionCount}
+          practiceSessionCount={summary.practiceSessionCount}
+          legacySessionCount={summary.legacySessionCount}
           totalMinutes={summary.totalMinutes}
           timedSessionCount={summary.timedSessionCount}
           accuracyPercent={summary.accuracyPercent}
         />
+
+        {#if history.length > 0}
+          <section class="progress-section" aria-labelledby="history-heading">
+            <h2 id="history-heading" class="section-title">{m.progress_history_heading()}</h2>
+            <p class="progress-subtitle">{m.history_unknown_hint()}</p>
+            <div class="history-scroll">
+              <table>
+                <thead
+                  ><tr>
+                    <th scope="col">{m.progress_history_type()}</th>
+                    <th scope="col">{m.history_status()}</th>
+                    <th scope="col">{m.profile_history_lesson()}</th>
+                    <th scope="col">{m.progress_history_speed()}</th>
+                    <th scope="col">{m.profile_history_accuracy()}</th>
+                    <th scope="col">{m.profile_history_date()}</th>
+                  </tr></thead
+                >
+                <tbody>
+                  {#each history as session (session.id)}
+                    <tr>
+                      <td
+                        >{session.mode === 'practice'
+                          ? m.progress_history_practice()
+                          : session.mode === 'legacy'
+                            ? m.history_legacy()
+                            : m.progress_history_guided()}</td
+                      >
+                      <td
+                        >{session.status === 'abandoned'
+                          ? m.history_abandoned()
+                          : m.history_completed()}</td
+                      >
+                      <td>{session.step ?? m.progress_unmeasured()}</td>
+                      <td
+                        >{session.charWpm ?? m.progress_unmeasured()} / {session.effWpm ??
+                          m.progress_unmeasured()}</td
+                      >
+                      <td
+                        >{session.accuracy == null
+                          ? m.progress_unmeasured()
+                          : m.progress_accuracy_value({
+                              percent: Math.round(session.accuracy * 100)
+                            })}</td
+                      >
+                      <td
+                        ><time datetime={sessionOccurredAt(session)}
+                          >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
+                        ></td
+                      >
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {/if}
 
         <section class="progress-section" aria-labelledby="mastery-heading">
           <h2 id="mastery-heading" class="section-title">{m.progress_mastery_heading()}</h2>
@@ -119,6 +242,25 @@
 </div>
 
 <style>
+  .history-scroll {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+  th,
+  td {
+    padding: var(--space-3);
+    text-align: start;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
   .progress-container {
     display: flex;
     flex-direction: column;
