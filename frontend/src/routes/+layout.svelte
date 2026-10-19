@@ -25,7 +25,8 @@
     Settings,
     Sun,
     User,
-    UserPlus
+    UserPlus,
+    Wrench
   } from '@lucide/svelte';
   import {
     lang,
@@ -48,6 +49,7 @@
   const PRIMARY_NAV = [
     { path: '/morse/learn', label: m.nav_learn, icon: Radio },
     { path: '/morse/practice', label: m.nav_practice, icon: Dumbbell },
+    { path: '/morse', label: m.morse_title, icon: Wrench },
     { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
     { path: '/forum', label: m.nav_forum, icon: MessageSquare },
     { path: '/about', label: m.nav_about, icon: Info }
@@ -166,7 +168,7 @@
   function isActive(path: string): boolean {
     const current = stripTrailingSlash(page.url.pathname);
     const target = stripTrailingSlash(href(path));
-    if (path === '/') return current === target;
+    if (path === '/' || path === '/morse') return current === target;
     return current === target || current.startsWith(`${target}/`);
   }
 
@@ -274,7 +276,7 @@
             <Dropdown id="user-menu" label={$user.username}>
               {#snippet trigger()}
                 <User class="nav-icon" aria-hidden="true" />
-                {$user.username}
+                <span class="nav-account-label">{$user.username}</span>
               {/snippet}
               {#snippet menu()}
                 <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
@@ -295,7 +297,7 @@
             <Dropdown id="guest-menu" label={m.nav_guest()}>
               {#snippet trigger()}
                 <User class="nav-icon" aria-hidden="true" />
-                {m.nav_guest()}
+                <span class="nav-account-label">{m.nav_guest()}</span>
               {/snippet}
               {#snippet menu()}
                 <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
@@ -322,7 +324,7 @@
           >
             <span class="nav-label-icon">
               <ThemeIcon class="nav-icon" aria-hidden="true" />
-              {themeLabel}
+              <span class="nav-theme-label">{themeLabel}</span>
             </span>
           </button>
           <Dropdown

@@ -17,9 +17,9 @@
   } from '#lib/training/v2/types.ts';
   import LearnHero, { type HeroStateKind } from '#lib/components/learning/LearnHero.svelte';
   import CoursePath from '#lib/components/learning/CoursePath.svelte';
+  import MorseSectionNav from '#lib/components/MorseSectionNav.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
   import { user } from '#lib/auth.ts';
-  import { Dumbbell } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
   let loading = $state(true);
@@ -154,8 +154,9 @@
 
 <div class="page-narrow">
   <div class="learn-home-container">
+    <MorseSectionNav current="learn" />
     <header class="learn-header">
-      <h1 class="page-title">{m.learn_title()}</h1>
+      <h1 class="page-title">{m.nav_learn()}</h1>
       <p class="learn-subtitle">{m.learn_subtitle()}</p>
     </header>
 
@@ -242,14 +243,6 @@
         <CoursePath {currentStep} {masteryMap} {suggestedStep} onSelectStep={handleStartLesson} />
       {/if}
     </section>
-
-    <div class="practice-hub-cta">
-      <p class="practice-cta-text">{m.learn_practice_hint()}</p>
-      <a href={localizedHref('/morse/practice')} class="btn-ghost practice-link">
-        <Dumbbell size={16} aria-hidden="true" />
-        <span>{m.learn_practice_cta()}</span>
-      </a>
-    </div>
   </div>
 </div>
 
@@ -329,30 +322,5 @@
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
     color: var(--text-secondary);
-  }
-
-  .practice-hub-cta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-3);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--border);
-    text-align: left;
-  }
-
-  .practice-cta-text {
-    margin: 0;
-    max-width: 27rem;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-  }
-
-  .practice-link {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--answer-target-min);
   }
 </style>

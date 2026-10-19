@@ -7,7 +7,7 @@ Known pages are prerendered in five locale variants. Forum thread IDs exist only
 The [service worker](src/service-worker/index.ts) uses the shared route/locale inventory and
 [offline cache policy](src/lib/offline-cache.ts). Build/static assets are cache-first;
 known page navigations are network-first with their own cached shell as fallback.
-Home, Learn, Practice, and Progress shells are precached in all five locales;
+Home, Lessons, Practice, and Progress shells are precached in all five locales;
 other known pages become available offline after an online visit.
 API, authenticated, and cross-origin requests bypass caching. On activation, the
 worker removes older DitPath caches, including legacy private entries, while

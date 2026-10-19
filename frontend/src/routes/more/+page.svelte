@@ -12,7 +12,8 @@
     Monitor,
     Settings,
     User,
-    UserPlus
+    UserPlus,
+    Wrench
   } from '@lucide/svelte';
   import { logout, user } from '#lib/auth.ts';
   import { applyPageLanguagePreference } from '#lib/cwSync.ts';
@@ -73,6 +74,10 @@
   <section class="panel panel--ledger">
     <h2 class="card-title">{m.more_app_section()}</h2>
     <div class="more-list">
+      <a href={href('/morse')} class="more-link"
+        ><Wrench size={16} aria-hidden="true" /><span class="more-link-text">{m.morse_title()}</span
+        ></a
+      >
       <a href={href('/')} class="more-link"
         ><House size={16} aria-hidden="true" /><span class="more-link-text">{m.nav_home()}</span></a
       >

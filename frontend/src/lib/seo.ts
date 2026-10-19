@@ -126,58 +126,87 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/morse': {
     localized: {
       en: {
-        title: 'Morse Tools - DitPath',
+        title: 'Reference | DitPath Morse Characters',
         description:
-          'Explore DitPath Morse code tools, starting with a free Koch-method trainer for listening practice and practical CW improvement.'
+          'Look up every DitPath course character, inspect its Morse code pattern, and listen to its sound in an unscored character reference.'
       },
       de: {
-        title: 'Morsewerkzeuge - DitPath',
+        title: 'Referenz | DitPath Morsezeichen',
         description:
-          'Entdecke die Morsewerkzeuge von DitPath, beginnend mit einem kostenlosen Koch-Trainer fuer Hoeruebungen und praktische CW-Verbesserung.'
+          'Schlage jedes Zeichen im DitPath-Kurs nach, sieh dir sein Morsezeichen an und höre seinen Klang in einer Zeichenreferenz ohne Bewertung.'
       },
       ja: {
-        title: 'Morse Tools - DitPath',
+        title: 'リファレンス | DitPath モールス符号一覧',
         description:
-          'DitPath no Morse tool o shiryou shi, listening practice to jissen-teki na CW no nouryoku o nobasu Koch toreena o hajimemashou.'
+          'DitPathのコースに登場するすべての文字・数字・記号を調べ、モールス符号の表記と音を確認できます。何度でも再生でき、採点はありません。文章の聞き取り練習やガイド付きレッスンにも進めます。'
       },
       'zh-Hans': {
-        title: 'Mosi Ma Gongju - DitPath',
+        title: '参考 | DitPath 摩尔斯电码字符与声音',
         description:
-          'Tan suo DitPath de Mosi ma gongju, cong mianfei Koch xunlianqi kaishi, jinxing tingli lianxi he shizhan CW nengli tisheng.'
+          '查询 DitPath 课程中的所有字母、数字和标点符号，查看每个字符的摩尔斯电码符号并反复聆听声音。此字符参考工具不计分，也不会改变课程进度。准备好后可打开短文听抄练习，或返回引导课程继续学习。'
       },
       'zh-Hant': {
-        title: 'Moshi Ma Gongju - DitPath',
+        title: '參考 | DitPath 摩斯電碼字元與聲音',
         description:
-          'Tan suo DitPath de Moshi ma gongju, cong mianfei Koch xunlianqi kaishi, jinxing tingli lianxi he shizhan CW nengli tisheng.'
+          '查詢 DitPath 課程中的所有字母、數字和標點符號，查看每個字元的摩斯電碼符號並反覆聆聽聲音。此字元參考工具不計分，也不會改變課程進度。準備好後可開啟短文聽抄練習，或返回引導課程繼續學習。'
       }
     }
   },
   '/morse/learn': {
     localized: {
       en: {
-        title: 'Learn Morse Code - DitPath Koch Trainer',
+        title: 'Lessons | DitPath Morse Code Course',
         description:
           'Train Morse code with adaptive Koch lessons, listening drills, and progress tracking built for practical CW improvement.'
       },
       de: {
-        title: 'Morse lernen - DitPath Koch-Trainer',
+        title: 'Lektionen | DitPath Morsecode-Kurs',
         description:
           'Trainiere Morsecode mit adaptiven Koch-Lektionen, Hoeruebungen und Fortschrittsverfolgung fuer echte CW-Verbesserung.'
       },
       ja: {
-        title: 'Morse o Manabu - DitPath Koch Toreena',
+        title: 'レッスン | DitPath モールス符号コース',
         description:
           'Koch lesson, listening drill, shinchoku tsuiseki de jissen-teki ni Morse (CW) no nouryoku o nobasu kunren ga dekimasu.'
       },
       'zh-Hans': {
-        title: 'Xuexi Mosi Ma - DitPath Koch Xunlianqi',
+        title: '课程 | DitPath 摩尔斯电码声音识别课程',
         description:
           'Tongguo zishiying Koch kecheng, tingli lianxi he jindu zhuizong, wending tisheng CW shizhan nengli.'
       },
       'zh-Hant': {
-        title: 'Xuexi Mosi Ma - DitPath Koch Xunlianqi',
+        title: '課程 | DitPath 摩斯電碼聲音辨識課程',
         description:
           'Tongguo zishiying Koch kecheng, tingli lianxi he jindu zhuizong, wending tisheng CW shizhan nengli.'
+      }
+    }
+  },
+  '/morse/practice': {
+    localized: {
+      en: {
+        title: 'Practice | DitPath Morse Copying',
+        description:
+          'Choose a character set, listen to a Morse passage, and check your transcription in self-directed Practice. Guided lesson progress stays separate.'
+      },
+      de: {
+        title: 'Übungen | DitPath Morse-Mitschreiben',
+        description:
+          'Wähle einen Zeichensatz, höre einen Morsetext und prüfe deine Mitschrift in den freien Übungen. Der Fortschritt in den Lektionen bleibt davon getrennt.'
+      },
+      ja: {
+        title: '練習 | DitPath モールス符号の書き取り',
+        description:
+          '文字セットを選び、モールス符号の文章を聞いて書き取り、内容を確認できます。自由な練習によってレッスンの進捗が変わることはありません。'
+      },
+      'zh-Hans': {
+        title: '练习 | DitPath 摩尔斯电码听抄练习',
+        description:
+          '选择字符集，聆听一段摩尔斯电码并核对抄收内容。自由练习不会影响课程的解锁或掌握条件。'
+      },
+      'zh-Hant': {
+        title: '練習 | DitPath 摩斯電碼聽抄練習',
+        description:
+          '選擇字元集，聆聽一段摩斯電碼並核對抄收內容。自由練習不會影響課程的解鎖或掌握條件。'
       }
     }
   },
