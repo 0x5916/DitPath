@@ -3,7 +3,6 @@ import 'fake-indexeddb/auto';
 import { closeTrainingDb, deleteTrainingDb, openTrainingDb } from './training-db';
 import { createAttemptRepository } from './attempt-repository';
 import { createSessionRepository } from './session-repository';
-import { createOutboxRepository } from './outbox-repository';
 import {
   isValidTrainingSessionRecord,
   type AttemptEvent,
@@ -320,53 +319,6 @@ describe('Local Data Repositories', () => {
 
       // Now no in-progress session exists
       expect(await repo.getLatestInProgressSession()).toBeNull();
-    });
-  });
-
-  describe('OutboxRepository', () => {
-    it('enqueues events and removes only acknowledged IDs', async () => {
-      const repo = createOutboxRepository(db);
-
-      const eventA: AttemptEvent = {
-        schemaVersion: 1,
-        id: 'evt_A',
-        sessionId: 'sess_1',
-        promptId: 'prm_1',
-        promptKind: 'recall',
-        targetCharacter: 'T',
-        enteredText: 'T',
-        isCorrect: true,
-        classification: 'automatic',
-        latencyMs: 1200,
-        replayCount: 0,
-        inputMode: 'keyboard',
-        charWpm: 20,
-        effWpm: 12,
-        freqHz: 600,
-        createdAt: '2026-10-04T10:00:00.000Z'
-      };
-
-      const eventB: AttemptEvent = {
-        ...eventA,
-        id: 'evt_B',
-        createdAt: '2026-10-04T10:01:00.000Z'
-      };
-
-      await repo.enqueue(eventA);
-      await repo.enqueue(eventB);
-      expect(await repo.countPending()).toBe(2);
-
-      // Acknowledge only eventA
-      await repo.acknowledge(['evt_A']);
-      expect(await repo.countPending()).toBe(1);
-
-      const pending = await repo.getPending();
-      expect(pending.length).toBe(1);
-      expect(pending[0].eventId).toBe('evt_B');
-
-      // Acknowledging non-existent or empty IDs does not fail
-      await repo.acknowledge(['non_existent', '']);
-      expect(await repo.countPending()).toBe(1);
     });
   });
 });

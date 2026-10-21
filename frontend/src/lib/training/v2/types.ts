@@ -15,17 +15,6 @@ export const V2_SCHEMA_VERSION = 1 as const;
 
 export type MasteryStatus = 'new' | 'learning' | 'review' | 'stable';
 
-export interface CurriculumStep {
-  /** 1-based index in the Koch curriculum. */
-  step: number;
-  /** Character(s) introduced at this step (e.g. 'KM' for step 1, 'R' for step 2). */
-  introducedCharacters: string;
-  /** Complete cumulative set of symbols active up to and including this step. */
-  activeCharacters: string[];
-  targetCharWpm: number;
-  targetEffWpm: number;
-}
-
 export interface MasteryPolicy {
   /** Minimum attempts needed for a character before status can become 'stable'. */
   minAttemptsForStability: number;

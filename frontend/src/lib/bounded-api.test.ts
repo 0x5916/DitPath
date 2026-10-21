@@ -7,7 +7,7 @@ vi.mock('./auth', () => ({
   assertAuthSessionCurrent: () => {}
 }));
 
-import { getForumThreadReplies, getProgressSummary, getProgressPage } from './api';
+import { getForumThreadReplies } from './api';
 import { buildForumReplyView } from './forum-replies';
 
 describe('bounded history API consumers', () => {
@@ -49,23 +49,5 @@ describe('bounded history API consumers', () => {
       reply.parent_context
     );
     expect(buildForumReplyView(page.data).rows).toHaveLength(1);
-  });
-
-  it('preserves progress pagination so callers cannot mistake one page for full history', async () => {
-    apiFetch.mockResolvedValue(
-      new Response(
-        JSON.stringify({ data: [{ lesson: 4 }], limit: 7, next_cursor: 'next-progress' })
-      )
-    );
-    const page = await getProgressPage({ limit: 7, cursor: 'prior|cursor' });
-    expect(apiFetch).toHaveBeenCalledExactlyOnceWith('/cw/progress?limit=7&cursor=prior%7Ccursor');
-    expect(page).toEqual({ data: [{ lesson: '4' }], limit: 7, next_cursor: 'next-progress' });
-  });
-
-  it('uses a complete yearly summary without downloading history pages', async () => {
-    const summary = { days: [{ date: '2024-02-29', count: 12000 }], recent: [] };
-    apiFetch.mockResolvedValue(new Response(JSON.stringify(summary)));
-    await expect(getProgressSummary(2024)).resolves.toEqual(summary);
-    expect(apiFetch).toHaveBeenCalledExactlyOnceWith('/cw/progress?year=2024');
   });
 });

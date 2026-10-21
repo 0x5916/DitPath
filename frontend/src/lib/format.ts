@@ -1,4 +1,4 @@
-import { LESSONS } from '#lib/morse.ts';
+import { LESSONS } from '#lib/training/sequence.ts';
 import { scoreGrade } from '#lib/score.ts';
 import * as m from '#lib/paraglide/messages.js';
 import { getLocale } from '#lib/paraglide/runtime.js';

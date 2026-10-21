@@ -71,7 +71,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
   }
 
   .ledger-head {

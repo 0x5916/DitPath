@@ -60,8 +60,8 @@
     align-items: center;
     justify-content: center;
     gap: 0.15rem;
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
     width: 3.25rem;
     height: 3.25rem;
     background-color: var(--bg-surface);
@@ -84,15 +84,15 @@
   }
 
   .status-stable .cell-status-icon {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .status-learning .cell-status-icon {
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .status-review .cell-status-icon {
-    color: var(--learning-review, var(--status-ok));
+    color: var(--learning-review);
   }
 
   .status-new .cell-status-icon {

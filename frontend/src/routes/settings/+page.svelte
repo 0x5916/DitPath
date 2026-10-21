@@ -10,7 +10,6 @@
     updateEmail,
     sendVerificationEmail,
     verifyEmail,
-    updatePassword,
     savePageSettings,
     type PageSettings
   } from '#lib/api.ts';
@@ -21,7 +20,7 @@
     normalizeLocalePreference,
     type LocalePreference
   } from '#lib/locale.ts';
-  import { LESSONS } from '#lib/morse.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
   import {
     applyClientPageSettings,
     applyPageLanguagePreference,
@@ -35,12 +34,13 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
   import { buildAudioPlan } from '#lib/training/timing.ts';
-  import { openTrainingDb, closeTrainingDb, clearTrainingCache } from '#lib/data/training-db.ts';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
   import SaveButton from '#lib/components/SaveButton.svelte';
-  import { Volume2, Trash2 } from '@lucide/svelte';
+  import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
+  import SettingsData from '#lib/components/settings/SettingsData.svelte';
+  import { Volume2 } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
   // Account section
@@ -63,14 +63,6 @@
   let verificationCheckLoading = $state(false);
   let verificationCheckError = $state('');
   let verificationSuccess = $state(false);
-
-  // Password section
-  let currentPassword = $state('');
-  let newPassword = $state('');
-  let confirmPassword = $state('');
-  let passwordSaving = $state(false);
-  let passwordError = $state('');
-  let passwordSaved = $state(false);
 
   // Page settings section
   let pageLanguage = $state<LocalePreference>(langPreference.value);
@@ -98,9 +90,7 @@
   let lastAuthLoaded: string | null = null;
   const sessionScope = createSessionScope();
   const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
-  let destroyed = false;
   onDestroy(() => {
-    destroyed = true;
     sessionScope.dispose();
     for (const timer of timers) clearTimeout(timer);
   });
@@ -113,12 +103,6 @@
     }, delay);
     timers.add(timer);
   }
-
-  let confirmClearOpen = $state(false);
-  let clearSuccess = $state(false);
-  let clearing = $state(false);
-  let clearBlocked = $state(false);
-  let clearError = $state('');
 
   let toneAudio: AudioEngine | null = null;
   const canTestTone = $derived(
@@ -155,41 +139,6 @@
     }
   }
 
-  async function handleClearLocalData() {
-    if (clearing) return;
-    clearing = true;
-    clearSuccess = false;
-    clearBlocked = false;
-    clearError = '';
-    try {
-      const db = await openTrainingDb();
-      try {
-        await clearTrainingCache(db);
-      } finally {
-        closeTrainingDb(db);
-      }
-      if (destroyed) return;
-      confirmClearOpen = false;
-      clearSuccess = true;
-      later(() => (clearSuccess = false), 3000);
-    } catch (error) {
-      if (!destroyed)
-        clearError =
-          error instanceof Error &&
-          error.message === 'Pending training uploads must be synchronized before clearing history'
-            ? m.history_clear_pending()
-            : m.settings_data_error();
-    } finally {
-      if (!destroyed) {
-        clearing = false;
-        clearBlocked = false;
-      }
-    }
-  }
-
-  const passwordDirty = $derived(
-    currentPassword.trim() !== '' || newPassword.trim() !== '' || confirmPassword.trim() !== ''
-  );
   const callSignDirty = $derived(callSign.trim().toUpperCase() !== initialCallSign);
   const emailDirty = $derived(email.trim() !== initialEmail.trim());
   const pageDirty = $derived(normalizeLesson(pageLesson, LESSONS.length) !== initialPageLesson);
@@ -252,16 +201,11 @@
     email = '';
     initialEmail = '';
     emailVerified = false;
-    currentPassword = '';
-    newPassword = '';
-    confirmPassword = '';
-    callSignSaving = emailSaving = passwordSaving = pageSaving = cwSaving = false;
-    callSignSaved = emailSaved = passwordSaved = pageSaved = cwSaved = false;
-    callSignError = emailError = passwordError = pageError = cwError = '';
+    callSignSaving = emailSaving = pageSaving = cwSaving = false;
+    callSignSaved = emailSaved = pageSaved = cwSaved = false;
+    callSignError = emailError = pageError = cwError = '';
     verificationSendLoading = verificationCheckLoading = false;
     resetEmailVerificationState();
-    if (!clearing) confirmClearOpen = false;
-    clearSuccess = false;
     loading = true;
     loadError = '';
 
@@ -477,43 +421,6 @@
     }
   }
 
-  async function savePassword(e: SubmitEvent) {
-    const current = sessionScope.capture();
-    e.preventDefault();
-    if (!passwordDirty || passwordSaving) return;
-    passwordSaving = true;
-    passwordError = '';
-    passwordSaved = false;
-
-    if (newPassword.length < 8) {
-      passwordError = m.settings_password_min_length();
-      passwordSaving = false;
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      passwordError = m.register_error_mismatch();
-      passwordSaving = false;
-      return;
-    }
-
-    try {
-      await updatePassword(currentPassword, newPassword);
-      if (!current()) return;
-      currentPassword = '';
-      newPassword = '';
-      confirmPassword = '';
-      showSavedFlag((value) => {
-        passwordSaved = value;
-      });
-    } catch (err) {
-      if (!current()) return;
-      passwordError = localizeApiError(err, () => m.settings_save_error());
-    } finally {
-      if (current()) passwordSaving = false;
-    }
-  }
-
   async function savePage(e: SubmitEvent) {
     const current = sessionScope.capture();
     e.preventDefault();
@@ -678,58 +585,7 @@
         </div>
       </section>
 
-      <!-- Password gets its own surface: every panel is then headed by an
-           `h2.card-title` (the password group used to be an `h3` buried half-way
-           down the account panel), and the account panel stays about identity. -->
-      <section class="panel panel--ledger">
-        <h2 class="card-title">{m.settings_password_section()}</h2>
-        <form onsubmit={savePassword} class="settings-form">
-          <label class="field">
-            <span class="label-text">{m.settings_current_password_label()}</span>
-            <input
-              type="password"
-              bind:value={currentPassword}
-              disabled={passwordSaving}
-              class="input"
-              minlength="8"
-              autocomplete="current-password"
-              required
-            />
-          </label>
-          <label class="field">
-            <span class="label-text">{m.settings_new_password_label()}</span>
-            <input
-              type="password"
-              bind:value={newPassword}
-              disabled={passwordSaving}
-              class="input"
-              minlength="8"
-              autocomplete="new-password"
-              required
-            />
-          </label>
-          <label class="field">
-            <span class="label-text">{m.settings_confirm_new_password_label()}</span>
-            <input
-              type="password"
-              bind:value={confirmPassword}
-              disabled={passwordSaving}
-              class="input"
-              minlength="8"
-              autocomplete="new-password"
-              required
-            />
-          </label>
-          {#if passwordError}
-            <ErrorAlert message={passwordError} />
-          {/if}
-          {#if passwordDirty || passwordSaving || passwordSaved}
-            <div class="settings-action-row">
-              <SaveButton saving={passwordSaving} saved={passwordSaved} />
-            </div>
-          {/if}
-        </form>
-      </section>
+      <SettingsPassword />
     {/if}
 
     <!-- Preferences -->
@@ -815,69 +671,7 @@
       </form>
     </section>
 
-    <!-- Data Management -->
-    <section class="panel panel--ledger">
-      <h2 class="card-title">{m.settings_data_title()}</h2>
-      <div class="settings-form">
-        <p class="field-hint">{m.settings_data_description()}</p>
-
-        <div class="data-actions-row">
-          <button
-            type="button"
-            class="btn-ghost text-danger"
-            disabled={clearing}
-            aria-expanded={confirmClearOpen}
-            aria-controls="confirm-clear-data"
-            onclick={() => {
-              clearError = '';
-              confirmClearOpen = true;
-            }}
-          >
-            <Trash2 size={16} />
-            <span>{m.settings_data_clear()}</span>
-          </button>
-          {#if clearSuccess}
-            <span class="clear-success-label" role="status">{m.settings_data_cleared()}</span>
-          {/if}
-        </div>
-
-        {#if confirmClearOpen}
-          <div
-            id="confirm-clear-data"
-            class="confirm-clear-box"
-            role="group"
-            aria-labelledby="confirm-clear-title"
-            aria-busy={clearing}
-          >
-            <p id="confirm-clear-title" class="confirm-clear-text">{m.settings_data_confirm()}</p>
-            {#if clearBlocked}
-              <p class="field-hint" role="status">{m.settings_data_waiting()}</p>
-            {/if}
-            {#if clearError}
-              <ErrorAlert message={clearError} />
-            {/if}
-            <div class="confirm-actions">
-              <button
-                type="button"
-                class="btn-primary"
-                disabled={clearing}
-                onclick={handleClearLocalData}
-              >
-                {clearing ? m.common_loading() : m.settings_data_delete()}
-              </button>
-              <button
-                type="button"
-                class="btn-ghost"
-                disabled={clearing}
-                onclick={() => (confirmClearOpen = false)}
-              >
-                {m.forum_cancel()}
-              </button>
-            </div>
-          </div>
-        {/if}
-      </div>
-    </section>
+    <SettingsData />
   {/if}
 </div>
 
@@ -940,45 +734,6 @@
   .settings-action-row {
     display: flex;
     justify-content: flex-end;
-  }
-
-  .data-actions-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    margin-top: var(--space-2);
-  }
-
-  .text-danger {
-    color: var(--danger, var(--status-bad));
-  }
-
-  .clear-success-label {
-    font-size: var(--text-xs);
-    color: var(--status-good);
-  }
-
-  .confirm-clear-box {
-    margin-top: var(--space-3);
-    padding: var(--space-4);
-    background-color: var(--bg-inset);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
-  .confirm-clear-text {
-    margin: 0;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    line-height: var(--leading-normal);
-  }
-
-  .confirm-actions {
-    display: flex;
-    gap: var(--space-3);
   }
 
   @media (max-width: 720px) {

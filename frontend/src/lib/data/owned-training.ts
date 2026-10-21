@@ -6,7 +6,6 @@ import type {
 import { reqToPromise } from './training-db';
 import { OWNED_STORES } from './training-schema';
 
-export type TrainingOwner = string;
 export type RecordKind = 'attempt' | 'session';
 export type Owned<T> = T & { ownerKey: string };
 export interface FrozenOutboxRecord {

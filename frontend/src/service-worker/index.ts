@@ -4,16 +4,14 @@ import { asset } from '$app/paths';
 import { self } from '$app/service-worker';
 import { locales } from '../../project.inlang/settings.json';
 import { createOfflineCache } from '../lib/offline-cache.ts';
-import { ROUTE_PATHS } from '../lib/routes.js';
+import { localizedRoutePath, ROUTE_PATHS } from '../lib/routes.js';
 
 const CACHE_PREFIX = 'morsestep-cache-';
 // A new namespace prevents reads from earlier caches containing private APIs.
 const CACHE_NAME = `${CACHE_PREFIX}public-v2-${version}`;
 
 function localizedPaths(paths: readonly string[]): string[] {
-  return locales.flatMap((locale) =>
-    paths.map((path) => (path === '/' ? `/${locale}` : `/${locale}${path}`))
-  );
+  return locales.flatMap((locale) => paths.map((path) => localizedRoutePath(path, locale)));
 }
 
 const CORE_ROUTES = ['/', '/morse/learn', '/morse/practice', '/morse/progress'];

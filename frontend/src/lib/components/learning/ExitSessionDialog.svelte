@@ -134,6 +134,6 @@
 
   .dialog-actions button {
     flex: 1 1 auto;
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
   }
 </style>

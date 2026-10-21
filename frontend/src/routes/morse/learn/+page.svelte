@@ -25,7 +25,7 @@
     trainingSyncState,
     subscribeTrainingSync,
     syncTrainingNow
-  } from '#lib/training-sync.ts';
+  } from '#lib/training-sync.svelte.ts';
   import { user } from '#lib/auth.ts';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -335,7 +335,7 @@
     flex-direction: column;
     gap: var(--space-4);
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
   }
 
   .section-header-row {

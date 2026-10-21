@@ -135,22 +135,22 @@
     border-inline-start: 3px solid var(--accent);
     border-radius: var(--radius-md);
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
     position: relative;
   }
 
   .hero-eyebrow {
     font-size: var(--text-xs);
     font-weight: 700;
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .eyebrow-review {
-    color: var(--learning-review, var(--status-ok));
+    color: var(--learning-review);
   }
 
   .eyebrow-complete {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .hero-title {
@@ -177,7 +177,7 @@
   }
 
   .hero-btn {
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
     padding: var(--space-3) var(--space-6);
     font-size: var(--text-base);
   }
@@ -186,7 +186,7 @@
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);
-    color: var(--learning-error, var(--status-bad));
+    color: var(--learning-error);
   }
 
   .skeleton {

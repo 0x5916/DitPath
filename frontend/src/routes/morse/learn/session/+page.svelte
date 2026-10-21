@@ -27,7 +27,7 @@
     getTrainingOwner,
     trainingSyncState,
     subscribeTrainingSync
-  } from '#lib/training-sync.ts';
+  } from '#lib/training-sync.svelte.ts';
   import { saveBeforeSessionNavigation, type PendingSessionNavigation } from './navigation';
 
   let controller = $state<GuidedSessionController | null>(null);
@@ -557,7 +557,7 @@
   }
 
   .intro-actions button {
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
   }
 
   .paused-banner {

@@ -54,7 +54,6 @@
   --learning-stable: var(--status-good);
   --learning-review: var(--status-ok);
   --learning-error: var(--status-bad);
-  --learning-info: var(--status-extra);
   --session-max-width: 42rem;
   --answer-target-min: 3rem;
 
@@ -130,7 +129,6 @@
   --text-lg: 1.125rem;
   --text-xl: 1.375rem; /* .section-title */
   --text-2xl: 1.75rem; /* .page-title */
-  --text-3xl: 2.125rem; /* display: masthead only */
   --leading-tight: 1.15;
   --leading-snug: 1.35;
   --leading-normal: 1.6;
@@ -328,14 +326,6 @@ body {
   flex-direction: column;
   gap: var(--space-3);
   align-items: flex-start;
-}
-
-/* Rule between two parts of the same section (never between sections: those
-   use `--section-gap`, otherwise the gap and the rule stack up). */
-.divider {
-  border-color: var(--border);
-  margin-top: var(--block-gap);
-  margin-bottom: var(--block-gap);
 }
 
 /* Numbered step list — home "how it works", about "how the method works". */
@@ -1035,15 +1025,7 @@ summary:focus-visible,
   background: var(--accent);
 }
 
-/* Metric: label + monospace value readout (profile stats, session strip). The
-   label itself is the shared caps label above. */
-.metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
+/* Monospace value readout paired with the shared caps label above. */
 .metric-value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

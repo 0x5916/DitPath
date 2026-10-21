@@ -14,7 +14,7 @@ This remediation stayed in the frontend. Existing backend, framework, configurat
 
 Credential storage rolls back partial token writes. A quota failure produces a localized error and releases the login button. If rollback itself fails, residual credentials cannot silently reactivate a mixed session.
 
-[The legacy progress queue](../../src/lib/progressSync.ts) assigns stable local IDs, enqueues before uploading, and acknowledges against the latest stored queue. Separate Web Locks serialize queue mutations and uploading across tabs. Enqueueing remains possible during a pending network request. Settings reconciliation and upload loops stop applying work after a session change.
+The legacy progress queue (removed; see the [current learning architecture](../learning.md)) assigned stable local IDs, enqueued before uploading, and acknowledged against the latest stored queue. Separate Web Locks serialize queue mutations and uploading across tabs. Enqueueing remains possible during a pending network request. Settings reconciliation and upload loops stop applying work after a session change.
 
 ### Durable guided sessions
 

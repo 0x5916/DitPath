@@ -21,7 +21,7 @@ vi.mock('./auth', () => ({
   }
 }));
 
-let runtime: typeof import('./training-sync');
+let runtime: typeof import('./training-sync.svelte');
 let dispose: (() => void) | undefined;
 beforeEach(async () => {
   vi.resetModules();
@@ -38,7 +38,7 @@ beforeEach(async () => {
   auth.request.mockImplementation(async () =>
     Response.json({ changes: [], has_more: false, next_cursor: 'checkpoint' })
   );
-  runtime = await import('./training-sync');
+  runtime = await import('./training-sync.svelte');
 });
 afterEach(() => {
   dispose?.();

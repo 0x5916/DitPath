@@ -50,8 +50,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
     width: 4rem;
     height: 4rem;
     background-color: var(--bg-surface);

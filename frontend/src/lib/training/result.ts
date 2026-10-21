@@ -1,9 +1,6 @@
 /**
- * A completed, assessed attempt and the port through which it is recorded.
- *
- * The trainer records results through a `ResultRecorder`; the browser adapter
- * lives in `#lib/progressSync`, and tests use a fake. Abandoned attempts are
- * simply never turned into an `AttemptResult`.
+ * A completed, assessed attempt. Abandoned attempts are simply never turned
+ * into an `AttemptResult`.
  */
 
 export interface AttemptResult {
@@ -14,11 +11,6 @@ export interface AttemptResult {
   accuracy: number;
   /** ISO timestamp of when the attempt was completed. */
   completedAt: string;
-}
-
-export interface ResultRecorder {
-  /** Persist a completed attempt. Rejects on failure; callers own fallback. */
-  record(result: AttemptResult): Promise<void>;
 }
 
 export interface AttemptResultInit {

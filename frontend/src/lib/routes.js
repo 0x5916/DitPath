@@ -1,6 +1,6 @@
-// The one route list. The prerender entries in `scripts/kit-options.js` and the
-// SEO/sitemap code both read it from here, so adding a route cannot leave one
-// of them behind.
+// The one route list and locale-prefix rule. Prerender entries, SEO/sitemap,
+// and the service worker read them from here, so adding a route cannot leave
+// one of them behind.
 
 /**
  * Every static route, without a locale prefix.
@@ -21,6 +21,16 @@ export const ROUTE_PATHS = [
   '/register',
   '/settings'
 ];
+
+/**
+ * Locale-prefixed URL path for a static route.
+ * @param {string} routePath
+ * @param {string} locale
+ * @returns {`/${string}`}
+ */
+export function localizedRoutePath(routePath, locale) {
+  return routePath === '/' ? `/${locale}` : `/${locale}${routePath}`;
+}
 
 /**
  * Signed-in and redirect-only surfaces: prerendered, never indexed.

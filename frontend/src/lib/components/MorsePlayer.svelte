@@ -13,6 +13,7 @@
   } from '#lib/practice/playback.ts';
   import { user } from '#lib/auth.ts';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import { computeSettingsPlacement, type SettingsPlacement } from './player-settings-placement';
   import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
@@ -87,12 +88,7 @@
   let settingsPanelEl = $state<HTMLDivElement | null>(null);
   /* Phones only: script placement for the viewport-anchored popover. Kept null on
      desktop, where the stylesheet's absolute popover under the trigger applies. */
-  let settingsPlacement = $state<{
-    top: string;
-    left: string;
-    width: string | null;
-    maxHeight: string;
-  } | null>(null);
+  let settingsPlacement = $state<SettingsPlacement | null>(null);
   let safeProbeEl = $state<HTMLDivElement | null>(null);
 
   /** A design-token length in pixels, so placement stays on the spacing scale. */
@@ -121,15 +117,7 @@
     };
   }
 
-  /**
-   * Places the settings popover on whichever side of its trigger has the most
-   * usable room, at every screen size. Left, right, above and below are each
-   * measured against the safe viewport band (visual viewport minus the page
-   * chrome, the safe-area insets and a breathing edge); the side that can show
-   * the whole panel at a workable width wins, and when no side can, the largest
-   * one wins and only the panel's inner content scrolls. Horizontal sides spread
-   * toward the free edge, vertical sides keep the popover's narrow width.
-   */
+  /** Measure the viewport/chrome/trigger and let the pure helper place the panel. */
   function placeSettingsPanel() {
     const panel = settingsPanelEl;
     const trigger = settingsEl?.querySelector<HTMLElement>('summary') ?? null;
@@ -157,20 +145,6 @@
       ? 0
       : chromeHeight('.bottom-nav');
 
-    // The safe viewport band: visual viewport minus that chrome, the device
-    // safe-area insets and a breathing edge. Every placement is clamped into it,
-    // so the panel stays on screen even when its trigger has been scrolled away.
-    const safe = safeAreaInsets();
-    const margin = tokenPx('--space-4', 1);
-    const topEdge = topBarHeight > 0 ? topBarHeight + margin : Math.max(margin, safe.top);
-    const bottomEdge = navHeight > 0 ? navHeight + margin : Math.max(margin, safe.bottom);
-    const usableLeft = viewLeft + Math.max(margin, safe.left);
-    const usableRight = viewRight - Math.max(margin, safe.right);
-    const usableTop = viewTop + topEdge;
-    const usableBottom = viewBottom - bottomEdge;
-    const bandWidth = Math.max(usableRight - usableLeft, 0);
-    const bandHeight = Math.max(usableBottom - usableTop, 0);
-
     const panelStyle = getComputedStyle(panel);
     const panelPx = (name: string, fallbackRem: number) => {
       const raw = panelStyle.getPropertyValue(name).trim();
@@ -178,77 +152,24 @@
       if (!Number.isFinite(value)) return fallbackRem * rem;
       return raw.endsWith('rem') ? value * rem : value;
     };
-
-    const gap = tokenPx('--space-2', 0.5);
-    const narrowWidth = Math.min(panelPx('--panel-narrow-width', 14), bandWidth);
-    const wideWidth = Math.min(panelPx('--panel-wide-width', 20), bandWidth);
     const triggerRect = trigger.getBoundingClientRect();
-    const contentHeight = panel.scrollHeight;
 
-    // Room each side can offer the panel itself, between it and the safe edges.
-    const room = {
-      left: Math.max(triggerRect.left - gap - usableLeft, 0),
-      right: Math.max(usableRight - triggerRect.right - gap, 0),
-      above: Math.max(triggerRect.top - gap - usableTop, 0),
-      below: Math.max(usableBottom - triggerRect.bottom - gap, 0)
-    };
-
-    // Horizontal placements spread toward the free edge up to the wide ceiling;
-    // vertical ones keep the narrow popover width. Every side is capped by the
-    // band itself, so a trigger scrolled out of view cannot inflate the room.
-    const widthOf = (side: keyof typeof room) =>
-      side === 'left' || side === 'right' ? Math.min(room[side], wideWidth) : narrowWidth;
-    const heightOf = (side: keyof typeof room) =>
-      side === 'left' || side === 'right'
-        ? Math.min(contentHeight, bandHeight)
-        : Math.min(contentHeight, room[side], bandHeight);
-
-    const sides = ['left', 'below', 'above', 'right'] as const;
-    const wholePanel = (side: (typeof sides)[number]) =>
-      widthOf(side) >= narrowWidth && heightOf(side) >= contentHeight;
-    const fitting = sides.filter(wholePanel);
-    const pool = fitting.length > 0 ? fitting : sides;
-
-    // Largest usable area wins; the order above breaks ties, so this
-    // right-aligned trigger opens to its left whenever that side has the room.
-    let side: (typeof sides)[number] = pool[0];
-    let area = 0;
-    for (const candidate of pool) {
-      const candidateArea = widthOf(candidate) * heightOf(candidate);
-      if (candidateArea > area) {
-        area = candidateArea;
-        side = candidate;
-      }
-    }
-
-    const width = Math.round(widthOf(side));
-    const height = Math.round(heightOf(side));
-    const clamp = (value: number, min: number, max: number) =>
-      Math.min(Math.max(value, min), Math.max(min, max));
-
-    // Horizontal: line the panel up with the trigger, then clamp it into the
-    // band. Vertical: sit above or below the trigger and clamp the same way.
-    const top =
-      side === 'left' || side === 'right'
-        ? clamp(triggerRect.top, usableTop, usableBottom - height)
-        : clamp(
-            side === 'above' ? triggerRect.top - gap - height : triggerRect.bottom + gap,
-            usableTop,
-            usableBottom - height
-          );
-    const left =
-      side === 'left'
-        ? clamp(triggerRect.left - gap - width, usableLeft, usableRight - width)
-        : side === 'right'
-          ? clamp(triggerRect.right + gap, usableLeft, usableRight - width)
-          : clamp(triggerRect.right - width, usableLeft, usableRight - width);
-
-    settingsPlacement = {
-      top: `${Math.round(top)}px`,
-      left: `${Math.round(left)}px`,
-      width: side === 'left' || side === 'right' ? `${width}px` : null,
-      maxHeight: contentHeight <= height ? 'none' : `${Math.floor(height)}px`
-    };
+    settingsPlacement = computeSettingsPlacement({
+      viewport: { top: viewTop, bottom: viewBottom, left: viewLeft, right: viewRight },
+      trigger: {
+        top: triggerRect.top,
+        bottom: triggerRect.bottom,
+        left: triggerRect.left,
+        right: triggerRect.right
+      },
+      safe: safeAreaInsets(),
+      chrome: { topBar: topBarHeight, nav: navHeight },
+      margin: tokenPx('--space-4', 1),
+      gap: tokenPx('--space-2', 0.5),
+      narrowWidth: panelPx('--panel-narrow-width', 14),
+      wideWidth: panelPx('--panel-wide-width', 20),
+      contentHeight: panel.scrollHeight
+    });
   }
 
   // Re-place the popover every time it opens, and keep it anchored while the
@@ -535,7 +456,7 @@
 
 <style>
   .player-wrapper {
-    --player-control-height: var(--answer-target-min, 3rem);
+    --player-control-height: var(--answer-target-min);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;

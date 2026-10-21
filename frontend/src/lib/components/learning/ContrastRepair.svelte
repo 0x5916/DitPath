@@ -139,6 +139,6 @@
   }
 
   .contrast-repair-card button {
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
   }
 </style>

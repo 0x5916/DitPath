@@ -141,7 +141,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .result-title {
@@ -159,7 +159,7 @@
   }
 
   .text-good {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .metrics-grid {
@@ -211,7 +211,7 @@
     font-weight: 700;
     border-radius: var(--radius-xs);
     background-color: var(--status-bad-tint);
-    color: var(--learning-error, var(--status-bad));
+    color: var(--learning-error);
   }
 
   .result-actions {

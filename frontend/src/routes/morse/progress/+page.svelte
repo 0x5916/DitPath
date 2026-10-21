@@ -8,7 +8,7 @@
     syncTrainingNow,
     importUnclaimedTraining,
     getUnclaimedTrainingCount
-  } from '#lib/training-sync.ts';
+  } from '#lib/training-sync.svelte.ts';
   import { lang, localizedHref } from '#lib/i18n.svelte.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
@@ -283,7 +283,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .page-title {
@@ -306,7 +306,7 @@
     flex-direction: column;
     gap: var(--space-3);
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
   }
 
   .section-title {
@@ -319,6 +319,6 @@
   .loading-card {
     height: 16rem;
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
   }
 </style>

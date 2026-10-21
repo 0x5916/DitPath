@@ -5,8 +5,8 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
   import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
-  import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.ts';
-  import { LESSONS } from '#lib/morse.ts';
+  import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.svelte.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
   import { reconcileSettingsWithServer, applyPageLanguagePreference } from '#lib/cwSync.ts';
   import { GITHUB_URL } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';

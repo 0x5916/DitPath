@@ -52,7 +52,7 @@
 
   .progress-bar-fill {
     height: 100%;
-    background-color: var(--learning-current, var(--accent));
+    background-color: var(--learning-current);
     transition: width var(--transition-base) var(--ease-smooth);
   }
 

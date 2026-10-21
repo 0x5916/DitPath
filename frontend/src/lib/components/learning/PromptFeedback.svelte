@@ -131,11 +131,11 @@
   }
 
   .is-correct {
-    border-top: 3px solid var(--learning-stable, var(--status-good));
+    border-top: 3px solid var(--learning-stable);
   }
 
   .is-incorrect {
-    border-top: 3px solid var(--learning-error, var(--status-bad));
+    border-top: 3px solid var(--learning-error);
   }
 
   .feedback-header {
@@ -154,11 +154,11 @@
   }
 
   .badge-good {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .badge-bad {
-    color: var(--learning-error, var(--status-bad));
+    color: var(--learning-error);
   }
 
   .feedback-subtext {
@@ -193,11 +193,11 @@
   }
 
   .val-entered {
-    color: var(--learning-error, var(--status-bad));
+    color: var(--learning-error);
   }
 
   .val-expected {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .feedback-actions {
@@ -210,6 +210,6 @@
   }
 
   .feedback-actions button {
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
   }
 </style>

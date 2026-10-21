@@ -1,12 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  LESSONS,
-  MORSE,
-  calculateDuration,
-  generateTimedLesson,
-  getFarnsworthWpmSet,
-  getLessonChars
-} from '#lib/morse.ts';
+import { generateTimedLesson } from './exercise';
+import { LESSONS, MORSE, getLessonChars } from './sequence';
+import { calculateDuration, getFarnsworthWpmSet } from './timing';
 
 afterEach(() => {
   vi.restoreAllMocks();

@@ -181,12 +181,6 @@ export function applyClientPageSettings(
   return lesson;
 }
 
-export async function syncSettingsToServer(cw: CWSettings, page: PageSettings): Promise<void> {
-  const session = getAuthSession();
-  await Promise.all([saveCWSettings(cw), savePageSettings(page)]);
-  assertAuthSessionCurrent(session);
-}
-
 export async function restoreSettingsFromServer(): Promise<{ cw: CWSettings; page: PageSettings }> {
   const session = getAuthSession();
   const settings = await getSettings();

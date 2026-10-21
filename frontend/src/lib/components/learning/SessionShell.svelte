@@ -153,12 +153,12 @@
   }
 
   .header-spacer {
-    width: var(--answer-target-min, 3rem);
+    width: var(--answer-target-min);
   }
 
   .session-header button {
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
   }
 
   .session-stage {

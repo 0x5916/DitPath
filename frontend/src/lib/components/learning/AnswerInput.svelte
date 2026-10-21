@@ -125,7 +125,7 @@
   }
 
   .answer-field:focus {
-    border-color: var(--learning-current, var(--accent));
+    border-color: var(--learning-current);
     outline: none;
     box-shadow: var(--focus-ring);
   }

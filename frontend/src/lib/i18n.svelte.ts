@@ -125,7 +125,3 @@ export function setLangPreference(
     navigateToLocalizedPathIfNeeded();
   }
 }
-
-export function setLang(locale: Locale) {
-  setLangPreference(locale);
-}

@@ -1,5 +1,5 @@
 import type { Locale } from '#lib/locale.ts';
-import { NOINDEX_ROUTE_PATHS, ROUTE_PATHS } from './routes.js';
+import { localizedRoutePath, NOINDEX_ROUTE_PATHS, ROUTE_PATHS } from './routes.js';
 
 export type SeoMetadata = {
   title: string;
@@ -323,7 +323,7 @@ export function getIndexablePublicRoutePaths(): string[] {
 }
 
 export function buildLocalizedPath(routePath: string, locale: string): string {
-  return normalizePathname(routePath === '/' ? `/${locale}` : `/${locale}${routePath}`);
+  return normalizePathname(localizedRoutePath(routePath, locale));
 }
 
 export function buildSitemapUrlSet(origin: string, localeCodes: readonly string[]): string[] {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { MORSE, getLessonChars } from '../../morse';
+  import { MORSE, getLessonChars } from '../../training/sequence';
   import { practiceKeyIntent } from '../../practice/keyboard';
   import MorsePlayer from '../MorsePlayer.svelte';
   import * as m from '#lib/paraglide/messages.js';
@@ -206,7 +206,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     width: 100%;
-    max-width: var(--max-width-narrow, 46rem);
+    max-width: var(--max-width-narrow);
   }
 
   .drill-header {
@@ -250,7 +250,7 @@
     font-family: var(--font-mono);
     font-size: 1.75rem;
     letter-spacing: 0.15em;
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .player-container {
@@ -286,8 +286,8 @@
   }
 
   .char-chip {
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
     font-family: var(--font-mono);
     font-size: var(--text-base);
     font-weight: 700;
@@ -309,9 +309,9 @@
 
   .char-chip.is-active {
     background-color: var(--bg-surface);
-    border-color: var(--learning-current, var(--accent));
-    color: var(--learning-current, var(--accent));
-    box-shadow: inset 0 0 0 1px var(--learning-current, var(--accent));
+    border-color: var(--learning-current);
+    color: var(--learning-current);
+    box-shadow: inset 0 0 0 1px var(--learning-current);
   }
 
   .charset-details {

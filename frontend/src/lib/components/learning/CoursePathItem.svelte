@@ -106,8 +106,8 @@
   }
 
   .is-current {
-    border-color: var(--learning-current, var(--accent));
-    box-shadow: inset 2px 0 0 var(--learning-current, var(--accent));
+    border-color: var(--learning-current);
+    box-shadow: inset 2px 0 0 var(--learning-current);
   }
 
   .is-locked {
@@ -126,15 +126,15 @@
   }
 
   .status-stable {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .status-current {
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .status-review {
-    color: var(--learning-review, var(--status-ok));
+    color: var(--learning-review);
   }
 
   .status-locked {
@@ -176,16 +176,16 @@
   }
 
   .status-text-stable {
-    color: var(--learning-stable, var(--status-good));
+    color: var(--learning-stable);
   }
 
   .status-text-current {
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
     font-weight: 600;
   }
 
   .status-text-review {
-    color: var(--learning-review, var(--status-ok));
+    color: var(--learning-review);
   }
 
   .status-text-locked,

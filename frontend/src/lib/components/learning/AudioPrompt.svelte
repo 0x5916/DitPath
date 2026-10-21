@@ -126,7 +126,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .intro-character {
@@ -164,7 +164,7 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    color: var(--learning-current, var(--accent));
+    color: var(--learning-current);
   }
 
   .pulse-icon {
@@ -182,8 +182,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
     padding: var(--space-3) var(--space-6);
     border-radius: var(--radius-sm);
     font-size: var(--text-base);
@@ -245,7 +245,7 @@
   }
 
   .audio-error-notice button {
-    min-height: var(--answer-target-min, 3rem);
+    min-height: var(--answer-target-min);
   }
 
   @keyframes pulse-glow {

@@ -16,7 +16,7 @@
     getTrainingOwner,
     trainingSyncState,
     subscribeTrainingSync
-  } from '#lib/training-sync.ts';
+  } from '#lib/training-sync.svelte.ts';
 
   let persistenceStatus = $state<'saving' | 'saved' | 'failed' | null>(null);
   let pendingRecord: TrainingSessionRecord | null = null;

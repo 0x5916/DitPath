@@ -1,21 +1,11 @@
 import adapter from '@sveltejs/adapter-static';
 import { readFileSync } from 'node:fs';
-import { ROUTE_PATHS } from '../src/lib/routes.js';
+import { localizedRoutePath, ROUTE_PATHS } from '../src/lib/routes.js';
 
 // Read committed locales without depending on generated Paraglide output.
 const { locales } = /** @type {{ locales: string[] }} */ (
   JSON.parse(readFileSync(new URL('../project.inlang/settings.json', import.meta.url), 'utf8'))
 );
-
-/**
- * Mirrors `buildLocalizedPath` in src/lib/seo.ts.
- * @param {string} routePath
- * @param {string} locale
- * @returns {`/${string}`}
- */
-function localizedPath(routePath, locale) {
-  return routePath === '/' ? `/${locale}` : `/${locale}${routePath}`;
-}
 
 /** @type {import('@sveltejs/kit/vite').Config} */
 export const kitOptions = {
@@ -32,7 +22,7 @@ export const kitOptions = {
     entries: [
       '*',
       ...locales.flatMap((locale) =>
-        ROUTE_PATHS.map((routePath) => localizedPath(routePath, locale))
+        ROUTE_PATHS.map((routePath) => localizedRoutePath(routePath, locale))
       )
     ]
   }

@@ -389,8 +389,8 @@
 
   .overlay-actions button,
   .overlay-close {
-    min-width: var(--answer-target-min, 3rem);
-    min-height: var(--answer-target-min, 3rem);
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
   }
 
   @media (max-width: 640px) {

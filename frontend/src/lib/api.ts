@@ -333,79 +333,10 @@ export async function updateCallSign(callSign: string): Promise<void> {
   await apiSendJson('/user/callsign', 'PUT', { call_sign: callSign }, 'INTERNAL_SERVER_ERROR');
 }
 
-export interface ProgressRecord {
-  lesson: string;
-  char_wpm: number;
-  eff_wpm: number;
-  accuracy: number;
-  created_at: string;
-  client_created_at?: string;
-}
-
 export interface ProgressDay {
   date: string;
   count: number;
 }
-export interface ProgressSummary {
-  days: ProgressDay[];
-  recent: ProgressRecord[];
-}
-
-export async function getProgressSummary(year: number): Promise<ProgressSummary> {
-  return apiGetJson<ProgressSummary>(`/cw/progress?year=${year}`, 'PROGRESS_QUERY_FAILED');
-}
-
-export interface ProgressPage {
-  data: ProgressRecord[];
-  limit: number;
-  next_cursor: string | null;
-}
-
-export async function getProgressPage(
-  query: { cursor?: string | null; limit?: number } = {}
-): Promise<ProgressPage> {
-  const limit = Math.min(100, Math.max(1, Math.floor(query.limit ?? 100)));
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (query.cursor) params.set('cursor', query.cursor);
-  const response = await apiGetJson<{
-    data?: Array<Omit<ProgressRecord, 'lesson'> & { lesson: string | number }>;
-    limit?: number;
-    next_cursor?: string | null;
-  }>(`/cw/progress?${params}`, 'PROGRESS_QUERY_FAILED');
-  return {
-    data: (response.data ?? []).map((record) => ({ ...record, lesson: String(record.lesson) })),
-    limit: response.limit ?? limit,
-    next_cursor: response.next_cursor ?? null
-  };
-}
-
-export async function submitProgress(
-  lesson: number,
-  charWpm: number,
-  effWpm: number,
-  accuracy: number,
-  clientCreatedAt?: string
-): Promise<void> {
-  const payload: {
-    lesson: number;
-    char_wpm: number;
-    eff_wpm: number;
-    accuracy: number;
-    client_created_at?: string;
-  } = {
-    lesson,
-    char_wpm: charWpm,
-    eff_wpm: effWpm,
-    accuracy
-  };
-
-  if (clientCreatedAt) {
-    payload.client_created_at = clientCreatedAt;
-  }
-
-  await apiSendJson('/cw/progress', 'PUT', payload, 'PROGRESS_CREATE_FAILED');
-}
-
 export async function updatePassword(oldPassword: string, newPassword: string): Promise<void> {
   const session = getAuthSession();
   await apiSendJson(
