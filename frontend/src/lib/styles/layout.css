@@ -130,7 +130,7 @@
 }
 
 /* One control treatment for everything clickable in the top bar: a
-   secondary-ink label over an amber rule that grows from the left. The rule is
+   secondary-ink label over an accent rule that grows from the left. The rule is
    an absolutely positioned child, so it needs the control itself as its
    containing block — the sticky `.navbar` is the nearest positioned ancestor
    otherwise, which paints the rule across the whole bar. Declared once, here,

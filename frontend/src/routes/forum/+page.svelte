@@ -485,7 +485,7 @@
   }
 
   /* A thread row is a `.row-link`, so it inherits the shared row spec — row
-     padding and the inset + 2px amber edge on hover/focus. Rows are separated
+     padding and the inset + 2px accent edge on hover/focus. Rows are separated
      by whitespace, not rules (see `.row-list` in app.css); the list itself only
      carries the gap to the next block. */
   .thread-list {

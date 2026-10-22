@@ -26,7 +26,7 @@
     playLabel?: string;
     label?: string;
     showSettings?: boolean;
-    /* 'primary' keeps the play control amber; 'quiet' dresses it as a secondary
+    /* 'primary' keeps the play control accented; 'quiet' dresses it as a secondary
        action once the passage has already been played through once. */
     playTone?: 'primary' | 'quiet';
     /* Stop, skip and the clock stay hidden until playback has started, so the

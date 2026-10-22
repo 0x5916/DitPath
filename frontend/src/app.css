@@ -4,45 +4,47 @@
 :root {
   color-scheme: dark;
 
-  --bg-base: #17140f;
-  --bg-surface: #1f1b14;
-  --bg-inset: #272218;
+  /* Warm charcoal keeps the listening space quiet; Forest carries the signal. */
+  --bg-base: #191917;
+  --bg-surface: #22221f;
+  --bg-inset: #2b2b26;
 
-  --border: #37312a;
-  --border-subtle: #463e33;
+  --border: #3c3c35;
+  --border-subtle: #505047;
   /* Edge of a card/panel surface. Separate from `--border` so flat cards stay
      legible in light mode without strengthening inputs, navbar or footer. */
-  --border-card: #35302a;
+  --border-card: #3d3d35;
   /* Form-control edges need 3:1 against the surface they sit on (WCAG 1.4.11),
      so controls get a stronger rule than decorative hairlines. */
-  --border-control: #7d7365;
+  --border-control: #7d7d70;
+  --border-control-hover: #a2a08d;
 
-  --text-primary: #f2ede3;
-  --text-secondary: #cdc4b4;
-  --text-muted: #aea496;
-  --text-label: #bfb6a5;
+  --text-primary: #f2f0e9;
+  --text-secondary: #ccc9bd;
+  --text-muted: #aaa797;
+  --text-label: #bdb9a8;
 
-  /* Signal amber. One accent for the whole product: interactive surfaces, the
-     playhead, the active lesson, focus. Status colours below stay semantic —
-     green means correct, never "brand". */
-  --accent: #f2a33c;
-  --accent-cta: #e8952f;
-  --accent-cta-h: #f2a33c;
-  --danger: #e0705c;
-  /* Filled accent surfaces carry a dark-on-amber label; white on #e8952f only
-     reaches ~2.2:1. */
-  --on-accent: #211603;
+  /* Forest shades in dark and light modes share the interactive roles:
+     buttons, links, the playhead, the active lesson and focus. Feedback uses
+     separate semantic tokens, with text and icons identifying each result. */
+  --accent: #8ac6a3;
+  --accent-cta: #8ac6a3;
+  --accent-cta-h: #9cceaf;
+  --danger: var(--status-bad);
+  /* Soft Forest fills carry dark ink; the light theme uses deep Forest with
+     a light label so both themes retain readable primary actions. */
+  --on-accent: #272113;
 
-  --result-good-bg: #14251a;
-  --result-bad-bg: #2a1410;
+  --result-good-bg: #202f28;
+  --result-bad-bg: #352622;
 
   /* Semantic status roles. The result diff, verified/accuracy states and inline
      banners all read from these; components must not hard-code status hexes.
      The light theme re-tunes them for contrast on paper. */
-  --status-good: #63c08d;
-  --status-ok: #d9a216;
-  --status-bad: #e0705c;
-  --status-extra: #8fb0e8;
+  --status-good: #81bea3;
+  --status-ok: #d8bc70;
+  --status-bad: #eb9a8b;
+  --status-extra: #9bbad3;
   /* Matching washes for pills, banners and the score hero. */
   --status-good-tint: color-mix(in srgb, var(--status-good) 15%, transparent);
   --status-ok-tint: color-mix(in srgb, var(--status-ok) 15%, transparent);
@@ -69,7 +71,7 @@
   --shadow-menu: 0 2px 10px rgba(0, 0, 0, 0.45);
   --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.5);
 
-  --focus-ring: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+  --focus-ring: 0 0 0 2px color-mix(in srgb, var(--accent) 80%, transparent);
 
   /* 4px rhythm. */
   --space-1: 0.25rem;
@@ -138,59 +140,59 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     color-scheme: light;
-    --bg-base: #f5f1e8;
-    --bg-surface: #fbf9f3;
-    --bg-inset: #ede8dc;
-    --border: #dcd5c6;
-    --border-subtle: #cfc7b5;
-    --border-card: #d8d1c1;
-    --border-control: #867c66;
-    --text-primary: #201d18;
-    --text-secondary: #4c463c;
-    --text-muted: #605849;
-    --text-label: #57503f;
-    --accent: #a94c08;
-    --accent-cta: #a24a08;
-    --accent-cta-h: #8f4107;
-    --danger: #b42318;
-    --on-accent: #fff8ef;
-    --status-good: #1e7a46;
-    --status-ok: #8a5a00;
-    --status-bad: #b42318;
-    --status-extra: #3f5e9c;
-    --result-good-bg: #edf3e7;
-    --result-bad-bg: #f8eae3;
-    --shadow-menu: 0 2px 10px rgba(32, 25, 14, 0.12);
-    --shadow-overlay: 0 12px 32px rgba(32, 25, 14, 0.18);
+    --bg-base: #f3f2ed;
+    --bg-surface: #fcfbf7;
+    --bg-inset: #e8e7df;
+    --border: #d6d5ca;
+    --border-subtle: #c4c2b5;
+    --border-card: #d2d1c5;
+    --border-control: #807d70;
+    --border-control-hover: #686658;
+    --text-primary: #252620;
+    --text-secondary: #4f5147;
+    --text-muted: #65675b;
+    --text-label: #5c5e50;
+    --accent: #2f6b50;
+    --accent-cta: #2f6b50;
+    --accent-cta-h: #2e634a;
+    --on-accent: #fffaf0;
+    --status-good: #2a624e;
+    --status-ok: #6d5412;
+    --status-bad: #943a30;
+    --status-extra: #365b7b;
+    --result-good-bg: #e6eee7;
+    --result-bad-bg: #f4e7e2;
+    --shadow-menu: 0 2px 10px rgba(37, 38, 32, 0.12);
+    --shadow-overlay: 0 12px 32px rgba(37, 38, 32, 0.18);
   }
 }
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg-base: #f5f1e8;
-  --bg-surface: #fbf9f3;
-  --bg-inset: #ede8dc;
-  --border: #dcd5c6;
-  --border-subtle: #cfc7b5;
-  --border-card: #d8d1c1;
-  --border-control: #867c66;
-  --text-primary: #201d18;
-  --text-secondary: #4c463c;
-  --text-muted: #605849;
-  --text-label: #57503f;
-  --accent: #a94c08;
-  --accent-cta: #a24a08;
-  --accent-cta-h: #8f4107;
-  --danger: #b42318;
-  --on-accent: #fff8ef;
-  --status-good: #1e7a46;
-  --status-ok: #8a5a00;
-  --status-bad: #b42318;
-  --status-extra: #3f5e9c;
-  --result-good-bg: #edf3e7;
-  --result-bad-bg: #f8eae3;
-  --shadow-menu: 0 2px 10px rgba(32, 25, 14, 0.12);
-  --shadow-overlay: 0 12px 32px rgba(32, 25, 14, 0.18);
+  --bg-base: #f3f2ed;
+  --bg-surface: #fcfbf7;
+  --bg-inset: #e8e7df;
+  --border: #d6d5ca;
+  --border-subtle: #c4c2b5;
+  --border-card: #d2d1c5;
+  --border-control: #807d70;
+  --border-control-hover: #686658;
+  --text-primary: #252620;
+  --text-secondary: #4f5147;
+  --text-muted: #65675b;
+  --text-label: #5c5e50;
+  --accent: #2f6b50;
+  --accent-cta: #2f6b50;
+  --accent-cta-h: #2e634a;
+  --on-accent: #fffaf0;
+  --status-good: #2a624e;
+  --status-ok: #6d5412;
+  --status-bad: #943a30;
+  --status-extra: #365b7b;
+  --result-good-bg: #e6eee7;
+  --result-bad-bg: #f4e7e2;
+  --shadow-menu: 0 2px 10px rgba(37, 38, 32, 0.12);
+  --shadow-overlay: 0 12px 32px rgba(37, 38, 32, 0.18);
 }
 
 /* No `[data-theme='dark']` block is needed: the `:root` values above are the dark
@@ -565,7 +567,7 @@ body {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  border-color: var(--border-subtle);
+  border-color: var(--border-control-hover);
   background-color: var(--bg-inset);
 }
 
@@ -658,7 +660,7 @@ body {
 
 .segmented-item:hover {
   color: var(--text-primary);
-  border-color: var(--border-subtle);
+  border-color: var(--border-control-hover);
 }
 
 .segmented-item[aria-pressed='true'],
@@ -699,7 +701,7 @@ body {
 .input:hover,
 .select:hover,
 .textarea:hover {
-  border-color: var(--border-subtle);
+  border-color: var(--border-control-hover);
 }
 
 .input:focus,
@@ -877,7 +879,6 @@ select.select {
 
 .diff-expected {
   font-size: var(--text-xs);
-  opacity: 0.8;
   font-weight: 400;
 }
 
@@ -1007,7 +1008,7 @@ summary:focus-visible,
   gap: 0.25rem;
 }
 
-/* Forum category label: small caps with the amber dot, on the thread list and
+/* Forum category label: small caps with the accent dot, on the thread list and
    the thread page alike. */
 .thread-cat {
   display: inline-flex;
@@ -1054,7 +1055,7 @@ summary:focus-visible,
   transition: background-color var(--transition-fast);
 }
 
-/* Whole-row links read as one target: the row floors and runs the 2px amber
+/* Whole-row links read as one target: the row floors and runs the 2px accent
    edge on hover and keyboard focus, matching the row-list's link treatment. */
 .row-link:hover,
 .row-link:focus-visible {
@@ -1155,7 +1156,7 @@ summary:focus-visible,
 
 .btn-icon:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: var(--border-subtle);
+  border-color: var(--border-control-hover);
   background-color: var(--bg-inset);
 }
 

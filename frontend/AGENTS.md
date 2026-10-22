@@ -26,7 +26,7 @@ The root [AGENTS.md](../AGENTS.md) also applies. This file retains frontend impl
 
 ## Visual system
 
-- Use warm neutral surfaces, amber `--accent`/`--accent-cta`, semantic `--status-good`/`--status-ok`/`--status-bad`/`--status-extra`, flat surfaces, 2–6px `--radius-*`, and the 4px `--space-*` rhythm.
+- Use warm neutral surfaces and Forest green shades in both themes for `--accent`/`--accent-cta`, semantic `--status-good`/`--status-ok`/`--status-bad`/`--status-extra`, flat surfaces, 2–6px `--radius-*`, and the 4px `--space-*` rhythm.
 - All color literals belong in `src/app.css`. Never hard-code hex colors or arbitrary utility colors in Svelte components; read `var(--token)`.
 - Cards must stay flat without hover/lift unless the whole element is an interactive link or button.
 - Use the installed Lucide icons (`@lucide/svelte`), never emoji UI icons.
