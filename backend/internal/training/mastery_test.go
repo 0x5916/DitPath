@@ -18,8 +18,8 @@ func TestMasteryAccumulatorRetainsOnlyRollingWindow(t *testing.T) {
 		accumulator.Add(models.TrainingEvent{SessionID: session, TargetCharacter: " t ", Classification: "automatic", IsCorrect: true, LatencyMS: 1000, ClientCreatedAt: now.Add(time.Duration(i) * time.Millisecond)})
 	}
 	history := accumulator.characters["T"]
-	if len(history.window) != 20 || cap(history.window) != 20 || history.total != 100000 || !history.multipleSessions {
-		t.Fatalf("unexpected retained history: size=%d cap=%d total=%d", len(history.window), cap(history.window), history.total)
+	if len(history.window) != 20 || cap(history.window) != 20 || history.totalAttempts != 100000 || !history.multipleSessions {
+		t.Fatalf("unexpected retained history: size=%d cap=%d total=%d", len(history.window), cap(history.window), history.totalAttempts)
 	}
 	result := accumulator.Masteries(now)
 	if len(result) != 1 || result[0].TotalAttempts != 100000 || result[0].Status != "stable" || result[0].RollingAccuracy != 1 {

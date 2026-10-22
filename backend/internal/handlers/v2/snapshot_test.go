@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -82,6 +83,57 @@ func TestSnapshotStreamsCompleteHistoryAndHonorsCancellation(t *testing.T) {
 		if mastery.TotalAttempts != 500 || mastery.Status != "stable" || mastery.RollingAccuracy != 1 {
 			t.Fatalf("incorrect full-history mastery: %+v", mastery)
 		}
+	}
+	tied := make([]models.TrainingEvent, 21)
+	for i := range tied {
+		tied[i] = events[0]
+		tied[i].Base = models.Base{ID: uuid.MustParse(fmt.Sprintf("ffffffff-ffff-7000-8000-%012x", i+1))}
+		tied[i].EventID = tied[i].ID.String()
+		tied[i].SessionID = "tied"
+		tied[i].TargetCharacter, tied[i].EnteredText = "Q", "Q"
+		tied[i].ClientCreatedAt = now.Add(-time.Minute)
+	}
+	// Ascending UUID order drops the first incorrect answer from the rolling window.
+	tied[0].IsCorrect, tied[0].Classification, tied[0].EnteredText = false, "incorrect", "E"
+	if err := db.Create(&tied).Error; err != nil {
+		t.Fatal(err)
+	}
+	response = request(context.Background())
+	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	masteries := snapshot.CharacterMasteries
+	if response.Code != 200 || len(masteries) != 3 || masteries[0].Character != "E" || masteries[1].Character != "Q" || masteries[2].Character != "T" {
+		t.Fatalf("unordered character masteries: %d %s", response.Code, response.Body)
+	}
+	if q := masteries[1]; q.TotalAttempts != 21 || q.RollingAccuracy != 1 || q.Status != "learning" {
+		t.Fatalf("incorrect timestamp tie order: %+v", q)
+	}
+	if snapshot.LastActiveAt == nil || !snapshot.LastActiveAt.Equal(events[1000].ClientCreatedAt) {
+		t.Fatalf("unmeasured activity lost: %+v", snapshot)
+	}
+
+	older := time.Unix(0, 0).UTC()
+	profile := models.TrainingProfile{UserID: user.ID, SuggestedStep: 7, UnlockedStep: 9, LastActiveAt: &older}
+	if err := db.Create(&profile).Error; err != nil {
+		t.Fatal(err)
+	}
+	response = request(context.Background())
+	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != 200 || snapshot.SuggestedStep != 7 || snapshot.UnlockedStep != 9 || snapshot.LastActiveAt == nil || !snapshot.LastActiveAt.Equal(older) {
+		t.Fatalf("profile did not override history: %d %s", response.Code, response.Body)
+	}
+	if err := db.Model(&profile).Updates(map[string]any{"suggested_step": 0, "unlocked_step": -3, "last_active_at": nil}).Error; err != nil {
+		t.Fatal(err)
+	}
+	response = request(context.Background())
+	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != 200 || snapshot.SuggestedStep != 1 || snapshot.UnlockedStep != 1 || snapshot.LastActiveAt == nil || !snapshot.LastActiveAt.Equal(events[1000].ClientCreatedAt) {
+		t.Fatalf("incorrect profile fallback: %d %s", response.Code, response.Body)
 	}
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()

@@ -10,41 +10,28 @@ import (
 	"opencw/internal/models"
 )
 
-// masteryPolicy mirrors the client's DEFAULT_MASTERY_POLICY
+// These thresholds mirror the client's DEFAULT_MASTERY_POLICY
 // (frontend/src/lib/training/v2/types.ts). Keep both definitions in sync.
-var masteryPolicy = struct {
-	minAttemptsForStability int
-	minSessionsForStability int
-	targetAccuracy          float64
-	maxAutomaticLatencyMS   int
-	reviewIntervalDays      int
-	rollingWindowSize       int
-}{
-	minAttemptsForStability: 12,
-	minSessionsForStability: 2,
-	targetAccuracy:          0.9,
-	maxAutomaticLatencyMS:   1500,
-	reviewIntervalDays:      3,
-	rollingWindowSize:       20,
-}
+const (
+	minAttemptsForStability = 12
+	targetAccuracy          = 0.9
+	maxAutomaticLatencyMS   = 1500
+	reviewInterval          = 3 * 24 * time.Hour
+	rollingWindowSize       = 20
+)
 
-// ComputeCharacterMasteries mirrors the client CharacterMastery reducer
-// (frontend/src/lib/training/v2/mastery.ts) for the reduced snapshot shape:
-// rolling window accuracy, median correct latency, and the two-session
-// stability rule (a single session can never produce a stable character).
-// The scored history in events must be chronological.
 type characterHistory struct {
-	total            int
-	firstSession     string
+	totalAttempts    int
+	firstSessionID   string
 	multipleSessions bool
 	window           []models.TrainingEvent
 }
 
 // MasteryAccumulator retains only the rolling window and the facts needed from
 // older attempts. Its memory follows distinct characters, never event count.
-// Add must receive events in client_created_at,id order.
 type MasteryAccumulator struct{ characters map[string]*characterHistory }
 
+// Add requires events in client_created_at,id order.
 func (a *MasteryAccumulator) Add(event models.TrainingEvent) {
 	if event.Classification == "unmeasured" {
 		return
@@ -58,26 +45,22 @@ func (a *MasteryAccumulator) Add(event models.TrainingEvent) {
 	}
 	history := a.characters[character]
 	if history == nil {
-		history = &characterHistory{firstSession: event.SessionID, window: make([]models.TrainingEvent, 0, masteryPolicy.rollingWindowSize)}
+		history = &characterHistory{
+			firstSessionID: event.SessionID,
+			window:         make([]models.TrainingEvent, 0, rollingWindowSize),
+		}
 		a.characters[character] = history
 	}
-	history.total++
-	history.multipleSessions = history.multipleSessions || event.SessionID != history.firstSession
-	if len(history.window) == masteryPolicy.rollingWindowSize {
+	history.totalAttempts++
+	history.multipleSessions = history.multipleSessions || event.SessionID != history.firstSessionID
+	if len(history.window) == rollingWindowSize {
 		copy(history.window, history.window[1:])
 		history.window = history.window[:len(history.window)-1]
 	}
 	history.window = append(history.window, event)
 }
 
-func ComputeCharacterMasteries(events []models.TrainingEvent, now time.Time) []common.TrainingCharacterMasteryResponse {
-	var accumulator MasteryAccumulator
-	for _, event := range events {
-		accumulator.Add(event)
-	}
-	return accumulator.Masteries(now)
-}
-
+// Masteries returns summaries sorted by normalized character.
 func (a *MasteryAccumulator) Masteries(now time.Time) []common.TrainingCharacterMasteryResponse {
 	characters := make([]string, 0, len(a.characters))
 	for character := range a.characters {
@@ -89,7 +72,6 @@ func (a *MasteryAccumulator) Masteries(now time.Time) []common.TrainingCharacter
 	for _, character := range characters {
 		// Events arrive ordered by client_created_at, so the window is the tail.
 		history := a.characters[character]
-		totalAttempts := history.total
 		window := history.window
 
 		correctInWindow := 0
@@ -105,14 +87,13 @@ func (a *MasteryAccumulator) Masteries(now time.Time) []common.TrainingCharacter
 		medianLatency := medianOfInts(correctLatencies)
 
 		status := "learning"
-		hasMinAttempts := totalAttempts >= masteryPolicy.minAttemptsForStability
-		hasMultiSession := history.multipleSessions
-		hasAccuracy := rollingAccuracy >= masteryPolicy.targetAccuracy
-		hasAutomaticSpeed := medianLatency != nil && *medianLatency <= masteryPolicy.maxAutomaticLatencyMS
+		hasMinAttempts := history.totalAttempts >= minAttemptsForStability
+		hasAccuracy := rollingAccuracy >= targetAccuracy
+		hasAutomaticSpeed := medianLatency != nil && *medianLatency <= maxAutomaticLatencyMS
 
-		if hasMinAttempts && hasMultiSession && hasAccuracy && hasAutomaticSpeed {
+		if hasMinAttempts && history.multipleSessions && hasAccuracy && hasAutomaticSpeed {
 			lastPractisedAt := window[len(window)-1].ClientCreatedAt
-			dueAt := lastPractisedAt.Add(time.Duration(masteryPolicy.reviewIntervalDays) * 24 * time.Hour)
+			dueAt := lastPractisedAt.Add(reviewInterval)
 			if !now.Before(dueAt) {
 				status = "review"
 			} else {
@@ -125,7 +106,7 @@ func (a *MasteryAccumulator) Masteries(now time.Time) []common.TrainingCharacter
 			Status:          status,
 			RollingAccuracy: math.Round(rollingAccuracy*1000) / 1000,
 			MedianLatencyMS: medianLatency,
-			TotalAttempts:   totalAttempts,
+			TotalAttempts:   history.totalAttempts,
 		})
 	}
 

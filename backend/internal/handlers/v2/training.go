@@ -1,13 +1,12 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"opencw/internal/common"
 	"opencw/internal/models"
@@ -29,37 +28,6 @@ import (
 // /v1/cw/progress endpoint remains active and is not affected.
 type TrainingHandler struct {
 	DB *gorm.DB
-}
-
-// validPromptKinds mirrors the client PromptKind union.
-var validPromptKinds = map[string]bool{
-	"introduction":   true,
-	"unscored-match": true,
-	"recall":         true,
-	"contrast":       true,
-	"short-group":    true,
-}
-
-// validClassifications mirrors the client AttemptClassification union.
-var validClassifications = map[string]bool{
-	"automatic":  true,
-	"developing": true,
-	"incorrect":  true,
-	"missing":    true,
-	"unmeasured": true,
-}
-
-// validInputModes mirrors the client InputMode union.
-var validInputModes = map[string]bool{
-	"keyboard": true,
-	"grid":     true,
-	"touch":    true,
-}
-
-// validatedTrainingEvent is a batch event that passed per-event validation.
-type validatedTrainingEvent struct {
-	input     common.TrainingEventInput
-	createdAt time.Time
 }
 
 // PostEventsBatch ingests a batch of immutable prompt attempt events.
@@ -201,7 +169,7 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 // GetSnapshot returns the user's aggregated learning snapshot. Character
 // masteries are derived from stored events on read using the same policy
 // constants as the client reducer; only characters with at least one scored
-// attempt are reported. Failures to compute are non-fatal to unrelated data.
+// attempt are reported.
 func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
@@ -213,18 +181,7 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 		Where("user_id = ?", user.ID).Order("client_created_at ASC, id ASC").Rows()
 	if err == nil {
 		defer rows.Close()
-		for rows.Next() {
-			var event models.TrainingEvent
-			if err = db.ScanRows(rows, &event); err != nil {
-				break
-			}
-			accumulator.Add(event)
-			last := event.ClientCreatedAt
-			lastActive = &last
-		}
-		if err == nil {
-			err = rows.Err()
-		}
+		accumulator, lastActive, err = scanTrainingHistory(db, rows)
 	}
 	if err != nil {
 		slog.Error("Failed to load training events", "user_id", user.ID, "err", err)
@@ -240,20 +197,16 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 	}
 
 	var profile models.TrainingProfile
-	if err := db.Where("user_id = ?", user.ID).Take(&profile).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			slog.Error("Failed to load training profile", "user_id", user.ID, "err", err)
-			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
-				common.ErrorCodeTrainingSnapshotFailed, "Failed to build training snapshot"))
-			return
-		}
-	} else {
-		if profile.SuggestedStep > 1 {
-			response.SuggestedStep = profile.SuggestedStep
-		}
-		if profile.UnlockedStep > 1 {
-			response.UnlockedStep = profile.UnlockedStep
-		}
+	err = db.Where("user_id = ?", user.ID).Take(&profile).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		slog.Error("Failed to load training profile", "user_id", user.ID, "err", err)
+		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
+			common.ErrorCodeTrainingSnapshotFailed, "Failed to build training snapshot"))
+		return
+	}
+	if err == nil {
+		response.SuggestedStep = max(1, profile.SuggestedStep)
+		response.UnlockedStep = max(1, profile.UnlockedStep)
 		response.LastActiveAt = profile.LastActiveAt
 	}
 
@@ -262,6 +215,22 @@ func (h TrainingHandler) GetSnapshot(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// The handler retains row ownership so scan failures close after the error response.
+func scanTrainingHistory(db *gorm.DB, rows *sql.Rows) (training.MasteryAccumulator, *time.Time, error) {
+	var accumulator training.MasteryAccumulator
+	var lastActive *time.Time
+	for rows.Next() {
+		var event models.TrainingEvent
+		if err := db.ScanRows(rows, &event); err != nil {
+			return accumulator, lastActive, err
+		}
+		accumulator.Add(event)
+		last := event.ClientCreatedAt
+		lastActive = &last
+	}
+	return accumulator, lastActive, rows.Err()
 }
 
 // PutSettings updates cloud-synchronized CW and learning preferences. It
@@ -301,165 +270,4 @@ func (h TrainingHandler) PutSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, common.TrainingSettingsUpdateResponse{UpdatedAt: updatedAt})
-}
-
-// validateTrainingEvents validates raw batch members individually so a single
-// malformed event cannot poison valid siblings.
-func validateTrainingEvents(rawEvents []json.RawMessage) ([]validatedTrainingEvent, []common.TrainingRejectedEvent) {
-	valid := make([]validatedTrainingEvent, 0, len(rawEvents))
-	rejected := make([]common.TrainingRejectedEvent, 0)
-
-	for _, raw := range rawEvents {
-		event, rejection := parseAndValidateTrainingEvent(raw)
-		if rejection != nil {
-			rejected = append(rejected, *rejection)
-			continue
-		}
-		valid = append(valid, *event)
-	}
-
-	return valid, rejected
-}
-
-func parseAndValidateTrainingEvent(raw json.RawMessage) (*validatedTrainingEvent, *common.TrainingRejectedEvent) {
-	var input common.TrainingEventInput
-	if err := json.Unmarshal(raw, &input); err != nil {
-		var partial struct {
-			ID string `json:"id"`
-		}
-		_ = json.Unmarshal(raw, &partial)
-		return nil, rejectEvent(partial.ID, common.RejectCodeInvalidField, "event must be a JSON object")
-	}
-
-	if rejection := validateTrainingEventInput(&input); rejection != nil {
-		return nil, rejection
-	}
-
-	createdAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(*input.CreatedAt))
-	return &validatedTrainingEvent{input: input, createdAt: createdAt.UTC()}, nil
-}
-
-func rejectEvent(id, code, message string) *common.TrainingRejectedEvent {
-	return &common.TrainingRejectedEvent{ID: id, ErrorCode: code, Message: message}
-}
-
-func validateTrainingEventInput(in *common.TrainingEventInput) *common.TrainingRejectedEvent {
-	id := strings.TrimSpace(in.ID)
-	if id == "" {
-		return rejectEvent(id, common.RejectCodeMissingField, "id is required")
-	}
-	if len(id) > 128 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "id exceeds 128 characters")
-	}
-
-	if strings.TrimSpace(in.SessionID) == "" {
-		return rejectEvent(id, common.RejectCodeMissingField, "session_id is required")
-	}
-	if len(in.SessionID) > 128 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "session_id exceeds 128 characters")
-	}
-
-	if strings.TrimSpace(in.PromptID) == "" {
-		return rejectEvent(id, common.RejectCodeMissingField, "prompt_id is required")
-	}
-	if len(in.PromptID) > 128 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "prompt_id exceeds 128 characters")
-	}
-
-	if !validPromptKinds[in.PromptKind] {
-		return rejectEvent(id, common.RejectCodeInvalidPromptKind,
-			"prompt_kind must be one of introduction, unscored-match, recall, contrast, short-group")
-	}
-
-	target := strings.TrimSpace(in.TargetCharacter)
-	if target == "" {
-		return rejectEvent(id, common.RejectCodeMissingField, "target_character is required")
-	}
-	if utf8.RuneCountInString(target) > 8 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "target_character exceeds 8 characters")
-	}
-
-	if !validClassifications[in.Classification] {
-		return rejectEvent(id, common.RejectCodeInvalidClassification,
-			"classification must be one of automatic, developing, incorrect, missing, unmeasured")
-	}
-
-	if !validInputModes[in.InputMode] {
-		return rejectEvent(id, common.RejectCodeInvalidInputMode, "input_mode must be one of keyboard, grid, touch")
-	}
-
-	if utf8.RuneCountInString(strings.TrimSpace(in.EnteredText)) > 64 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "entered_text exceeds 64 characters")
-	}
-
-	if in.IsCorrect == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "is_correct is required")
-	}
-
-	if in.LatencyMS == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "latency_ms is required")
-	}
-	if *in.LatencyMS < 0 {
-		return rejectEvent(id, common.RejectCodeInvalidTiming, "latency_ms cannot be negative")
-	}
-	if *in.LatencyMS > 600000 {
-		return rejectEvent(id, common.RejectCodeInvalidTiming, "latency_ms exceeds the maximum of 600000")
-	}
-
-	if in.ReplayCount == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "replay_count is required")
-	}
-	if *in.ReplayCount < 0 || *in.ReplayCount > 1000 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "replay_count must be between 0 and 1000")
-	}
-
-	if in.CharWPM == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "char_wpm is required")
-	}
-	if *in.CharWPM < 5 || *in.CharWPM > 50 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "char_wpm must be between 5 and 50")
-	}
-
-	if in.EffWPM == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "eff_wpm is required")
-	}
-	if *in.EffWPM < 5 || *in.EffWPM > 50 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "eff_wpm must be between 5 and 50")
-	}
-
-	if in.FreqHz == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "freq_hz is required")
-	}
-	if *in.FreqHz < 300 || *in.FreqHz > 2000 {
-		return rejectEvent(id, common.RejectCodeInvalidField, "freq_hz must be between 300 and 2000")
-	}
-
-	if in.CreatedAt == nil {
-		return rejectEvent(id, common.RejectCodeMissingField, "created_at is required")
-	}
-	if _, err := time.Parse(time.RFC3339, strings.TrimSpace(*in.CreatedAt)); err != nil {
-		return rejectEvent(id, common.RejectCodeInvalidField, "created_at must be an ISO 8601 timestamp")
-	}
-
-	// Cross-field consistency keeps downstream aggregates trustworthy.
-	entered := strings.TrimSpace(in.EnteredText)
-	switch in.Classification {
-	case "missing":
-		if entered != "" || *in.IsCorrect {
-			return rejectEvent(id, common.RejectCodeInvalidClassification,
-				"missing answers must have empty entered_text and is_correct=false")
-		}
-	case "automatic", "developing":
-		if !*in.IsCorrect {
-			return rejectEvent(id, common.RejectCodeInvalidClassification,
-				"automatic and developing classifications require is_correct=true")
-		}
-	case "incorrect":
-		if *in.IsCorrect {
-			return rejectEvent(id, common.RejectCodeInvalidClassification,
-				"incorrect classifications require is_correct=false")
-		}
-	}
-
-	return nil
 }

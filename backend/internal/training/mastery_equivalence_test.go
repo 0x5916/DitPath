@@ -14,7 +14,8 @@ import (
 )
 
 // Compare the streaming state to the former complete-history batch algorithm,
-// retained below as an independent grouping/windowing reference.
+// retained below as an independent grouping/windowing reference. Its policy
+// values are frozen so changes to production constants cannot move the oracle.
 func TestStreamingMasteryMatchesFormerBatchReducer(t *testing.T) {
 	now := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
 	targets := []string{" t ", "e", "A", "N", "", "  ", "語"}
@@ -72,7 +73,7 @@ func batchMasteryReference(events []models.TrainingEvent, now time.Time) []commo
 			sessions[attempt.SessionID] = struct{}{}
 		}
 
-		windowStart := totalAttempts - masteryPolicy.rollingWindowSize
+		windowStart := totalAttempts - 20
 		if windowStart < 0 {
 			windowStart = 0
 		}
@@ -91,14 +92,14 @@ func batchMasteryReference(events []models.TrainingEvent, now time.Time) []commo
 		medianLatency := medianOfInts(correctLatencies)
 
 		status := "learning"
-		hasMinAttempts := totalAttempts >= masteryPolicy.minAttemptsForStability
-		hasMultiSession := len(sessions) >= masteryPolicy.minSessionsForStability
-		hasAccuracy := rollingAccuracy >= masteryPolicy.targetAccuracy
-		hasAutomaticSpeed := medianLatency != nil && *medianLatency <= masteryPolicy.maxAutomaticLatencyMS
+		hasMinAttempts := totalAttempts >= 12
+		hasMultiSession := len(sessions) >= 2
+		hasAccuracy := rollingAccuracy >= 0.9
+		hasAutomaticSpeed := medianLatency != nil && *medianLatency <= 1500
 
 		if hasMinAttempts && hasMultiSession && hasAccuracy && hasAutomaticSpeed {
 			lastPractisedAt := attempts[totalAttempts-1].ClientCreatedAt
-			dueAt := lastPractisedAt.Add(time.Duration(masteryPolicy.reviewIntervalDays) * 24 * time.Hour)
+			dueAt := lastPractisedAt.Add(3 * 24 * time.Hour)
 			if !now.Before(dueAt) {
 				status = "review"
 			} else {
