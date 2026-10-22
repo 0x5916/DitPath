@@ -310,19 +310,28 @@ func TestPasswordReservationErrorsAndPanicsReleaseOnUnwind(t *testing.T) {
 	}
 }
 
-func TestPasswordWrappersUseSharedDefault(t *testing.T) {
+func TestDefaultPasswordWorkSharesReservationCapacity(t *testing.T) {
 	w := DefaultPasswordWork()
 	if w != DefaultPasswordWork() || DefaultPasswordConcurrency != 2 {
 		t.Fatal("production service is not one shared two-slot instance")
 	}
-	for range DefaultPasswordConcurrency {
-		passwordReservation(t, w, context.Background())
+	first := passwordReservation(t, w, context.Background())
+	passwordReservation(t, DefaultPasswordWork(), context.Background())
+	for range 2 {
+		if reservation, err := DefaultPasswordWork().Acquire(context.Background()); reservation != nil || !errors.Is(err, ErrPasswordCapacity) {
+			t.Fatalf("full default service: reservation=%v, error=%v", reservation, err)
+		}
 	}
-	if _, err := HashPassword(context.Background(), "password"); !errors.Is(err, ErrPasswordCapacity) {
-		t.Fatal(err)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if reservation, err := DefaultPasswordWork().Acquire(ctx); reservation != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled admission to full service: reservation=%v, error=%v", reservation, err)
 	}
-	if _, err := ComparePasswordAndHash(context.Background(), "password", "hash"); !errors.Is(err, ErrPasswordCapacity) {
-		t.Fatal(err)
+	first.Close()
+	passwordReservation(t, DefaultPasswordWork(), context.Background())
+	first.Close()
+	if reservation, err := DefaultPasswordWork().Acquire(context.Background()); reservation != nil || !errors.Is(err, ErrPasswordCapacity) {
+		t.Fatalf("closing an old reservation released active capacity: reservation=%v, error=%v", reservation, err)
 	}
 }
 

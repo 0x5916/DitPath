@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,60 +20,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"gorm.io/gorm/logger"
 )
-
-// These tests require a migrated disposable PostgreSQL database. They never
-// migrate schemas or call the email provider; callbacks belong to each test's
-// independent GORM root, rather than a shared session clone.
-func emailTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	dsn := os.Getenv("OPENCW_TEST_DATABASE_DSN")
-	if dsn == "" {
-		t.Skip("set OPENCW_TEST_DATABASE_DSN to a migrated disposable PostgreSQL database")
-	}
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true, Logger: logger.Default.LogMode(logger.Silent)})
-	if err != nil {
-		t.Fatal("cannot connect to disposable PostgreSQL database")
-	}
-	pool, err := db.DB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	pool.SetMaxOpenConns(12)
-	t.Cleanup(func() { _ = pool.Close() })
-	var present bool
-	if err := db.Raw(`SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = current_schema()
-		AND tablename = 'users' AND indexname = 'idx_users_verified_email'
-		AND indexdef LIKE 'CREATE UNIQUE INDEX%' AND indexdef LIKE '%email_verified%'
-		AND indexdef LIKE '%deleted_at IS NULL%')`).Scan(&present).Error; err != nil || !present {
-		t.Fatalf("migrated verified-email unique index missing: %v", err)
-	}
-	return db
-}
-
-func emailTestUser(t *testing.T, db *gorm.DB, address string) models.User {
-	t.Helper()
-	if address == "" {
-		address = uuid.NewString() + "@example.invalid"
-	}
-	user := models.User{Username: "email_" + uuid.NewString(), Email: address, Password: "unused"}
-	if err := db.Create(&user).Error; err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Unscoped().Where("user_id = ?", user.ID).Delete(&models.EmailOTP{}).Error; err != nil {
-			t.Error(err)
-		}
-		if err := db.Unscoped().Delete(&user).Error; err != nil {
-			t.Error(err)
-		}
-	})
-	return user
-}
 
 func emailTestOTP(t *testing.T, db *gorm.DB, user models.User, code string) models.EmailOTP {
 	t.Helper()
@@ -222,8 +170,8 @@ func TestEmailVerificationResponses(t *testing.T) {
 		{name: "deleted-before-body", body: `{`, missing: true, status: 401, code: common.ErrorCodeUserNotFound},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			if test.expired {
 				if err := db.Model(&otp).Update("expired_at", time.Now().Add(-time.Second)).Error; err != nil {
@@ -236,7 +184,7 @@ func TestEmailVerificationResponses(t *testing.T) {
 				}
 			}
 			if test.owner {
-				owner := emailTestUser(t, db, user.Email)
+				owner := postgresTestUser(t, db, user.Email)
 				if err := db.Model(&owner).Update("email_verified", true).Error; err != nil {
 					t.Fatal(err)
 				}
@@ -262,8 +210,8 @@ func TestEmailVerificationResponses(t *testing.T) {
 func TestEmailVerificationAccountOrdering(t *testing.T) {
 	for _, order := range []string{"update-before-verify", "verify-before-update", "update-before-send"} {
 		t.Run(order, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			address := uuid.NewString() + "@example.invalid"
 			auth := &AuthHandler{DB: db, GenerateCode: func() (string, error) { return "654321", nil }, SendEmail: func(to, code string) error {
@@ -309,8 +257,8 @@ func TestEmailVerificationAccountOrdering(t *testing.T) {
 func TestEmailEightContenders(t *testing.T) {
 	for _, operation := range []string{"verify", "send"} {
 		t.Run(operation, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			var otp models.EmailOTP
 			if operation == "verify" {
 				otp = emailTestOTP(t, db, user, "123456")
@@ -380,8 +328,8 @@ func TestEmailEightContenders(t *testing.T) {
 
 func TestEmailVerificationHistory(t *testing.T) {
 	t.Run("address-round-trip-and-reused-digits", func(t *testing.T) {
-		db := emailTestDB(t)
-		user := emailTestUser(t, db, "")
+		db := postgresTestDB(t)
+		user := postgresTestUser(t, db, "")
 		old := emailTestOTP(t, db, user, "123456")
 		update := (&UserHandler{DB: db}).UpdateEmail
 		address := uuid.NewString() + "@example.invalid"
@@ -401,8 +349,8 @@ func TestEmailVerificationHistory(t *testing.T) {
 		emailState(t, db, user, user.Email, true, latest, true, false)
 	})
 	t.Run("legacy-equal-timestamp-pending-and-resend", func(t *testing.T) {
-		db := emailTestDB(t)
-		user := emailTestUser(t, db, "")
+		db := postgresTestDB(t)
+		user := postgresTestUser(t, db, "")
 		older := emailTestOTP(t, db, user, "111111")
 		newer := emailTestOTP(t, db, user, "222222")
 		// Explicitly choose UUID order while keeping the historical timestamps equal.
@@ -422,8 +370,8 @@ func TestEmailVerificationHistory(t *testing.T) {
 		emailState(t, db, user, user.Email, true, newer, false, true)
 	})
 	t.Run("newest-equal-timestamp-wins", func(t *testing.T) {
-		db := emailTestDB(t)
-		user := emailTestUser(t, db, "")
+		db := postgresTestDB(t)
+		user := postgresTestUser(t, db, "")
 		first, second := emailTestOTP(t, db, user, "111111"), emailTestOTP(t, db, user, "222222")
 		if first.ID.String() > second.ID.String() {
 			first, second = second, first
@@ -453,8 +401,8 @@ func TestEmailLockedGuards(t *testing.T) {
 		{name: "send-locked-owner", operation: "send", owner: true, code: common.ErrorCodeEmailVerifiedByAnother, status: 409},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			snapshot := user
 			snapshot.Email = uuid.NewString() + "@example.invalid"
@@ -471,9 +419,9 @@ func TestEmailLockedGuards(t *testing.T) {
 				}
 			}
 			if test.owner {
-				owner := emailTestUser(t, db, user.Email)
+				owner := postgresTestUser(t, db, user.Email)
 				if test.operation == "update" {
-					owner = emailTestUser(t, db, "")
+					owner = postgresTestUser(t, db, "")
 					requested = owner.Email
 				}
 				if err := db.Model(&owner).Update("email_verified", true).Error; err != nil {
@@ -502,8 +450,8 @@ func TestEmailLockedGuards(t *testing.T) {
 func TestEmailCooldownHistory(t *testing.T) {
 	for _, test := range []string{"deleted-history-ceiling", "provider-failure-and-address-change"} {
 		t.Run(test, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			var deliveries atomic.Int32
 			now := time.Now().UTC().Truncate(time.Microsecond)
 			h := &AuthHandler{DB: db, Now: func() time.Time { return now }, GenerateCode: func() (string, error) { return "123456", nil }, SendEmail: func(string, string) error { deliveries.Add(1); return errors.New("provider failed") }}
@@ -538,8 +486,8 @@ func TestEmailCooldownHistory(t *testing.T) {
 }
 
 func TestEmailProviderOutsideTransaction(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	provider, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
@@ -571,8 +519,8 @@ func TestEmailProviderOutsideTransaction(t *testing.T) {
 func TestEmailFailedDeliveryCleanup(t *testing.T) {
 	for _, scenario := range []string{"newer-issuance", "consumed-issuance", "cleanup-failure", "deleted-account"} {
 		t.Run(scenario, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			provider, release := make(chan struct{}), make(chan struct{})
 			var once sync.Once
 			unblock := func() { once.Do(func() { close(release) }) }
@@ -646,8 +594,8 @@ func TestEmailFailedDeliveryCleanup(t *testing.T) {
 
 func TestEmailVerificationExpiry(t *testing.T) {
 	t.Run("expires-while-waiting-for-lock", func(t *testing.T) {
-		db := emailTestDB(t)
-		user := emailTestUser(t, db, "")
+		db := postgresTestDB(t)
+		user := postgresTestUser(t, db, "")
 		otp := emailTestOTP(t, db, user, "123456")
 		if err := db.Model(&otp).Update("expired_at", gorm.Expr("clock_timestamp() + interval '1 second'")).Error; err != nil {
 			t.Fatal(err)
@@ -688,8 +636,8 @@ func TestEmailVerificationExpiry(t *testing.T) {
 	})
 	for _, boundary := range []string{"exact-equality", "one-microsecond-before"} {
 		t.Run(boundary, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			expires := time.Now().Add(time.Minute).UTC().Truncate(time.Microsecond)
 			if err := db.Model(&otp).Update("expired_at", expires).Error; err != nil {
@@ -711,9 +659,9 @@ func TestEmailVerificationExpiry(t *testing.T) {
 }
 
 func TestEmailVerificationUniqueOwnerRace(t *testing.T) {
-	db := emailTestDB(t)
-	first := emailTestUser(t, db, "")
-	second := emailTestUser(t, db, first.Email)
+	db := postgresTestDB(t)
+	first := postgresTestUser(t, db, "")
+	second := postgresTestUser(t, db, first.Email)
 	otps := []models.EmailOTP{emailTestOTP(t, db, first, "123456"), emailTestOTP(t, db, second, "123456")}
 	ready, release := make(chan struct{}, 2), make(chan struct{})
 	var once sync.Once
@@ -758,8 +706,8 @@ func TestEmailVerificationUniqueOwnerRace(t *testing.T) {
 }
 
 func TestEmailUpdateInvalidatesAllPending(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	current := emailTestOTP(t, db, user, "111111")
 	historicalUser := user
 	historicalUser.Email = uuid.NewString() + "@example.invalid"
@@ -779,8 +727,8 @@ func TestEmailUpdateInvalidatesAllPending(t *testing.T) {
 }
 
 func TestEmailRequestContextCancellation(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	otp := emailTestOTP(t, db, user, "123456")
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
@@ -844,8 +792,8 @@ func TestEmailDatabaseFailures(t *testing.T) {
 		}
 		for _, fault := range faults {
 			t.Run(operation+"/"+fault, func(t *testing.T) {
-				db := emailTestDB(t)
-				user := emailTestUser(t, db, "")
+				db := postgresTestDB(t)
+				user := postgresTestUser(t, db, "")
 				otp := emailTestOTP(t, db, user, "123456")
 				address := uuid.NewString() + "@example.invalid"
 				injected := errors.New("injected email transaction failure")

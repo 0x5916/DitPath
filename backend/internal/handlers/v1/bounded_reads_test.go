@@ -25,8 +25,8 @@ func boundedReadRequest(handler gin.HandlerFunc, user models.User, threadID uuid
 	return recorder
 }
 func TestForumRepliesBoundedPagesAndParentPrivacy(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	thread := models.ForumThread{UserID: user.ID, Category: "general", Title: "bounded", Body: "body"}
 	if err := db.Create(&thread).Error; err != nil {
 		t.Fatal(err)
@@ -105,8 +105,8 @@ func TestForumRepliesBoundedPagesAndParentPrivacy(t *testing.T) {
 	}
 }
 func TestProgressBoundedPagesAndCompleteYearSummary(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	records := make([]models.Progress, 250)
 	for i := range records {
 		created := time.Date(2024, 2, 29, 12, 0, 0, 0, time.UTC)
@@ -118,7 +118,7 @@ func TestProgressBoundedPagesAndCompleteYearSummary(t *testing.T) {
 	if err := db.Create(&records).Error; err != nil {
 		t.Fatal(err)
 	}
-	other := emailTestUser(t, db, "")
+	other := postgresTestUser(t, db, "")
 	if err := db.Create(&models.Progress{UserID: other.ID, Lesson: 1, CharWPM: 20, EffWPM: 10, Accuracy: 1}).Error; err != nil {
 		t.Fatal(err)
 	}

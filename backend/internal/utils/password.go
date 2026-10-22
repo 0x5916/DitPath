@@ -57,7 +57,7 @@ func NewPasswordWork(limit int, hash func(string) (string, error), compare func(
 		hash = hashPassword
 	}
 	if compare == nil {
-		compare = comparePasswordAndHash
+		compare = argon2id.ComparePasswordAndHash
 	}
 	return &PasswordWork{slots: make(chan struct{}, limit), hash: hash, compare: compare}, nil
 }
@@ -135,28 +135,6 @@ func (r *PasswordReservation) Close() {
 	}
 }
 
-func HashPassword(ctx context.Context, password string) (string, error) {
-	r, err := DefaultPasswordWork().Acquire(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-	return r.Hash(password)
-}
-
-func ComparePasswordAndHash(ctx context.Context, password, hash string) (bool, error) {
-	r, err := DefaultPasswordWork().Acquire(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer r.Close()
-	return r.Compare(password, hash)
-}
-
 func hashPassword(password string) (string, error) {
 	return argon2id.CreateHash(password, params)
-}
-
-func comparePasswordAndHash(password, hash string) (bool, error) {
-	return argon2id.ComparePasswordAndHash(password, hash)
 }

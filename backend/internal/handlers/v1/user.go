@@ -74,9 +74,6 @@ func (h UserHandler) UpdatePassword(c *gin.Context) {
 
 	var input common.UpdatePasswordInput
 	if err := bindAuthJSON(c, &input); err != nil {
-		if authCanceled(c, err) {
-			return
-		}
 		respondAuthBindingError(c, err)
 		return
 	}

@@ -48,17 +48,6 @@ func Load() {
 		slog.Error("Invalid authentication proxy configuration", "err", err)
 		os.Exit(1)
 	}
-	readTimeout := getDurationEnv("READ_TIMEOUT", 15*time.Second)
-	readHeaderTimeout := getDurationEnv("READ_HEADER_TIMEOUT", 5*time.Second)
-	writeTimeout := getDurationEnv("WRITE_TIMEOUT", 30*time.Second)
-	idleTimeout := getDurationEnv("IDLE_TIMEOUT", 120*time.Second)
-	shutdownTimeout := getDurationEnv("SHUTDOWN_TIMEOUT", 20*time.Second)
-
-	dbMaxOpenConns := getIntEnv("DB_MAX_OPEN_CONNS", 25)
-	dbMaxIdleConns := getIntEnv("DB_MAX_IDLE_CONNS", 5)
-	dbConnMaxLifetime := getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute)
-	dbConnMaxIdleTime := getDurationEnv("DB_CONN_MAX_IDLE_TIME", 5*time.Minute)
-
 	var corsOrigins []string
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		for _, o := range strings.Split(raw, ",") {
@@ -80,15 +69,15 @@ func Load() {
 		GinMode:               os.Getenv("GIN_MODE"),
 		CORSOrigins:           corsOrigins,
 		AuthTrustedProxyCIDRs: proxies,
-		ReadTimeout:           readTimeout,
-		ReadHeaderTimeout:     readHeaderTimeout,
-		WriteTimeout:          writeTimeout,
-		IdleTimeout:           idleTimeout,
-		ShutdownTimeout:       shutdownTimeout,
-		DBMaxOpenConns:        dbMaxOpenConns,
-		DBMaxIdleConns:        dbMaxIdleConns,
-		DBConnMaxLifetime:     dbConnMaxLifetime,
-		DBConnMaxIdleTime:     dbConnMaxIdleTime,
+		ReadTimeout:           getDurationEnv("READ_TIMEOUT", 15*time.Second),
+		ReadHeaderTimeout:     getDurationEnv("READ_HEADER_TIMEOUT", 5*time.Second),
+		WriteTimeout:          getDurationEnv("WRITE_TIMEOUT", 30*time.Second),
+		IdleTimeout:           getDurationEnv("IDLE_TIMEOUT", 120*time.Second),
+		ShutdownTimeout:       getDurationEnv("SHUTDOWN_TIMEOUT", 20*time.Second),
+		DBMaxOpenConns:        getIntEnv("DB_MAX_OPEN_CONNS", 25),
+		DBMaxIdleConns:        getIntEnv("DB_MAX_IDLE_CONNS", 5),
+		DBConnMaxLifetime:     getDurationEnv("DB_CONN_MAX_LIFETIME", 30*time.Minute),
+		DBConnMaxIdleTime:     getDurationEnv("DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 	}
 
 	secret := os.Getenv("JWT_SECRET")
@@ -146,19 +135,12 @@ func getIntEnv(name string, fallback int) int {
 }
 
 func (c Config) Validate() error {
-	v := reflect.ValueOf(c)
-	t := reflect.TypeOf(c)
-
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
-
-		if fieldType.Tag.Get("required") != "true" {
-			continue
-		}
-
-		if isZero(field) {
-			return fmt.Errorf("config field %q is required but empty", fieldType.Name)
+	value := reflect.ValueOf(c)
+	configType := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		field := configType.Field(i)
+		if field.Tag.Get("required") == "true" && isZero(value.Field(i)) {
+			return fmt.Errorf("config field %q is required but empty", field.Name)
 		}
 	}
 	return nil
@@ -166,19 +148,11 @@ func (c Config) Validate() error {
 
 func isZero(v reflect.Value) bool {
 	switch v.Kind() {
-	case reflect.String:
-		return v.String() == ""
 	case reflect.Slice, reflect.Map, reflect.Array:
 		return v.Len() == 0
-	case reflect.Ptr, reflect.Interface:
-		return v.IsNil()
 	default:
-		return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
+		return v.IsZero()
 	}
-}
-
-func GetGinMode() string {
-	return os.Getenv("GIN_MODE")
 }
 
 func (c Config) IsRelease() bool {

@@ -29,8 +29,8 @@ func verificationAttempts(t *testing.T, db *gorm.DB, otp models.EmailOTP, want i
 }
 
 func TestEmailUpdateZeroRowsRemainsServerFailure(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	if err := db.Callback().Update().Before("gorm:update").Register("test:email-zero-update", func(tx *gorm.DB) {
 		if tx.Statement.Table == "users" {
 			tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "1 = 0"}}})
@@ -47,8 +47,8 @@ func TestEmailUpdateZeroRowsRemainsServerFailure(t *testing.T) {
 }
 
 func TestVerificationGuessBudgetPersistsAndResets(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	otp := emailTestOTP(t, db, user, "123456")
 	for attempt := 1; attempt <= VerificationMaxFailedAttempts; attempt++ {
 		// Reconstruct the handler to prove the budget does not live in memory.
@@ -80,8 +80,8 @@ func TestVerificationGuessBudgetPersistsAndResets(t *testing.T) {
 }
 
 func TestVerificationGuessBudgetConcurrent(t *testing.T) {
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	otp := emailTestOTP(t, db, user, "123456")
 	const contenders = 16
 	start := make(chan struct{})
@@ -129,8 +129,8 @@ func TestVerificationGuessBudgetEligibility(t *testing.T) {
 		{"older-row-not-revived", `{"code":"654321"}`, common.ErrorCodeVerificationAttemptsExceeded, 5, 429, false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			if test.old {
 				older := emailTestOTP(t, db, user, "654321")
 				if err := db.Model(&older).Update("created_at", time.Now().Add(-3*time.Minute)).Error; err != nil {
@@ -160,8 +160,8 @@ func TestVerificationExhaustionRetainsIssuanceCooldown(t *testing.T) {
 		{name: "fractional-remainder", retry: "1", age: 59*time.Second + 600*time.Millisecond},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			// Share one clock: the host and PostgreSQL clocks can differ.
 			now := time.Date(2026, time.October, 20, 0, 0, 0, 123456000, time.UTC)
@@ -189,8 +189,8 @@ func TestVerificationExhaustionRetainsIssuanceCooldown(t *testing.T) {
 func TestVerificationGuessStorageFailure(t *testing.T) {
 	for _, mode := range []string{"increment", "begin", "commit-before", "commit-after"} {
 		t.Run(mode, func(t *testing.T) {
-			db := emailTestDB(t)
-			user := emailTestUser(t, db, "")
+			db := postgresTestDB(t)
+			user := postgresTestUser(t, db, "")
 			otp := emailTestOTP(t, db, user, "123456")
 			handlerDB := db
 			if mode == "increment" {

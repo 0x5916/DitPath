@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	if err := loadEnvironment(configs.GetGinMode(), ".env"); err != nil {
+	if err := loadEnvironment(os.Getenv("GIN_MODE"), ".env"); err != nil {
 		slog.Error("Failed to load environment variables", "err", err)
 		os.Exit(1)
 	}

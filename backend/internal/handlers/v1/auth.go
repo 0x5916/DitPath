@@ -28,9 +28,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	var input common.RegisterInput
 	if err := bindAuthJSON(c, &input); err != nil {
-		if authCanceled(c, err) {
-			return
-		}
 		respondAuthBindingError(c, err)
 		return
 	}
@@ -121,9 +118,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	var input common.LoginInput
 	if err := bindAuthJSON(c, &input); err != nil {
-		if authCanceled(c, err) {
-			return
-		}
 		respondAuthBindingError(c, err)
 		return
 	}
@@ -261,20 +255,16 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	if authCanceled(c, err) {
 		return
 	}
-	if err != nil {
-		// This fallback also covers transaction begin/commit failures, where no
-		// callback-specific response could have been assigned.
-		result := common.HttpErrorResponse{Status: http.StatusInternalServerError,
-			Code: common.ErrorCodeInternalServerError, Err: "Failed to refresh token"}
-		if errors.Is(err, common.ErrInvalidToken) {
-			result = common.HttpErrorResponse{Status: http.StatusUnauthorized, Code: common.ErrorCodeInvalidToken, Err: "Invalid refresh token"}
-		} else if errors.Is(err, common.ErrExpiredToken) {
-			result = common.HttpErrorResponse{Status: http.StatusUnauthorized, Code: common.ErrorCodeExpiredToken, Err: "Refresh token expired"}
-		} else {
-			slog.Error("Refresh token transaction failed", "err", err)
-		}
-		c.JSON(result.Status, common.NewErrorResponse(result.Code, result.Err))
-		return
+	switch {
+	case errors.Is(err, common.ErrInvalidToken):
+		c.JSON(http.StatusUnauthorized, common.NewErrorResponse(common.ErrorCodeInvalidToken, "Invalid refresh token"))
+	case errors.Is(err, common.ErrExpiredToken):
+		c.JSON(http.StatusUnauthorized, common.NewErrorResponse(common.ErrorCodeExpiredToken, "Refresh token expired"))
+	case err != nil:
+		// Begin/commit failures also arrive here and must not expose a token pair.
+		slog.Error("Refresh token transaction failed", "err", err)
+		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeInternalServerError, "Failed to refresh token"))
+	default:
+		c.JSON(http.StatusOK, common.AuthTokenPairResponse{RefreshToken: rawToken, AccessToken: accessToken})
 	}
-	c.JSON(http.StatusOK, common.AuthTokenPairResponse{RefreshToken: rawToken, AccessToken: accessToken})
 }

@@ -24,8 +24,8 @@ const passwordBody = `{"old_password":"old-password","new_password":"new-passwor
 
 func sessionTestSetup(t *testing.T) (*gorm.DB, models.User, *utils.PasswordWork) {
 	t.Helper()
-	db := emailTestDB(t)
-	user := emailTestUser(t, db, "")
+	db := postgresTestDB(t)
+	user := postgresTestUser(t, db, "")
 	previousSecret := configs.App.JWTSecret
 	configs.App.JWTSecret = []byte(strings.Repeat("session-test-secret", 3))
 	t.Cleanup(func() { configs.App.JWTSecret = previousSecret })
@@ -61,7 +61,7 @@ func sessionState(t *testing.T, db *gorm.DB, user models.User, password string, 
 func TestPasswordChangeRevokesAllRefreshSessions(t *testing.T) {
 	db, user, work := sessionTestSetup(t)
 	first, second := sessionTestToken(t, db, user), sessionTestToken(t, db, user)
-	other := emailTestUser(t, db, "")
+	other := postgresTestUser(t, db, "")
 	sessionTestToken(t, db, other)
 	emailResponse(t, emailRequest((&UserHandler{DB: db, Passwords: work}).UpdatePassword, user, passwordBody), 200, "Password updated")
 	sessionState(t, db, user, "new-password-hash", 0)
@@ -229,6 +229,10 @@ func TestSessionTransactionsFailClosed(t *testing.T) {
 				}
 				response := emailRequest(handler, user, body)
 				emailResponse(t, response, http.StatusInternalServerError, code)
+				if operation == "refresh" && (response.Body.String() != `{"code":"INTERNAL_SERVER_ERROR","error":"Failed to refresh token"}` ||
+					response.Header().Get("Content-Type") != "application/json; charset=utf-8") {
+					t.Fatalf("refresh failure response changed: %s %q", response.Body.String(), response.Header().Get("Content-Type"))
+				}
 				if strings.Contains(response.Body.String(), "refresh_token") || strings.Contains(response.Body.String(), "access_token") {
 					t.Fatal("transaction failure exposed token pair")
 				}
