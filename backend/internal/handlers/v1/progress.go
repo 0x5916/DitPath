@@ -22,16 +22,18 @@ type ProgressHandler struct {
 func (h ProgressHandler) GetAllProgress(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
-	if years, ok := c.Request.URL.Query()["year"]; ok {
+	params := c.Request.URL.Query()
+	if years, hasYear := params["year"]; hasYear {
 		year, err := strconv.Atoi(c.Query("year"))
-		if err != nil || len(years) != 1 || year < 1 || year > 9999 || c.Request.URL.Query().Has("cursor") || c.Request.URL.Query().Has("limit") {
+		hasPagination := params.Has("cursor") || params.Has("limit")
+		if err != nil || len(years) != 1 || year < 1 || year > 9999 || hasPagination {
 			c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidQueryParameter, "Invalid query parameters"))
 			return
 		}
 		h.getProgressSummary(c, user.ID, year)
 		return
 	}
-	page, err := common.ParseReadPage(c.Request.URL.Query())
+	page, err := common.ParseReadPage(params)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.NewErrorResponse(common.ErrorCodeInvalidQueryParameter, "Invalid query parameters"))
 		return
@@ -40,19 +42,19 @@ func (h ProgressHandler) GetAllProgress(c *gin.Context) {
 	if page.HasCursor {
 		query = query.Where("(created_at,id) < (?,?)", page.Time, page.ID)
 	}
-	var progresses []models.Progress
-	if err := query.Order("created_at DESC,id DESC").Limit(page.Limit + 1).Find(&progresses).Error; err != nil {
+	var records []models.Progress
+	if err := query.Order("created_at DESC,id DESC").Limit(page.Limit + 1).Find(&records).Error; err != nil {
 		progressQueryError(c, user.ID, err)
 		return
 	}
 	var next *string
-	if len(progresses) > page.Limit {
-		progresses = progresses[:page.Limit]
-		cursor := common.EncodeReadCursor(progresses[len(progresses)-1].CreatedAt, progresses[len(progresses)-1].ID)
+	if len(records) > page.Limit {
+		records = records[:page.Limit]
+		cursor := common.EncodeReadCursor(records[len(records)-1].CreatedAt, records[len(records)-1].ID)
 		next = &cursor
 	}
-	data := make([]common.ProgressResponse, 0, len(progresses))
-	for _, progress := range progresses {
+	data := make([]common.ProgressResponse, 0, len(records))
+	for _, progress := range records {
 		data = append(data, progressResponse(progress))
 	}
 	c.JSON(http.StatusOK, gin.H{"data": data, "limit": page.Limit, "next_cursor": next})
@@ -98,7 +100,14 @@ func (h ProgressHandler) AddProgress(c *gin.Context) {
 }
 
 func progressResponse(progress models.Progress) common.ProgressResponse {
-	return common.ProgressResponse{Lesson: strconv.Itoa(progress.Lesson), CharWPM: progress.CharWPM, EffWPM: progress.EffWPM, Accuracy: progress.Accuracy, CreatedAt: progress.CreatedAt, ClientCreatedAt: progress.ClientCreatedAt}
+	return common.ProgressResponse{
+		Lesson:          strconv.Itoa(progress.Lesson),
+		CharWPM:         progress.CharWPM,
+		EffWPM:          progress.EffWPM,
+		Accuracy:        progress.Accuracy,
+		CreatedAt:       progress.CreatedAt,
+		ClientCreatedAt: progress.ClientCreatedAt,
+	}
 }
 
 func progressQueryError(c *gin.Context, userID uuid.UUID, err error) {

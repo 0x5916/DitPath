@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"opencw/internal/models"
-
 	"github.com/google/uuid"
 )
 
@@ -48,25 +46,9 @@ type CWSettingsInput struct {
 	StartDelay *float64 `json:"start_delay" binding:"required,min=0.0,max=10.0"`
 }
 
-func FromCwSettingsModel(obj models.CWSettings) CWSettingsInput {
-	return CWSettingsInput{
-		CharWPM:    obj.CharWPM,
-		EffWPM:     obj.EffWPM,
-		Freq:       obj.Freq,
-		StartDelay: &obj.StartDelay,
-	}
-}
-
 type PageSettingsInput struct {
 	Lang      string `json:"language"   binding:"required"`
 	CurLesson int    `json:"cur_lesson" binding:"required"`
-}
-
-func FromPageSettingsModel(obj models.PageSettings) PageSettingsInput {
-	return PageSettingsInput{
-		Lang:      obj.Lang,
-		CurLesson: obj.CurLesson,
-	}
 }
 
 type ProgressInput struct {

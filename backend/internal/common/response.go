@@ -85,12 +85,6 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-type HttpErrorResponse struct {
-	Status int
-	Code   string
-	Err    string
-}
-
 type ForumAuthorResponse struct {
 	Username string  `json:"username"`
 	CallSign *string `json:"call_sign"`
@@ -123,9 +117,9 @@ type ForumThreadListResponse struct {
 	NextCursor *string                      `json:"next_cursor"`
 }
 
-// ForumReplyResponse is one node of the nested reply tree. Soft-deleted replies
-// with visible descendants are returned as tombstones: is_deleted=true with
-// null body/author.
+// ForumReplyResponse represents a reply. Reply pages are flat; deleted rows
+// expose null body and author. Children remains [] for wire compatibility.
+// ParentContext provides optional bounded parent context.
 type ForumReplyResponse struct {
 	ID            uuid.UUID            `json:"id"`
 	ParentID      *uuid.UUID           `json:"parent_id"`
