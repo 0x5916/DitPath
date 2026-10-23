@@ -8,14 +8,13 @@
   const allChars = LESSONS.join('').split('');
   let groups = $derived(
     [
-      { status: 'stable', label: m.learn_status_stable(), empty: m.progress_stable_empty() },
+      { status: 'stable', label: m.learn_status_stable() },
       {
         status: 'learning',
-        label: m.progress_status_learning(),
-        empty: m.progress_learning_empty()
+        label: m.progress_status_learning()
       },
-      { status: 'review', label: m.learn_status_review(), empty: '' },
-      { status: 'new', label: m.progress_status_new(), empty: '' }
+      { status: 'review', label: m.learn_status_review() },
+      { status: 'new', label: m.progress_status_new() }
     ].map((group) => ({
       ...group,
       characters: allChars.filter(
@@ -28,7 +27,7 @@
 
 <div class="mastery-grid-card" role="region" aria-label={m.progress_mastery_label()}>
   {#each groups as group (group.status)}
-    {#if group.characters.length > 0 || group.empty}
+    {#if group.characters.length > 0}
       <div class="grid-section">
         <div class="section-title-row">
           <span class="status-dot dot-{group.status}" aria-hidden="true"></span>
@@ -36,15 +35,11 @@
             {m.progress_group_count({ status: group.label, count: group.characters.length })}
           </h3>
         </div>
-        {#if group.characters.length > 0}
-          <div class="cells-row">
-            {#each group.characters as character (character)}
-              <CharacterMasteryCell {character} mastery={masteryMap.get(character)} />
-            {/each}
-          </div>
-        {:else}
-          <p class="empty-note">{group.empty}</p>
-        {/if}
+        <div class="cells-row">
+          {#each group.characters as character (character)}
+            <CharacterMasteryCell {character} mastery={masteryMap.get(character)} />
+          {/each}
+        </div>
       </div>
     {/if}
   {/each}
@@ -108,11 +103,5 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
-  }
-
-  .empty-note {
-    margin: 0;
-    font-size: var(--text-xs);
-    color: var(--text-muted);
   }
 </style>

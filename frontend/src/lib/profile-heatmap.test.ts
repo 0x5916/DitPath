@@ -2,10 +2,73 @@ import { describe, expect, it } from 'vitest';
 import type { HistorySessionRecord } from './training/v2/types';
 import {
   buildHeatmap,
+  buildTrainingHabits,
   countSessionsForYear,
   getAvailableYears,
   progressRecordDays
 } from './profile-heatmap';
+
+describe('buildTrainingHabits', () => {
+  const completed = (dates: string[]) =>
+    dates.map((occurredAt) => ({ status: 'completed', occurredAt })) as HistorySessionRecord[];
+
+  it('uses UTC dates, counts each active date once, and does not mutate history', () => {
+    const records = completed([
+      '2026-01-05T00:00:00Z',
+      '2026-01-02T23:30:00-02:00',
+      '2026-01-01T23:30:00-02:00',
+      '2026-01-02T23:30:00+02:00'
+    ]);
+    const original = structuredClone(records);
+    expect(buildTrainingHabits(records, 2026, Date.UTC(2026, 0, 6))).toEqual({
+      activeDays: 3,
+      longestStreak: 2,
+      favoriteWeekday: 1
+    });
+    expect(records).toEqual(original);
+  });
+
+  it('excludes other years, future timestamps, invalid dates, and incomplete sessions', () => {
+    const records = completed([
+      '2025-12-31T23:59:59Z',
+      '2026-01-01T00:00:00Z',
+      '2026-01-02T00:00:00Z',
+      '2026-01-05T12:00:01Z',
+      '2026-01-06T00:00:00Z',
+      '2027-01-01T00:00:00Z',
+      'invalid'
+    ]);
+    records.push(
+      { status: 'abandoned', occurredAt: '2026-01-03T00:00:00Z' } as HistorySessionRecord,
+      { status: 'in-progress', occurredAt: '2026-01-04T00:00:00Z' } as HistorySessionRecord
+    );
+    expect(buildTrainingHabits(records, 2026, Date.UTC(2026, 0, 5, 12))).toEqual({
+      activeDays: 2,
+      longestStreak: 2,
+      favoriteWeekday: 4
+    });
+    expect(buildTrainingHabits(records, 2024, Date.UTC(2026, 0, 2))).toEqual({
+      activeDays: 0,
+      longestStreak: 0,
+      favoriteWeekday: null
+    });
+  });
+
+  it('chooses the most frequent active weekday rather than session volume, Monday-first on ties', () => {
+    const records = completed([
+      ...Array<string>(5).fill('2026-01-04T00:00:00Z'),
+      '2026-01-05T00:00:00Z',
+      '2026-01-12T00:00:00Z',
+      '2026-01-06T00:00:00Z',
+      '2026-01-13T00:00:00Z'
+    ]);
+    expect(buildTrainingHabits(records, 2026, Date.UTC(2026, 0, 14))).toEqual({
+      activeDays: 5,
+      longestStreak: 3,
+      favoriteWeekday: 1
+    });
+  });
+});
 
 describe('progressRecordDays', () => {
   it('counts completed sessions by UTC day and ignores unfinished or invalid records', () => {

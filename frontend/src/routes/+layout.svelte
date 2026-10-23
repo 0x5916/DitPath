@@ -14,6 +14,7 @@
   import {
     Dumbbell,
     Ellipsis,
+    House,
     Info,
     Languages,
     LayoutDashboard,
@@ -58,12 +59,37 @@
 
   /** Pinned phone tab bar. All four slots are real destinations. */
   const TAB_NAV = [
-    { path: '/morse/learn', label: m.nav_learn, icon: Radio },
-    { path: '/morse/practice', label: m.nav_practice, icon: Dumbbell },
-    { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
-    { path: '/more', label: m.nav_more, icon: Ellipsis }
+    {
+      path: '/',
+      label: m.nav_home,
+      icon: House,
+      routes: ['/', '/morse/learn', '/morse/practice', '/morse']
+    },
+    {
+      path: '/morse/progress',
+      label: m.nav_progress,
+      icon: LayoutDashboard,
+      routes: ['/morse/progress']
+    },
+    {
+      path: '/forum',
+      label: m.nav_forum,
+      icon: MessageSquare,
+      routes: ['/forum', '/forum/[id]']
+    },
+    {
+      path: '/more',
+      label: m.nav_more,
+      icon: Ellipsis,
+      routes: ['/more', '/about', '/settings', '/profile', '/login', '/register']
+    }
   ];
 
+  // Route IDs have no locale prefix. Mobile sections include their secondary
+  // pages without changing the desktop links or the brand's exact Home match.
+  let mobileSection = $derived(
+    TAB_NAV.find((item) => item.routes.includes(page.route.id ?? ''))?.path
+  );
   let isTrainingSession = $derived(page.url.pathname.includes('/morse/learn/session'));
 
   let theme = $state<Theme>('auto');
@@ -263,7 +289,7 @@
         >
           <!-- The wordmark next to it already names the link. -->
           <span class="navbar-mark" aria-hidden="true"></span>
-          DitPath
+          OpenCW
         </a>
 
         <!-- Desktop: all links + user menu on the right -->
@@ -386,8 +412,12 @@
         <a
           href={href(item.path)}
           class="bottom-nav-item"
-          class:active={isActive(item.path)}
-          aria-current={isActive(item.path) ? 'page' : undefined}
+          class:active={mobileSection === item.path}
+          aria-current={mobileSection === item.path
+            ? page.route.id === item.path
+              ? 'page'
+              : 'location'
+            : undefined}
           ><item.icon size={20} class="bottom-nav-icon" aria-hidden="true" /><span
             class="bottom-nav-label">{item.label()}</span
           ></a

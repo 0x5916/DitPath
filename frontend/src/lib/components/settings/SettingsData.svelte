@@ -4,8 +4,31 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { openTrainingDb, closeTrainingDb, clearTrainingCache } from '#lib/data/training-db.ts';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import { Trash2 } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
+
+  let {
+    owner,
+    pending,
+    error,
+    syncing,
+    synced = false,
+    onSync,
+    onImport,
+    unclaimedCount = 0,
+    importing = false
+  }: {
+    owner: string;
+    pending: number;
+    error: string | null;
+    syncing: boolean;
+    synced?: boolean;
+    onSync?: () => void;
+    onImport?: () => void;
+    unclaimedCount?: number;
+    importing?: boolean;
+  } = $props();
 
   const sessionScope = createSessionScope();
   const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
@@ -60,9 +83,22 @@
   }
 </script>
 
-<section class="panel panel--ledger">
-  <h2 class="card-title">{m.settings_data_title()}</h2>
+<section id="sync-storage" class="panel panel--ledger" aria-labelledby="sync-storage-title">
+  <h2 id="sync-storage-title" class="card-title">{m.settings_sync_storage_title()}</h2>
+  <TrainingSyncStatus
+    expanded
+    {owner}
+    {pending}
+    {error}
+    {syncing}
+    {synced}
+    {onSync}
+    {onImport}
+    {unclaimedCount}
+    {importing}
+  />
   <div class="settings-form">
+    <h3 class="cache-title">{m.settings_data_title()}</h3>
     <p class="field-hint">{m.settings_data_description()}</p>
 
     <div class="data-actions-row">
@@ -121,6 +157,15 @@
 </section>
 
 <style>
+  #sync-storage {
+    scroll-margin-block-start: 5rem;
+  }
+
+  .cache-title {
+    margin: var(--space-5) 0 0;
+    font-size: var(--text-sm);
+  }
+
   .data-actions-row {
     display: flex;
     align-items: center;

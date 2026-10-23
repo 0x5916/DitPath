@@ -3,7 +3,7 @@
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import { SITE_NAME } from '#lib/seo.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
-  import MorseSectionNav from '#lib/components/MorseSectionNav.svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import FamiliarizationPractice from '#lib/components/practice/FamiliarizationPractice.svelte';
   import * as m from '#lib/paraglide/messages.js';
 </script>
@@ -13,10 +13,12 @@
 </svelte:head>
 
 <div class="page-narrow">
-  <MorseSectionNav current="tools" />
   <header class="morse-header">
-    <h1 class="page-title">{m.morse_title()}</h1>
-    <p class="body-text">{m.morse_intro()}</p>
+    <div class="morse-heading">
+      <h1 class="page-title">{m.morse_title()}</h1>
+      <InfoTip label={m.common_tip_label({ topic: m.morse_title() })} text={m.morse_intro()} />
+    </div>
+    <p class="morse-note">{m.morse_unscored_notice()}</p>
   </header>
 
   <FamiliarizationPractice
@@ -26,7 +28,15 @@
 </div>
 
 <style>
-  .morse-header .body-text {
-    margin: var(--space-2) 0 0;
+  .morse-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .morse-note {
+    margin: var(--space-1) 0 0;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
   }
 </style>

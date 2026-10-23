@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { CircleCheck, CircleMinus, Dumbbell, History, Radio } from '@lucide/svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import {
     getTrainingOwner,
     trainingSyncState,
-    subscribeTrainingSync,
-    syncTrainingNow,
-    importUnclaimedTraining,
-    getUnclaimedTrainingCount
+    subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
   import { lang, localizedHref } from '#lib/i18n.svelte.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
@@ -19,6 +18,7 @@
     type ProgressSummary
   } from '#lib/training/v2/progress-summary.ts';
   import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
   import CharacterMasteryGrid from '#lib/components/progress/CharacterMasteryGrid.svelte';
   import ConfusionList from '#lib/components/progress/ConfusionList.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
@@ -31,12 +31,12 @@
   const dateFormat = $derived(
     new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
   );
+  const percentFormat = $derived(
+    new Intl.NumberFormat(lang.value, { style: 'percent', maximumFractionDigits: 0 })
+  );
   let mounted = false;
   let loadVersion = 0;
   let activeDb: IDBDatabase | null = null;
-  let unclaimedCount = $state(0);
-  let importing = $state(false);
-  let importError = $state(false);
 
   async function loadProgress() {
     const owner = getTrainingOwner();
@@ -85,13 +85,6 @@
       if (revision === next) return;
       revision = next;
       void loadProgress();
-      void getUnclaimedTrainingCount()
-        .then((count) => {
-          if (mounted) unclaimedCount = count;
-        })
-        .catch(() => {
-          if (mounted) importError = true;
-        });
     });
     return () => {
       unsubscribe();
@@ -100,31 +93,16 @@
       if (activeDb) closeTrainingDb(activeDb);
     };
   });
-  async function importHistory() {
-    if (importing) return;
-    importing = true;
-    importError = false;
-    try {
-      await importUnclaimedTraining();
-      unclaimedCount = await getUnclaimedTrainingCount();
-    } catch {
-      importError = true;
-    } finally {
-      importing = false;
-    }
-  }
 </script>
 
 <svelte:head>
-  <title>{m.nav_progress()} · DitPath</title>
+  <title>{m.nav_progress()} · OpenCW</title>
 </svelte:head>
 
 <div class="page-narrow">
   <div class="progress-container">
     <header class="progress-header">
-      <div class="eyebrow">{m.nav_progress()}</div>
-      <h1 class="page-title">{m.progress_title()}</h1>
-      <p class="progress-subtitle">{m.progress_subtitle()}</p>
+      <h1 class="page-title">{m.nav_progress()}</h1>
     </header>
 
     <TrainingSyncStatus
@@ -132,11 +110,7 @@
       pending={trainingSyncState.pending}
       syncing={trainingSyncState.syncing}
       synced={trainingSyncState.synced}
-      error={trainingSyncState.error ?? (importError ? m.history_sync_error() : null)}
-      onSync={() => void syncTrainingNow()}
-      onImport={() => void importHistory()}
-      {unclaimedCount}
-      {importing}
+      error={trainingSyncState.error}
     />
 
     {#if loading}
@@ -171,59 +145,12 @@
           accuracyPercent={summary.accuracyPercent}
         />
 
-        {#if history.length > 0}
-          <section class="progress-section" aria-labelledby="history-heading">
-            <h2 id="history-heading" class="section-title">{m.progress_history_heading()}</h2>
-            <p class="progress-subtitle">{m.history_unknown_hint()}</p>
-            <div class="history-scroll">
-              <table>
-                <thead
-                  ><tr>
-                    <th scope="col">{m.progress_history_type()}</th>
-                    <th scope="col">{m.history_status()}</th>
-                    <th scope="col">{m.profile_history_lesson()}</th>
-                    <th scope="col">{m.progress_history_speed()}</th>
-                    <th scope="col">{m.profile_history_accuracy()}</th>
-                    <th scope="col">{m.profile_history_date()}</th>
-                  </tr></thead
-                >
-                <tbody>
-                  {#each history as session (session.id)}
-                    <tr>
-                      <td
-                        >{session.mode === 'practice'
-                          ? m.progress_history_practice()
-                          : session.mode === 'legacy'
-                            ? m.history_legacy()
-                            : m.progress_history_guided()}</td
-                      >
-                      <td
-                        >{session.status === 'abandoned'
-                          ? m.history_abandoned()
-                          : m.history_completed()}</td
-                      >
-                      <td>{session.step ?? m.progress_unmeasured()}</td>
-                      <td
-                        >{session.charWpm ?? m.progress_unmeasured()} / {session.effWpm ??
-                          m.progress_unmeasured()}</td
-                      >
-                      <td
-                        >{session.accuracy == null
-                          ? m.progress_unmeasured()
-                          : m.progress_accuracy_value({
-                              percent: Math.round(session.accuracy * 100)
-                            })}</td
-                      >
-                      <td
-                        ><time datetime={sessionOccurredAt(session)}
-                          >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
-                        ></td
-                      >
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
+        {#if summary.confusionPairs.length > 0 || summary.slowChars.length > 0}
+          <section class="progress-section" aria-labelledby="diagnostics-heading">
+            <h2 id="diagnostics-heading" class="section-title">
+              {m.progress_diagnostics_heading()}
+            </h2>
+            <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
           </section>
         {/if}
 
@@ -232,33 +159,159 @@
           <CharacterMasteryGrid masteryMap={summary.masteryMap} />
         </section>
 
-        <section class="progress-section" aria-labelledby="diagnostics-heading">
-          <h2 id="diagnostics-heading" class="section-title">{m.progress_diagnostics_heading()}</h2>
-          <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
-        </section>
+        {#if history.length > 0}
+          <section class="progress-section" aria-labelledby="history-heading">
+            <div class="history-heading">
+              <h2 id="history-heading" class="section-title">{m.progress_history_heading()}</h2>
+              <InfoTip
+                label={m.common_tip_label({ topic: m.progress_history_heading() })}
+                text={m.history_unknown_hint()}
+              />
+            </div>
+            <ol class="history-list" role="list">
+              {#each history as session (session.id)}
+                {@const introduced = LESSONS[session.step - 1]?.split('').join(', ')}
+                <li class="history-row">
+                  <div class="session-summary">
+                    <div class="session-copy">
+                      <strong class="session-title">
+                        {#if session.mode === 'practice'}
+                          <Dumbbell size={18} class="practice-icon" aria-hidden="true" />
+                          {m.progress_history_practice_lesson({ step: session.step })}
+                        {:else if session.mode === 'legacy'}
+                          <History size={18} aria-hidden="true" />
+                          {m.progress_history_legacy_lesson({ step: session.step })}
+                        {:else}
+                          <Radio size={18} aria-hidden="true" />
+                          {introduced
+                            ? m.progress_history_lesson_characters({
+                                step: session.step,
+                                characters: introduced
+                              })
+                            : m.progress_history_lesson({ step: session.step })}
+                        {/if}
+                      </strong>
+                      <time datetime={sessionOccurredAt(session)}
+                        >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
+                      >
+                    </div>
+                    <span class="session-status" class:abandoned={session.status === 'abandoned'}>
+                      {#if session.status === 'abandoned'}
+                        <CircleMinus size={14} aria-hidden="true" />{m.history_abandoned()}
+                      {:else}
+                        <CircleCheck size={14} aria-hidden="true" />{m.history_completed()}
+                      {/if}
+                    </span>
+                  </div>
+                  <dl class="session-metrics">
+                    <div>
+                      <dt>{m.profile_cw_char_wpm()}</dt>
+                      <dd>{session.charWpm ?? m.progress_unmeasured()}</dd>
+                    </div>
+                    <div>
+                      <dt>{m.profile_cw_eff_wpm()}</dt>
+                      <dd>{session.effWpm ?? m.progress_unmeasured()}</dd>
+                    </div>
+                    <div>
+                      <dt>{m.profile_history_accuracy()}</dt>
+                      <dd>
+                        {session.accuracy == null
+                          ? m.progress_unmeasured()
+                          : percentFormat.format(session.accuracy)}
+                        {#if session.accuracy != null}
+                          <span class="accuracy-bar" aria-hidden="true">
+                            <span style:width={`${session.accuracy * 100}%`}></span>
+                          </span>
+                        {/if}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              {/each}
+            </ol>
+          </section>
+        {/if}
       {/if}
     {/if}
   </div>
 </div>
 
 <style>
-  .history-scroll {
-    overflow-x: auto;
+  .history-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-  th,
-  td {
-    padding: var(--space-3);
-    text-align: start;
+  .history-row {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
     border-bottom: 1px solid var(--border);
   }
-  th {
+  .session-summary,
+  .session-title,
+  .session-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .session-summary {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .session-title :global(svg) {
+    flex-shrink: 0;
+    color: var(--accent);
+  }
+  .session-title :global(.practice-icon) {
+    color: var(--status-extra);
+  }
+  time,
+  dt {
     color: var(--text-secondary);
+    font-size: var(--text-xs);
+  }
+  time {
+    display: block;
+    margin-top: var(--space-1);
+  }
+  .session-status {
+    color: var(--status-good);
+    font-size: var(--text-xs);
+    gap: var(--space-1);
+  }
+  .session-status.abandoned {
+    color: var(--status-ok);
+  }
+  .session-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+  dd {
+    margin: var(--space-1) 0 0;
     font-weight: 600;
+  }
+  .accuracy-bar {
+    display: block;
+    height: 4px;
+    margin-top: var(--space-2);
+    background: var(--border);
+  }
+  .accuracy-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  @media (min-width: 680px) {
+    .history-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--space-6);
+      align-items: center;
+    }
   }
 
   .progress-container {
@@ -271,26 +324,8 @@
   }
 
   .progress-header {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .eyebrow {
-    font-size: var(--text-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--learning-current);
-  }
-
-  .page-title {
-    margin: 0;
-    font-size: var(--text-2xl);
-    font-weight: 700;
-    color: var(--text-primary);
+    width: 100%;
+    text-align: start;
   }
 
   .progress-subtitle {
@@ -314,6 +349,12 @@
     font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
+  }
+
+  .history-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 
   .loading-card {

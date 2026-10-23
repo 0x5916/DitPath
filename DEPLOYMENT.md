@@ -1,4 +1,4 @@
-# DitPath production deployment
+# OpenCW production deployment
 
 Deploy the root [Compose stack](docker-compose.yaml) on a Linux host. Use this procedure for installation and recovery, [scripts/README.md](scripts/README.md) for command flags, [example.env](example.env) for configuration defaults, and [db/README.md](db/README.md) for database tuning. Image versions live in Compose.
 
@@ -32,7 +32,7 @@ pct start "$CT_ID"
 pct enter "$CT_ID"
 ```
 
-You are now inside the LXC. Nested Docker compatibility depends on the Proxmox host's kernel and container configuration. The Docker smoke test below is the checkpoint before installing DitPath. Proxmox recommends a QEMU VM when stronger isolation or live migration is required; see its [container guide](https://github.com/proxmox/pve-docs/blob/master/pct.adoc).
+You are now inside the LXC. Nested Docker compatibility depends on the Proxmox host's kernel and container configuration. The Docker smoke test below is the checkpoint before installing OpenCW. Proxmox recommends a QEMU VM when stronger isolation or live migration is required; see its [container guide](https://github.com/proxmox/pve-docs/blob/master/pct.adoc).
 
 ### 2. Install the host tools inside the LXC
 
@@ -130,7 +130,7 @@ PUBLIC_API_BASE=http://192.168.1.50:8080/v1
 CORS_ORIGINS=http://192.168.1.50:3000
 ```
 
-The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this separate DitPath policy and optional overrides.
+The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this separate OpenCW policy and optional overrides.
 
 Fill `POSTGRES_PASSWORD`, `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`, `JWT_SECRET`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` as well. Use separate database and pgAdmin passwords, your Resend API key, and a sender configured in Resend.
 
@@ -215,7 +215,7 @@ Backend startup runs GORM `AutoMigrate`. An image rollback does not undo databas
 
 pgAdmin's web login uses `PGADMIN_DEFAULT_*`; its database connection uses `POSTGRES_*`. Editing the former after the first initialization does not reset an existing account. Reset through the user interface or the container's `setup.py update-user` command, using the existing login email. Deleting its volume discards saved accounts, servers, and preferences.
 
-The shared [renderer](scripts/render-pgadmin.py) writes `servers.json` and a private per-login `.pgpass` into `pgadmin_data`, escapes all credential fields, and selects that passfile in the connection parameters. It uses host `db`, port 5432, and the configured database role. Startup replaces the configured pgAdmin account's saved server list with this managed DitPath connection. Bring the stack up after credential changes so the renderer runs; restarting pgAdmin alone does not run it. A password saved separately in pgAdmin must also be updated. The volume holds the database password in plain text; protect it like `.env`. The configured connection uses `sslmode=prefer` and master-password protection is disabled.
+The shared [renderer](scripts/render-pgadmin.py) writes `servers.json` and a private per-login `.pgpass` into `pgadmin_data`, escapes all credential fields, and selects that passfile in the connection parameters. It uses host `db`, port 5432, and the configured database role. Startup replaces the configured pgAdmin account's saved server list with this managed OpenCW connection. Bring the stack up after credential changes so the renderer runs; restarting pgAdmin alone does not run it. A password saved separately in pgAdmin must also be updated. The volume holds the database password in plain text; protect it like `.env`. The configured connection uses `sslmode=prefer` and master-password protection is disabled.
 
 ## Backups and recovery
 

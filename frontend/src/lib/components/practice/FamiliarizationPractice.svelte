@@ -45,19 +45,6 @@
     });
   });
 
-  let isLetter = (c: string) => /[A-Z]/.test(c);
-  let isNumber = (c: string) => /[0-9]/.test(c);
-  let letterChars = $derived(availableChars.filter(isLetter));
-  let numberChars = $derived(availableChars.filter(isNumber));
-  let symbolChars = $derived(availableChars.filter((c) => !isLetter(c) && !isNumber(c)));
-  let latestChars = $derived(availableChars.slice(-7));
-
-  let learnedLabel = $derived(
-    availableChars.length === 1
-      ? m.trainer_set_learned_one()
-      : m.trainer_set_learned({ count: String(availableChars.length) })
-  );
-
   function handleSelectChar(ch: string) {
     if (ch === selectedChar) return;
     void player?.stopNow();
@@ -126,22 +113,7 @@
     />
   </div>
 
-  <p class="drill-focus">{m.trainer_drill_focus()}</p>
-
-  <div class="char-picker-section">
-    <label class="field drill-picker-field">
-      <span class="label-text">{m.trainer_choose_letter()}</span>
-      <select
-        class="select drill-picker"
-        value={selectedChar}
-        onchange={(e) => handleSelectChar((e.currentTarget as HTMLSelectElement).value)}
-      >
-        {#each availableChars as char (char)}
-          <option value={char}>{char}</option>
-        {/each}
-      </select>
-    </label>
-
+  <div class="char-picker-section" role="group" aria-label={m.trainer_choose_letter()}>
     <div class="char-chips">
       {#each availableChars as ch (ch)}
         <button
@@ -150,39 +122,13 @@
           class:is-active={ch === selectedChar}
           onclick={() => handleSelectChar(ch)}
           aria-label={m.practice_inspect_character({ character: ch })}
+          aria-pressed={ch === selectedChar}
         >
           {ch}
         </button>
       {/each}
     </div>
   </div>
-
-  <details class="charset-details">
-    <summary class="charset-toggle">{m.trainer_view_set()}</summary>
-    <div class="charset-content">
-      <p class="panel-label">{m.trainer_set_title()}</p>
-      <p class="learned-count">{learnedLabel}</p>
-      {#if letterChars.length > 0}
-        <div class="charset-group">
-          <span class="group-name">{m.trainer_set_letters()} · {letterChars.length}</span>
-          <span class="group-chars">{letterChars.join(' ')}</span>
-        </div>
-      {/if}
-      {#if numberChars.length > 0}
-        <div class="charset-group">
-          <span class="group-name">{m.trainer_set_numbers()} · {numberChars.length}</span>
-          <span class="group-chars">{numberChars.join(' ')}</span>
-        </div>
-      {/if}
-      {#if symbolChars.length > 0}
-        <div class="charset-group">
-          <span class="group-name">{m.trainer_set_symbols()} · {symbolChars.length}</span>
-          <span class="group-chars">{symbolChars.join(' ')}</span>
-        </div>
-      {/if}
-      <p class="latest-row">{m.trainer_set_latest({ chars: latestChars.join(' ') })}</p>
-    </div>
-  </details>
 
   <div class="drill-actions">
     <button
@@ -258,23 +204,12 @@
     justify-content: center;
   }
 
-  .drill-focus {
-    margin: 0;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    text-align: center;
-  }
-
   .char-picker-section {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-3);
     width: 100%;
-  }
-
-  .drill-picker-field {
-    max-width: 12rem;
   }
 
   .char-chips {
@@ -312,61 +247,6 @@
     border-color: var(--learning-current);
     color: var(--learning-current);
     box-shadow: inset 0 0 0 1px var(--learning-current);
-  }
-
-  .charset-details {
-    width: 100%;
-    max-width: 28rem;
-    font-size: var(--text-xs);
-  }
-
-  .charset-toggle {
-    color: var(--accent);
-    cursor: pointer;
-    text-align: center;
-    text-decoration: underline;
-  }
-
-  .charset-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-    padding: var(--space-3);
-    background-color: var(--bg-inset);
-    border-radius: var(--radius-sm);
-  }
-
-  .panel-label {
-    margin: 0;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-
-  .learned-count {
-    margin: 0;
-    color: var(--text-secondary);
-  }
-
-  .charset-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .group-name {
-    color: var(--text-muted);
-  }
-
-  .group-chars {
-    font-family: var(--font-mono);
-    color: var(--text-primary);
-  }
-
-  .latest-row {
-    margin: 0;
-    color: var(--text-muted);
   }
 
   .drill-actions {

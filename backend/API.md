@@ -1,4 +1,4 @@
-# DitPath V1 API
+# OpenCW V1 API
 
 The canonical API uses `/v1`; three `/v2/training` routes remain temporary compatibility aliases. This reference covers every V1 route; [training synchronization](docs/training-events-v2.md) details the implemented event and download contracts. Requests with bodies use JSON. Protected routes require `Authorization: Bearer ACCESS_TOKEN` and an existing user.
 

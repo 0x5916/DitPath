@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { user } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
-  import { getUserInfo, getCWSettings } from '#lib/api.ts';
+  import { getUserInfo } from '#lib/api.ts';
   import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
   import { sessionOccurredAt as historyDate } from '#lib/training/v2/progress-summary.ts';
   import { openTrainingDb, closeTrainingDb } from '#lib/data/training-db.ts';
@@ -12,17 +12,14 @@
   import {
     getTrainingOwner,
     trainingSyncState,
-    subscribeTrainingSync,
-    syncTrainingNow
+    subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
-  import { readClientCwSettings } from '#lib/cwSync.ts';
-  import { utcDayStart } from '#lib/profile-heatmap.ts';
-  import { Calendar, Check, X } from '@lucide/svelte';
+  import { buildTrainingHabits, utcDayStart } from '#lib/profile-heatmap.ts';
+  import { Calendar, Check, X, Mail, UserRound, Settings } from '@lucide/svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
-  import GuestNotice from '#lib/components/GuestNotice.svelte';
   import { localizeApiError } from '#lib/errorLocalization.ts';
-  import { accuracyClass, formatDate, formatLesson, percentage } from '#lib/format.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -40,18 +37,22 @@
   let callSign = $state<string | null>(null);
   let emailVerified = $state(false);
   let accountInfoKnown = $state(false);
-  let deviceSettings = $state(true);
   let earliestHistoryMs = $state<number | null>(null);
   let memberSince = $state('');
   let memberCreatedAtMs = $state<number | null>(null);
-  let charWpm = $state<number | null>(null);
-  let effWpm = $state<number | null>(null);
-  let freq = $state<number | null>(null);
   let records = $state<HistorySessionRecord[]>([]);
   let loadToken = 0;
 
   let isGuest = $derived(!$user);
-  let recentRecords = $derived(records.slice(0, 20));
+  const habitYear = new Date().getUTCFullYear();
+  const habits = $derived(buildTrainingHabits(records, habitYear, Date.now()));
+  const favoriteWeekday = $derived(
+    habits.favoriteWeekday === null
+      ? m.progress_unmeasured()
+      : new Intl.DateTimeFormat(getLocale(), { weekday: 'long', timeZone: 'UTC' }).format(
+          Date.UTC(2024, 0, 7 + habits.favoriteWeekday)
+        )
+  );
 
   onMount(() => {
     let revision = '';
@@ -80,18 +81,6 @@
     memberSince = m.progress_unmeasured();
     memberCreatedAtMs = null;
     earliestHistoryMs = null;
-    charWpm = null;
-    effWpm = null;
-    freq = null;
-    try {
-      const deviceCw = readClientCwSettings();
-      charWpm = deviceCw.char_wpm;
-      effWpm = deviceCw.eff_wpm;
-      freq = deviceCw.freq;
-    } catch {
-      // Browser settings storage can be blocked independently of IndexedDB history.
-    }
-    deviceSettings = true;
     let db: IDBDatabase | null = null;
     try {
       db = await openTrainingDb();
@@ -124,15 +113,6 @@
               : m.progress_unmeasured();
           })
           .catch(() => {});
-        void getCWSettings()
-          .then((cw) => {
-            if (!current()) return;
-            charWpm = cw.char_wpm;
-            effWpm = cw.eff_wpm;
-            freq = cw.freq;
-            deviceSettings = false;
-          })
-          .catch(() => {});
       }
     } catch (error) {
       if (current()) loadError = localizeApiError(error, () => m.common_load_error());
@@ -151,15 +131,83 @@
   }
 </script>
 
+<svelte:head>
+  <title>{m.nav_profile()} · OpenCW</title>
+</svelte:head>
+
 <div class="page-stack">
+  <header class="profile-header">
+    <div class="profile-heading-row">
+      <h1 class="page-title">{m.nav_profile()}</h1>
+      <a
+        href={localizedHref('/settings')}
+        class="profile-settings"
+        aria-label={m.nav_settings()}
+        title={m.nav_settings()}><Settings size={20} aria-hidden="true" /></a
+      >
+    </div>
+    {#if !loading && !loadError}
+      <div class="profile-identity">
+        <div class="profile-identity-main">
+          <div class="profile-avatar" aria-hidden="true">
+            <UserRound size={32} />
+          </div>
+          <div class="profile-identity-title">
+            <p class="profile-name">{username}</p>
+            {#if !isGuest && accountInfoKnown && callSign}
+              <p class="profile-call-sign">
+                <span>{m.profile_call_sign_label()}</span>
+                <strong>{callSign}</strong>
+              </p>
+            {/if}
+          </div>
+        </div>
+        {#if isGuest}
+          <p class="body-text">{m.profile_guest_summary()}</p>
+          <div class="profile-actions">
+            <a href={localizedHref('/login')} class="btn-primary">{m.nav_login()}</a>
+            <a href={localizedHref('/register')} class="btn-ghost">{m.nav_register()}</a>
+          </div>
+        {:else if accountInfoKnown}
+          <div class="profile-details">
+            <div class="profile-email-row">
+              <Mail size={16} class="profile-detail-icon" aria-hidden="true" />
+              <div class="profile-email-copy">
+                <p class="profile-email">{email}</p>
+                <p class="profile-email-status">
+                  {#if emailVerified}
+                    <Check size={14} class="profile-status-icon-ok" aria-hidden="true" />
+                  {:else}
+                    <X size={14} class="profile-status-icon-bad" aria-hidden="true" />
+                  {/if}
+                  <span
+                    >{emailVerified
+                      ? m.profile_email_status_verified()
+                      : m.profile_email_status_not_verified()}</span
+                  >
+                </p>
+              </div>
+            </div>
+            <p class="profile-meta">
+              <Calendar size={16} class="profile-detail-icon" aria-hidden="true" />
+              <span>{m.profile_member_since()}: {memberSince}</span>
+            </p>
+          </div>
+        {:else}
+          <p class="body-text">{m.profile_account_details_unavailable()}</p>
+        {/if}
+      </div>
+    {/if}
+  </header>
+
   <TrainingSyncStatus
     owner={trainingSyncState.owner}
     pending={trainingSyncState.pending}
     error={trainingSyncState.error}
     syncing={trainingSyncState.syncing}
     synced={trainingSyncState.synced}
-    onSync={() => void syncTrainingNow()}
   />
+
   {#if loading}
     <LoadingSpinner />
   {:else if loadError}
@@ -168,288 +216,243 @@
       >{m.common_retry()}</button
     >
   {:else}
-    {#if isGuest}
-      <div class="notice">
-        <GuestNotice class="body-text" />
-      </div>
-    {/if}
-
-    <!-- Header: identity block, not a card. -->
-    <header class="profile-header">
-      <!-- Call-sign plate: the one piece of radio identity, in monospace. -->
-      <div class="profile-stat profile-plate">
-        <span class="metric-value"
-          >{!isGuest && !accountInfoKnown
-            ? m.progress_unmeasured()
-            : (callSign ?? m.profile_call_sign_none())}</span
-        >
-        <span class="metric-label">{m.profile_call_sign_label()}</span>
-      </div>
-      <div class="profile-header-info">
-        <h1 class="page-title">{username}</h1>
-        {#if !isGuest && accountInfoKnown}
-          <p class="profile-email">{email}</p>
-        {/if}
-        <div class="meta-row">
-          {#if !isGuest && accountInfoKnown}
-            <p class="meta-item">
-              {#if emailVerified}
-                <Check
-                  size={14}
-                  class="profile-status-icon profile-status-icon-ok"
-                  aria-hidden="true"
-                />
-              {:else}
-                <X
-                  size={14}
-                  class="profile-status-icon profile-status-icon-bad"
-                  aria-hidden="true"
-                />
-              {/if}
-              <span
-                >{emailVerified
-                  ? m.profile_email_status_verified()
-                  : m.profile_email_status_not_verified()}</span
-              >
-            </p>
-          {/if}
-        </div>
-        {#if !isGuest && !accountInfoKnown}<p class="body-text">
-            {m.profile_account_details_unavailable()}
-          </p>{/if}
-        <p class="profile-joined">
-          <Calendar size={13} />
-          {m.profile_member_since()}: {memberSince}
-        </p>
-      </div>
-    </header>
-
     <ProfileHeatmap {records} {memberCreatedAtMs} {earliestHistoryMs} />
-
-    <!-- CW settings snapshot: peer readouts in an inset stat strip. -->
-    <section class="panel">
-      <h2 class="card-title">{m.profile_cw_settings()}</h2>
-      {#if !isGuest && deviceSettings}<p class="body-text">
-          {m.profile_device_settings_hint()}
-        </p>{/if}
-      <div class="profile-cw-grid">
-        <div class="profile-stat">
-          <span class="metric-value">{charWpm ?? m.progress_unmeasured()}</span>
-          <span class="metric-label">{m.profile_cw_char_wpm()}</span>
-        </div>
-        <div class="profile-stat">
-          <span class="metric-value">{effWpm ?? m.progress_unmeasured()}</span>
-          <span class="metric-label">{m.profile_cw_eff_wpm()}</span>
-        </div>
-        <div class="profile-stat">
-          <span class="metric-value">{freq === null ? m.progress_unmeasured() : `${freq} Hz`}</span>
-          <span class="metric-label">{m.profile_cw_freq()}</span>
-        </div>
+    <section class="panel" aria-labelledby="profile-habits-title">
+      <div class="profile-habits-header">
+        <h2 id="profile-habits-title" class="card-title">
+          {m.profile_habits_title({ year: String(habitYear) })}
+        </h2>
+        <InfoTip
+          label={m.profile_habits_title({ year: String(habitYear) })}
+          text={m.profile_habits_info({ year: String(habitYear) })}
+        />
       </div>
-    </section>
-
-    <!-- Progress history: dense tabular data, the table is the content. -->
-    <section class="panel">
-      <h2 class="card-title">{m.profile_history()}</h2>
-      {#if recentRecords.length === 0}
-        <p class="body-text profile-empty">
-          {m.profile_history_empty()}
-          <a href={localizedHref('/morse/learn')} class="link">{m.nav_learn()}</a>
-        </p>
-      {:else}
-        <div class="profile-table-wrap">
-          <table class="profile-table">
-            <thead>
-              <tr>
-                <th class="panel-label">{m.profile_history_lesson()}</th>
-                <th class="panel-label">{m.history_status()}</th>
-                <th class="panel-label">{m.profile_history_accuracy()}</th>
-                <th class="panel-label">{m.profile_history_wpm()}</th>
-                <th class="panel-label">{m.profile_history_date()}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each recentRecords as rec (rec.id)}
-                <tr>
-                  <td class="profile-lesson-cell"
-                    >{rec.mode === 'legacy'
-                      ? m.history_legacy()
-                      : rec.mode === 'practice'
-                        ? m.progress_history_practice()
-                        : m.progress_history_guided()} · {formatLesson(String(rec.step))}</td
-                  >
-                  <td
-                    >{rec.status === 'abandoned'
-                      ? m.history_abandoned()
-                      : m.history_completed()}</td
-                  >
-                  <td
-                    ><span
-                      class="profile-acc {rec.accuracy == null ? '' : accuracyClass(rec.accuracy)}"
-                      >{rec.accuracy == null
-                        ? m.progress_unmeasured()
-                        : percentage(rec.accuracy)}</span
-                    ></td
-                  >
-                  <td class="profile-wpm-cell"
-                    >{rec.charWpm ?? m.progress_unmeasured()} / {rec.effWpm ??
-                      m.progress_unmeasured()}</td
-                  >
-                  <td class="profile-date-cell">{formatDate(historyDate(rec))}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+      <dl class="profile-habits">
+        <div>
+          <dt>{m.profile_habits_active_days()}</dt>
+          <dd>{habits.activeDays}</dd>
         </div>
-      {/if}
+        <div>
+          <dt>{m.profile_habits_longest_streak()}</dt>
+          <dd>
+            {habits.longestStreak === 1
+              ? m.profile_habits_day_one()
+              : m.profile_habits_days({ count: String(habits.longestStreak) })}
+          </dd>
+        </div>
+        <div>
+          <dt>{m.profile_habits_favorite_weekday()}</dt>
+          <dd>{favoriteWeekday}</dd>
+        </div>
+      </dl>
     </section>
   {/if}
 </div>
 
 <style>
-  /* The default width tier plus `.page-stack` rhythm: this page is a dashboard
-     (heatmap, stat strip, four-column table), not a single-column form, and at
-     42rem the ~834px heatmap was force-scrolling. `.page-stack` keeps the
-     inter-block rhythm that `.page-narrow` used to provide. */
-
-  /* Header: identity block delimited by a rule, not a card. */
   .profile-header {
     display: flex;
-    align-items: center;
-    gap: var(--block-gap);
-    padding-bottom: var(--space-5);
-    border-bottom: 1px solid var(--border);
-  }
-  /* One inset box for the page's readouts: the call-sign plate and the CW
-     stat strip share it. */
-  .profile-stat {
-    display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--border);
+    gap: var(--space-4);
+  }
+
+  .profile-header .page-title {
+    margin: 0;
+  }
+
+  .profile-heading-row,
+  .profile-habits-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .profile-settings {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: var(--answer-target-min);
+    height: var(--answer-target-min);
+    color: var(--text-muted);
     border-radius: var(--radius-sm);
-    background-color: var(--bg-inset);
+  }
+
+  .profile-settings:hover {
+    color: var(--accent);
+    background: var(--bg-inset);
+  }
+
+  .profile-settings:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .profile-habits-header .card-title {
+    margin: 0;
+  }
+
+  .profile-habits {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin: var(--space-4) 0 0;
+  }
+
+  .profile-habits > div {
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-habits dt {
+    font-size: var(--text-sm);
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  .profile-habits dd {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 479px) {
+    .profile-habits {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profile-habits > div:last-child {
+      grid-column: 1 / -1;
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  .profile-identity {
+    display: grid;
+    gap: var(--space-4);
+    min-width: 0;
+    padding: var(--space-5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    overflow-wrap: anywhere;
+  }
+
+  .profile-identity-main {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .profile-avatar {
+    display: grid;
+    place-items: center;
+    width: 4rem;
+    height: 4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-inset);
+    color: var(--text-secondary);
+    overflow: hidden;
+  }
+
+  .profile-identity-title {
+    display: grid;
+    gap: var(--space-2);
     min-width: 0;
   }
-  .profile-plate {
-    align-items: center;
-    justify-content: center;
-    min-width: 6rem;
-    flex-shrink: 0;
+
+  .profile-name {
+    margin: 0;
+    font-size: var(--text-xl);
+    line-height: 1.3;
+    font-weight: 600;
+    color: var(--text-primary);
   }
-  .profile-header-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .profile-email {
+
+  .profile-email,
+  .profile-call-sign {
+    margin: 0;
     font-size: var(--text-sm);
-    color: var(--text-muted);
+    color: var(--text-secondary);
+  }
+
+  .profile-call-sign {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .profile-call-sign strong {
+    font-family: var(--font-mono);
+    color: var(--accent);
+  }
+
+  .profile-details {
+    display: grid;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+
+  .profile-email-row,
+  .profile-meta,
+  .profile-email-status {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
     margin: 0;
   }
-  .profile-joined {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
+
+  .profile-email-copy {
+    display: grid;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .profile-meta,
+  .profile-email-status {
     font-size: var(--text-xs);
     color: var(--text-muted);
-    margin: 0;
   }
-  :global(.profile-status-icon) {
+
+  .profile-email-status :global(svg) {
     flex-shrink: 0;
+    margin-top: 0.125rem;
   }
+
+  :global(.profile-detail-icon) {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+    color: var(--text-muted);
+  }
+
   :global(.profile-status-icon-ok) {
     color: var(--status-good);
   }
+
   :global(.profile-status-icon-bad) {
     color: var(--status-bad);
   }
 
-  /* CW settings: peer readouts in an inset stat strip; values and labels reuse
-     the shared `.metric-value` / `.metric-label` pair. */
-  .profile-cw-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
-    gap: var(--space-3);
-    margin-top: var(--space-3);
+  .profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 
-  /* History table */
-  .profile-table-wrap {
-    overflow-x: auto;
-  }
-  .profile-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
-  }
-  .profile-table th {
-    text-align: left;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .profile-table td {
-    padding: 0.6rem 0.75rem;
-    color: var(--text-secondary);
-  }
-  .profile-table tbody tr:hover td {
-    background-color: var(--bg-inset);
-  }
-  /* `.profile-table td` colours every cell secondary; this cell wins on
-     specificity rather than with a blanket `!important`. */
-  .profile-table td.profile-lesson-cell {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    letter-spacing: 0.12em;
-  }
-  /* Accuracy reads as a value with a status dot, not as a coloured pill. */
-  .profile-acc {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-  .profile-acc::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--acc-color, var(--text-muted));
-    flex-shrink: 0;
-  }
-  .acc-good {
-    --acc-color: var(--status-good);
-  }
-  .acc-ok {
-    --acc-color: var(--status-ok);
-  }
-  .acc-bad {
-    --acc-color: var(--status-bad);
-  }
-  .profile-wpm-cell {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .profile-date-cell {
-    white-space: nowrap;
-    font-size: var(--text-xs);
-  }
-  .profile-empty {
-    color: var(--text-muted);
-    padding: var(--space-2) 0;
+  .profile-actions a {
+    min-height: var(--answer-target-min);
   }
 
-  /* Responsive */
-  @media (max-width: 640px) {
-    .profile-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
+  .profile-identity .body-text {
+    margin: 0;
   }
 </style>

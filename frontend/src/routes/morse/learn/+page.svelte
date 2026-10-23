@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
+  import { CircleAlert } from '@lucide/svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
@@ -17,14 +18,13 @@
   } from '#lib/training/v2/types.ts';
   import LearnHero, { type HeroStateKind } from '#lib/components/learning/LearnHero.svelte';
   import CoursePath from '#lib/components/learning/CoursePath.svelte';
-  import MorseSectionNav from '#lib/components/MorseSectionNav.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import {
     getTrainingOwner,
     trainingSyncState,
-    subscribeTrainingSync,
-    syncTrainingNow
+    subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
   import { user } from '#lib/auth.ts';
   import * as m from '#lib/paraglide/messages.js';
@@ -57,6 +57,9 @@
   });
 
   let currentIntroduced = $derived(LESSONS[currentStep - 1] ?? 'KM');
+  let unlockTitle = $derived(
+    currentStep < LESSONS.length ? m.learn_unlock_next_title() : m.learn_unlock_complete_title()
+  );
   let masteryChecks = $derived(
     currentIntroduced.split('').flatMap((character) => {
       const mastery = masteryMap.get(character);
@@ -181,15 +184,22 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_learn()} · DitPath</title>
+  <title>{m.nav_learn()} · OpenCW</title>
 </svelte:head>
+
+{#snippet masteryCheck(label: string, value: string, current?: number, target?: number)}
+  <div class="mastery-check">
+    <div class="check-values"><span>{label}</span><strong>{value}</strong></div>
+    {#if current !== undefined && target !== undefined}
+      <progress aria-hidden="true" value={current} max={target}></progress>
+    {/if}
+  </div>
+{/snippet}
 
 <div class="page-narrow">
   <div class="learn-home-container">
-    <MorseSectionNav current="learn" />
     <header class="learn-header">
       <h1 class="page-title">{m.nav_learn()}</h1>
-      <p class="learn-subtitle">{m.learn_subtitle()}</p>
     </header>
 
     <TrainingSyncStatus
@@ -198,7 +208,6 @@
       error={trainingSyncState.error}
       syncing={trainingSyncState.syncing}
       synced={trainingSyncState.synced}
-      onSync={() => void syncTrainingNow()}
     />
 
     <LearnHero
@@ -220,45 +229,68 @@
 
     {#if !loading && !errorMsg && (hasAttempts || inProgressSession) && masteryChecks.length > 0}
       <section aria-labelledby="unlock-checks-title">
-        <h2 id="unlock-checks-title" class="section-title">
-          {m.learn_unlock_checks_title({ characters: currentIntroduced.split('').join(', ') })}
-        </h2>
-        <p class="body-text">{m.learn_unlock_checks_hint()}</p>
+        <div class="section-heading">
+          <h2 id="unlock-checks-title" class="section-title">{unlockTitle}</h2>
+          <InfoTip
+            label={m.common_tip_label({ topic: unlockTitle })}
+            text={m.learn_unlock_checks_hint()}
+          />
+        </div>
         <ul class="mastery-checks" role="list">
           {#each masteryChecks as { character, mastery, blockers } (character)}
-            <li>
-              <strong>{character}</strong>
-              {#each blockers as blocker (blocker)}
-                <p class="body-text">
+            <li class="mastery-character">
+              <strong class="check-character">{character}</strong>
+              <div class="character-checks">
+                {#each blockers as blocker (blocker)}
                   {#if blocker === 'attempts'}
-                    {m.learn_unlock_attempts({
-                      count: mastery.totalAttempts,
-                      required: policy.minAttemptsForStability
-                    })}
+                    {@render masteryCheck(
+                      m.learn_unlock_attempts_label(),
+                      m.learn_unlock_count({
+                        count: mastery.totalAttempts,
+                        required: policy.minAttemptsForStability
+                      }),
+                      mastery.totalAttempts,
+                      policy.minAttemptsForStability
+                    )}
                   {:else if blocker === 'sessions'}
-                    {m.learn_unlock_sessions({
-                      count: mastery.sessionCount,
-                      required: policy.minSessionsForStability
-                    })}
+                    {@render masteryCheck(
+                      m.learn_unlock_sessions_label(),
+                      m.learn_unlock_count({
+                        count: mastery.sessionCount,
+                        required: policy.minSessionsForStability
+                      }),
+                      mastery.sessionCount,
+                      policy.minSessionsForStability
+                    )}
                   {:else if blocker === 'accuracy'}
-                    {m.learn_unlock_accuracy({
-                      current: (mastery.rollingAccuracy * 100).toFixed(1),
-                      required: Math.round(policy.targetAccuracy * 100)
-                    })}
+                    {@render masteryCheck(
+                      m.learn_unlock_accuracy_label(),
+                      m.learn_unlock_accuracy_value({
+                        current: (mastery.rollingAccuracy * 100).toFixed(1),
+                        required: Math.round(policy.targetAccuracy * 100)
+                      }),
+                      mastery.rollingAccuracy,
+                      policy.targetAccuracy
+                    )}
                   {:else if blocker === 'speed'}
-                    {#if mastery.medianLatencyMs === null}
-                      {m.learn_unlock_speed_unmeasured()}
-                    {:else}
-                      {m.learn_unlock_speed({
-                        current: (Math.ceil(mastery.medianLatencyMs) / 1000).toFixed(3),
-                        required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
-                      })}
-                    {/if}
+                    {@render masteryCheck(
+                      m.learn_unlock_speed_label(),
+                      mastery.medianLatencyMs === null
+                        ? m.learn_unlock_speed_missing_value({
+                            required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
+                          })
+                        : m.learn_unlock_speed_value({
+                            current: (Math.ceil(mastery.medianLatencyMs) / 1000).toFixed(3),
+                            required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
+                          })
+                    )}
                   {:else}
-                    {m.learn_unlock_review_due()}
+                    <p class="review-check">
+                      <CircleAlert size={16} aria-hidden="true" />{m.learn_unlock_review_due()}
+                    </p>
                   {/if}
-                </p>
-              {/each}
+                {/each}
+              </div>
             </li>
           {/each}
         </ul>
@@ -271,14 +303,19 @@
 
     <section class="path-section" aria-labelledby="path-heading">
       <div class="section-header-row">
-        <h2 id="path-heading" class="section-title">{m.learn_path_title()}</h2>
+        <div class="section-heading">
+          <h2 id="path-heading" class="section-title">{m.learn_path_title()}</h2>
+          <InfoTip
+            label={m.common_tip_label({ topic: m.learn_path_title() })}
+            text={m.learn_path_hint()}
+          />
+        </div>
         {#if !loading && !errorMsg}
           <span class="path-meta">
             {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
           </span>
         {/if}
       </div>
-      <p class="path-hint">{m.learn_path_hint()}</p>
 
       {#if !loading && !errorMsg}
         <CoursePath {currentStep} {masteryMap} {suggestedStep} onSelectStep={handleStartLesson} />
@@ -289,13 +326,77 @@
 
 <style>
   .mastery-checks {
-    display: grid;
-    gap: var(--space-4);
-    margin-top: var(--space-4);
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
-  .mastery-checks .body-text {
-    margin: var(--space-1) 0 0;
+  .mastery-character {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .check-character {
+    font-size: var(--text-xl);
+    color: var(--text-primary);
+  }
+
+  .character-checks {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .check-values {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    overflow-wrap: anywhere;
+  }
+
+  .check-values strong {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .mastery-check progress {
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: var(--space-1);
+    margin-top: var(--space-2);
+    border: 0;
+    background: var(--border);
+  }
+
+  .mastery-check progress::-webkit-progress-bar {
+    background: var(--border);
+  }
+
+  .mastery-check progress::-webkit-progress-value {
+    background: var(--accent);
+  }
+
+  .mastery-check progress::-moz-progress-bar {
+    background: var(--accent);
+  }
+
+  .review-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .review-check :global(svg) {
+    flex-shrink: 0;
+    margin-top: var(--space-1);
   }
 
   .learn-home-container {
@@ -320,14 +421,6 @@
     font-size: var(--text-2xl);
     font-weight: 700;
     color: var(--text-primary);
-  }
-
-  .learn-subtitle {
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    max-width: 28rem;
-    line-height: var(--leading-normal);
   }
 
   .path-section {
@@ -358,10 +451,9 @@
     color: var(--text-muted);
   }
 
-  .path-hint {
-    margin: 0;
-    font-size: var(--text-sm);
-    line-height: var(--leading-normal);
-    color: var(--text-secondary);
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 </style>

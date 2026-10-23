@@ -4,6 +4,14 @@
   import { getAuthSession, user } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import {
+    getTrainingOwner,
+    trainingSyncState,
+    subscribeTrainingSync,
+    syncTrainingNow,
+    importUnclaimedTraining,
+    getUnclaimedTrainingCount
+  } from '#lib/training-sync.svelte.ts';
+  import {
     saveCWSettings,
     getUserInfo,
     updateCallSign,
@@ -87,6 +95,12 @@
 
   let loading = $state(true);
   let loadError = $state('');
+  let unclaimedCount = $state(0);
+  let unclaimedError = $state(false);
+  let importing = $state(false);
+  let importError = $state(false);
+  let syncMounted = false;
+  let countVersion = 0;
   let lastAuthLoaded: string | null = null;
   const sessionScope = createSessionScope();
   const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
@@ -102,6 +116,63 @@
       if (current()) callback();
     }, delay);
     timers.add(timer);
+  }
+
+  async function loadUnclaimedCount() {
+    const owner = getTrainingOwner();
+    const sessionCurrent = sessionScope.capture();
+    const version = ++countVersion;
+    const current = () =>
+      syncMounted && sessionCurrent() && owner === getTrainingOwner() && version === countVersion;
+    try {
+      const count = await getUnclaimedTrainingCount();
+      if (!current()) return;
+      unclaimedCount = count;
+      unclaimedError = false;
+    } catch {
+      if (current()) unclaimedError = true;
+    }
+  }
+
+  onMount(() => {
+    syncMounted = true;
+    let identity = '';
+    let revision = '';
+    const unsubscribe = subscribeTrainingSync((state) => {
+      const nextIdentity = `${state.owner}:${getAuthSession().generation}`;
+      if (identity !== nextIdentity) {
+        identity = nextIdentity;
+        countVersion++;
+        unclaimedCount = 0;
+        unclaimedError = importError = importing = false;
+      }
+      const nextRevision = `${identity}:${state.version}`;
+      if (revision === nextRevision) return;
+      revision = nextRevision;
+      void loadUnclaimedCount();
+    });
+    return () => {
+      syncMounted = false;
+      countVersion++;
+      unsubscribe();
+    };
+  });
+
+  async function importHistory() {
+    const owner = getTrainingOwner();
+    if (importing || owner === 'unclaimed') return;
+    const sessionCurrent = sessionScope.capture();
+    const current = () => syncMounted && sessionCurrent() && owner === getTrainingOwner();
+    importing = true;
+    importError = false;
+    try {
+      await importUnclaimedTraining();
+      if (current()) await loadUnclaimedCount();
+    } catch {
+      if (current()) importError = true;
+    } finally {
+      if (current()) importing = false;
+    }
   }
 
   let toneAudio: AudioEngine | null = null;
@@ -463,6 +534,21 @@
     <h1 class="page-title">{m.settings_title()}</h1>
   </header>
 
+  {#key trainingSyncState.owner}
+    <SettingsData
+      owner={trainingSyncState.owner}
+      pending={trainingSyncState.pending}
+      syncing={trainingSyncState.syncing}
+      synced={trainingSyncState.synced}
+      error={trainingSyncState.error ??
+        (importError || unclaimedError ? m.history_sync_error() : null)}
+      onSync={() => void syncTrainingNow()}
+      onImport={() => void importHistory()}
+      {unclaimedCount}
+      {importing}
+    />
+  {/key}
+
   {#if loading}
     <LoadingSpinner />
   {:else if loadError}
@@ -670,8 +756,6 @@
         {/if}
       </form>
     </section>
-
-    <SettingsData />
   {/if}
 </div>
 

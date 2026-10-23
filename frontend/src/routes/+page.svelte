@@ -1,324 +1,237 @@
 <script lang="ts">
-  import { ChevronRight, Dumbbell, Info, LayoutDashboard, MessageSquare } from '@lucide/svelte';
-  import HomePreview from '#lib/components/home/HomePreview.svelte';
+  import { onMount } from 'svelte';
+  import { ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
+  import HomeLanding from '#lib/components/home/HomeLanding.svelte';
+  import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import { user } from '#lib/auth.ts';
+  import { openTrainingDb, closeTrainingDb } from '#lib/data/training-db.ts';
+  import { loadHomeDashboard } from '#lib/data/home-dashboard.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
+  import {
+    getTrainingOwner,
+    subscribeTrainingSync,
+    trainingSyncState
+  } from '#lib/training-sync.svelte.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
-  import { GITHUB_URL } from '#lib/seo.ts';
   import * as m from '#lib/paraglide/messages.js';
 
-  // The lists store the message functions, not their values, so the template
-  // always reads the current locale (the layout also remounts on a switch).
-  const steps = [
-    { title: m.home_step1_title, body: m.home_step1_body },
-    { title: m.home_step2_title, body: m.home_step2_body },
-    { title: m.home_step3_title, body: m.home_step3_body }
-  ];
+  let hydrated = $state(false);
+  let loading = $state(true);
+  let loadError = $state(false);
+  let dashboard = $state.raw<Awaited<ReturnType<typeof loadHomeDashboard>> | null>(null);
+  let mounted = false;
+  let loadVersion = 0;
+  let activeDb: IDBDatabase | null = null;
+  let lessonLink = $derived.by(() => {
+    const title = m.nav_learn();
+    const path = '/morse/learn';
+    if (!dashboard) return { title, hint: '', path };
+    const unfinished = dashboard.unfinishedSession;
+    if (dashboard.guidance.courseComplete && !unfinished)
+      return { title, hint: m.learn_complete_title(), path };
+    const { currentStep, reviewChars } = dashboard.guidance;
+    const step = unfinished?.step ?? currentStep;
+    return {
+      title: m.home_lesson_title({
+        step,
+        characters: (LESSONS[step - 1] ?? '').split('').join(', ')
+      }),
+      hint: unfinished
+        ? m.learn_restart_title({ step })
+        : reviewChars.length
+          ? m.learn_review_title({ characters: reviewChars.join(', ') })
+          : '',
+      path: unfinished ? path : `${path}/session?step=${step}`
+    };
+  });
 
-  const destinations = [
-    { path: '/morse/practice', title: m.nav_practice, body: m.home_go_practice, icon: Dumbbell },
-    {
-      path: '/morse/progress',
-      title: m.nav_progress,
-      body: m.home_go_progress,
-      icon: LayoutDashboard
-    },
-    { path: '/forum', title: m.nav_forum, body: m.home_go_forum, icon: MessageSquare },
-    { path: '/about', title: m.nav_about, body: m.home_go_about, icon: Info }
-  ];
+  async function loadHome() {
+    const owner = getTrainingOwner();
+    const version = ++loadVersion;
+    dashboard = null;
+    loading = true;
+    loadError = false;
+    if (activeDb) closeTrainingDb(activeDb);
+    activeDb = null;
+    const current = () => mounted && version === loadVersion && owner === getTrainingOwner();
+    let db: IDBDatabase | null = null;
+    try {
+      db = await openTrainingDb();
+      if (!current()) return;
+      activeDb = db;
+      const result = await loadHomeDashboard(db, owner, new Date().toISOString());
+      if (current()) dashboard = result;
+    } catch {
+      if (current()) loadError = true;
+    } finally {
+      if (db) closeTrainingDb(db);
+      if (activeDb === db) activeDb = null;
+      if (current()) loading = false;
+    }
+  }
+
+  onMount(() => {
+    hydrated = mounted = true;
+    let revision = '';
+    const unsubscribe = subscribeTrainingSync(({ owner, version }) => {
+      const next = `${owner}:${version}`;
+      if (revision === next) return;
+      revision = next;
+      void loadHome();
+    });
+    return () => {
+      unsubscribe();
+      mounted = false;
+      loadVersion++;
+      if (activeDb) closeTrainingDb(activeDb);
+    };
+  });
 </script>
 
-<section class="masthead" aria-labelledby="home-title">
-  <div class="masthead-copy">
-    <h1 id="home-title" class="masthead-title">{m.home_hero_title()}</h1>
-    <p class="masthead-lede">{m.home_hero_subtitle()}</p>
-    <div class="masthead-actions">
-      <a href={href('/morse/learn/session?step=1')} class="btn-cta">{m.home_cta()}</a>
-      <a href={href('/morse/practice')} class="link practice-link">{m.home_hero_cta_secondary()}</a>
-    </div>
-    <p class="body-text reassurance">
-      {m.home_reassurance()}
-    </p>
-  </div>
-  <HomePreview />
-</section>
-
-<div class="learning-intro">
-  <section class="method" aria-labelledby="home-method-title">
-    <div class="method-heading">
-      <h2 id="home-method-title" class="section-title">{m.home_steps_title()}</h2>
-      <p class="body-text method-intro">{m.home_preview_caption()}</p>
-    </div>
-    <ol class="step-list">
-      {#each steps as step, index (step.title)}
-        <li class="step">
-          <span class="step-number" aria-hidden="true">{index + 1}</span>
-          <div>
-            <strong class="step-title">{step.title()}</strong>
-            <p class="body-text">{step.body()}</p>
-          </div>
-        </li>
-      {/each}
-    </ol>
-  </section>
-</div>
-
-<!-- Destinations: a plain list of where the product continues. -->
-<section class="destinations" aria-labelledby="home-destinations-title">
-  <div class="destinations-copy">
-    <h2 id="home-destinations-title" class="section-title">{m.home_go_title()}</h2>
-    <ul class="row-list">
-      {#each destinations as destination (destination.path)}
+{#if !hydrated || (!loading && !loadError && !$user && !dashboard?.hasActivity)}
+  <HomeLanding />
+{:else}
+  <div class="page-narrow page-stack home-dashboard">
+    <header>
+      <h1 class="page-title">{m.home_dashboard_title()}</h1>
+    </header>
+    <nav aria-label={m.home_go_title()}>
+      <ul class="training-links">
         <li>
-          <a class="row-link dest-row" href={href(destination.path)}>
-            <span class="dest-icon"><destination.icon size={22} aria-hidden="true" /></span>
-            <span class="dest-copy">
-              <span class="dest-title">{destination.title()}</span>
-              <span class="dest-body">{destination.body()}</span>
+          <a class="training-link" href={href(lessonLink.path)}>
+            <Radio size={24} aria-hidden="true" />
+            <span>
+              <strong class="training-title">{lessonLink.title}</strong>
+              {#if lessonLink.hint}<span class="lesson-hint">{lessonLink.hint}</span>{/if}
             </span>
-            <ChevronRight size={18} class="dest-chevron" aria-hidden="true" />
+            <ChevronRight size={18} aria-hidden="true" />
           </a>
         </li>
-      {/each}
-    </ul>
+        <li>
+          <a class="training-link" href={href('/morse/practice')}>
+            <Dumbbell size={24} aria-hidden="true" />
+            <span>
+              <strong class="training-title">{m.nav_practice()}</strong>
+            </span>
+            <ChevronRight size={18} aria-hidden="true" />
+          </a>
+        </li>
+      </ul>
+      <a class="reference-link" href={href('/morse')}>
+        <Wrench size={20} aria-hidden="true" />
+        <span>
+          <strong>{m.morse_title()}</strong>
+        </span>
+        <ChevronRight size={18} aria-hidden="true" />
+      </a>
+    </nav>
+    <section class="home-progress" aria-labelledby="home-progress-title">
+      <div class="progress-heading">
+        <h2 id="home-progress-title">{m.nav_progress()}</h2>
+        <a class="link" href={href('/morse/progress')}>{m.home_view_progress()}</a>
+      </div>
+      {#if loading}
+        <div class="skeleton progress-skeleton" role="status">
+          <span class="sr-only">{m.common_loading()}</span>
+        </div>
+      {:else if loadError}
+        <p role="alert" class="body-text">{m.progress_load_error()}</p>
+        <button type="button" class="btn-primary" onclick={loadHome}>{m.progress_retry()}</button>
+      {:else if dashboard?.hasActivity}
+        <PracticeActivity {...dashboard.summary} />
+      {:else}
+        <p class="body-text">{m.progress_empty_description()}</p>
+      {/if}
+      {#if dashboard}
+        <TrainingSyncStatus
+          owner={trainingSyncState.owner}
+          pending={trainingSyncState.pending}
+          error={trainingSyncState.error}
+          syncing={trainingSyncState.syncing}
+          synced={trainingSyncState.synced}
+        />
+      {/if}
+    </section>
   </div>
-</section>
-
-<!-- Who builds it. -->
-<section class="colophon">
-  <p class="body-text">{m.home_author_line()}</p>
-  <div class="colophon-links">
-    <a href={href('/about')} class="link">{m.home_author_link()}</a>
-    <a href={GITHUB_URL} class="link" rel="noopener noreferrer" target="_blank"
-      >{m.home_author_github()}</a
-    >
-  </div>
-</section>
+{/if}
 
 <style>
-  .learning-intro,
-  .destinations,
-  .colophon {
-    --home-section-gap: calc(var(--space-6) * 2);
-    font-family: var(--font-home);
-  }
-
-  .masthead {
+  .training-links {
     display: grid;
-    align-items: center;
-    gap: var(--space-8);
-    font-family: var(--font-home);
-  }
-
-  .masthead-copy {
-    min-width: 0;
-    max-width: 36rem;
-    text-align: left;
-  }
-
-  .masthead-title {
+    gap: var(--space-3);
     margin: 0;
-    max-width: 18ch;
-    font-size: clamp(2.125rem, 4.5vw, 3.25rem);
-    line-height: 1.2;
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    color: var(--text-primary);
-    text-wrap: balance;
-  }
-
-  .masthead-lede {
-    max-width: 42ch;
-    margin: var(--space-5) 0 var(--space-6);
-    font-size: var(--text-lg);
-    line-height: var(--leading-relaxed);
-    color: var(--text-secondary);
-    text-wrap: pretty;
-  }
-
-  .masthead-actions {
-    display: grid;
-    justify-items: start;
-    gap: var(--space-1);
-  }
-
-  .masthead-actions :global(a) {
-    min-height: var(--answer-target-min);
-  }
-
-  .practice-link {
-    font-size: var(--text-base);
-    display: inline-flex;
-    align-items: center;
-    text-decoration: underline;
-    text-underline-offset: var(--space-1);
-  }
-
-  .reassurance {
-    margin: var(--space-2) 0 0;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-  }
-
-  .learning-intro {
-    margin-top: var(--home-section-gap);
-  }
-
-  .method {
-    min-width: 0;
-    display: grid;
-    gap: var(--space-6);
-    padding-top: var(--space-8);
-    border-top: 1px solid var(--border);
-  }
-
-  .method .step-number {
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: var(--font-home);
-    font-size: var(--text-xl);
-  }
-
-  .section-title {
-    margin-bottom: var(--space-6);
     padding: 0;
-    border: 0;
-    font-family: var(--font-home);
-    font-size: var(--text-2xl);
-    font-weight: 500;
-    text-wrap: balance;
+    list-style: none;
   }
-
-  .method .step-list {
-    display: grid;
-    gap: var(--space-6);
-    margin: 0;
-  }
-
-  .method-intro {
-    margin: calc(var(--space-4) * -1) 0 var(--space-6);
-    font-size: var(--text-base);
-  }
-
-  .step .body-text {
-    margin: var(--space-1) 0 0;
-    max-width: 48ch;
-    font-size: var(--text-base);
-  }
-
-  .destinations {
-    margin-top: var(--home-section-gap);
-  }
-
-  .destinations-copy {
-    min-width: 0;
-  }
-
-  .destinations li {
-    display: grid;
-  }
-
-  .dest-row {
+  .training-link,
+  .reference-link {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: var(--space-4);
-    min-height: 7rem;
-    padding: var(--space-5) var(--space-3);
+    gap: var(--space-3);
+    min-height: var(--answer-target-min);
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .training-link {
+    padding: var(--space-5);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    height: 100%;
+  }
+  .reference-link {
+    padding: var(--space-4);
+    margin-top: var(--space-2);
     border-bottom: 1px solid var(--border);
   }
-
-  .dest-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--answer-target-min);
-    height: var(--answer-target-min);
-    border-radius: var(--radius-md);
-    background-color: var(--bg-inset);
+  .training-link:hover,
+  .reference-link:hover {
+    background: var(--bg-inset);
+  }
+  .training-link :global(svg),
+  .reference-link :global(svg) {
     color: var(--accent);
   }
-
-  .dest-copy {
-    display: grid;
-    gap: var(--space-1);
-  }
-
-  .dest-row :global(.dest-chevron) {
-    color: var(--text-muted);
-  }
-
-  .dest-title {
+  .training-title {
     font-size: var(--text-lg);
     font-weight: 600;
-    color: var(--text-primary);
   }
-
-  .dest-body {
-    max-width: 32rem;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-  }
-
-  .colophon {
-    margin-top: var(--home-section-gap);
-    padding-top: var(--space-8);
-    border-top: 1px solid var(--border);
-  }
-
-  .colophon :global(.body-text) {
-    margin: 0;
-    max-width: 60ch;
-    font-size: var(--text-base);
-  }
-
-  .colophon-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
+  .lesson-hint {
+    display: block;
     margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--accent);
   }
-
-  .colophon-links :global(a) {
+  .home-progress {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .progress-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .progress-heading h2 {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 600;
+  }
+  .progress-heading a {
     display: inline-flex;
     align-items: center;
     min-height: var(--answer-target-min);
   }
-
-  @media (max-width: 479px) {
-    .masthead {
-      gap: var(--space-6);
-    }
-
-    .masthead-lede {
-      margin: var(--space-3) 0 var(--space-4);
-      font-size: var(--text-base);
-      line-height: var(--leading-normal);
-    }
-
-    .masthead-actions {
-      justify-items: stretch;
-    }
-
-    .practice-link {
-      justify-content: center;
-    }
+  .progress-skeleton {
+    min-height: 8rem;
   }
-
-  @media (min-width: 800px) {
-    .masthead {
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-10);
-    }
-
-    .method {
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-10);
-    }
-
-    .destinations .row-list {
-      display: grid;
+  @media (min-width: 600px) {
+    .training-links {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: var(--space-8);
     }
   }
 </style>

@@ -1,4 +1,4 @@
-# DitPath V1 training synchronization
+# OpenCW V1 training synchronization
 
 The canonical `/v1/training` API synchronizes guided attempts, terminal guided/practice history, and training settings. Every route requires `Authorization: Bearer ACCESS_TOKEN` and an existing user. The three former event/snapshot/settings `/v2/training` paths remain temporary compatibility aliases using the same handlers and database; requests are not redirected. Session and change-download routes are V1-only. [Legacy progress](../API.md#legacy-progress) remains active. Registration lives in [router.go](../internal/server/router.go); [request](../internal/common/input.go) and [response](../internal/common/response.go) schemas define JSON fields. This filename is retained to preserve existing links.
 

@@ -218,7 +218,6 @@
     <div class="masthead-row">
       <div class="masthead-text">
         <h1 class="page-title">{m.forum_title()}</h1>
-        <p class="body-text forum-intro">{m.forum_intro()}</p>
       </div>
       <button
         type="button"
@@ -412,12 +411,6 @@
 
   .masthead-row :global(.btn-primary) {
     flex: none;
-  }
-
-  .forum-intro {
-    margin: var(--space-2) 0 0;
-    max-width: var(--max-width-narrow);
-    line-height: var(--leading-relaxed);
   }
 
   /* Filters are links on a hairline: navigation, not a row of chips. */

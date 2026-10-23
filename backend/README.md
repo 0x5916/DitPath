@@ -1,4 +1,4 @@
-# DitPath backend development
+# OpenCW backend development
 
 The Go API entrypoint is [cmd/api-server/main.go](cmd/api-server/main.go). The local [Compose stack](docker-compose.yaml) and [example.env](example.env) are for development; production uses the [root deployment procedure](../DEPLOYMENT.md). Follow the Go version in [go.mod](go.mod).
 

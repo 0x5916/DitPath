@@ -1,9 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectLocaleFromAcceptedLanguages,
+  localizeAppHref,
   matchLocaleCandidate,
   normalizeLocalePreference
 } from './locale';
+import { locales } from '#lib/paraglide/runtime.js';
+
+describe('localized app hrefs', () => {
+  it.each(locales)('uses the deployed Home path for %s without a trailing slash', (locale) => {
+    for (const path of ['/', '/en', '/en/', '/de/']) {
+      expect(localizeAppHref(path, locale)).toBe(`/${locale}`);
+    }
+  });
+
+  it.each(locales)('retains Home query and fragment for %s', (locale) => {
+    expect(localizeAppHref('/?from=profile&next=%2Fforum#activity', locale)).toBe(
+      `/${locale}?from=profile&next=%2Fforum#activity`
+    );
+    expect(localizeAppHref('/de/#activity', locale)).toBe(`/${locale}#activity`);
+  });
+
+  it.each(locales)('preserves nested paths and their query and fragment for %s', (locale) => {
+    expect(localizeAppHref('/morse/learn/session?step=12#answer', locale)).toBe(
+      `/${locale}/morse/learn/session?step=12#answer`
+    );
+    expect(localizeAppHref('/settings#sync-storage', locale)).toBe(
+      `/${locale}/settings#sync-storage`
+    );
+    expect(localizeAppHref('/forum/', locale)).toBe(`/${locale}/forum/`);
+  });
+});
 
 describe('locale candidate matching', () => {
   it.each([

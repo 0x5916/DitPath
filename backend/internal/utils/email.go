@@ -25,9 +25,9 @@ func SendVerificationEmail(toEmail string, code string) error {
 	params := &resend.SendEmailRequest{
 		From:    configs.App.ResendFromEmail,
 		To:      []string{toEmail},
-		Subject: "Verify your DitPath email",
+		Subject: "Verify your OpenCW email",
 		Text: strings.Join([]string{
-			"Use this code to verify your DitPath email:",
+			"Use this code to verify your OpenCW email:",
 			code,
 			"",
 			"This code expires in 10 minutes.",

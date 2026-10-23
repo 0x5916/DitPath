@@ -78,6 +78,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--space-3);
   }
 
   .ledger-title {
@@ -90,6 +91,7 @@
   .ledger-period {
     font-size: var(--text-xs);
     color: var(--text-muted);
+    flex-shrink: 0;
   }
 
   .ledger-metrics {
@@ -118,5 +120,25 @@
     font-size: var(--text-xl);
     font-weight: 700;
     color: var(--text-primary);
+  }
+
+  @media (max-width: 479px) {
+    .ledger-metrics {
+      grid-template-columns: 1fr;
+      gap: var(--space-4);
+    }
+    .metric-block {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--space-2) var(--space-3);
+      text-align: start;
+    }
+    .metric-val {
+      text-align: end;
+      overflow-wrap: anywhere;
+    }
+    .metric-block > .metric-label:last-child:not(:first-child) {
+      grid-column: 1 / -1;
+    }
   }
 </style>

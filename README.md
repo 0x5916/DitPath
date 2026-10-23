@@ -1,6 +1,6 @@
-# DitPath
+# OpenCW
 
-DitPath is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Existing deployment identifiers and repository URLs retain their legacy names.
+OpenCW is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Existing deployment identifiers and repository URLs retain their legacy names.
 
 ## Start developing
 
@@ -39,6 +39,6 @@ For the full stack, configure the root `example.env` as `.env`, then follow the 
 
 ## License
 
-DitPath's original code and documentation are licensed under the [Apache License 2.0](LICENSE.md). Copyright 2026 Alan; see [NOTICE](NOTICE).
+OpenCW's original code and documentation are licensed under the [Apache License 2.0](LICENSE.md). Copyright 2026 Alan; see [NOTICE](NOTICE).
 
 Third-party dependencies and bundled materials retain their own licenses and notices, including [PGTune](db/PGTUNE-LICENSE) and the bundled [agent skills](.agents/skills/). These materials are not relicensed by the project license. Bundled agent skills and generated/dependency documentation are separate from the project guides above.

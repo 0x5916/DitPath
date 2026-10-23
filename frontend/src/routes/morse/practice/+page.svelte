@@ -4,7 +4,7 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
   import { localizedHref } from '#lib/i18n.svelte.ts';
-  import MorseSectionNav from '#lib/components/MorseSectionNav.svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import ContinuousCopyPractice from '#lib/components/practice/ContinuousCopyPractice.svelte';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { createSessionRepository } from '#lib/data/session-repository.ts';
@@ -90,15 +90,16 @@
 <svelte:window onbeforeunload={handleBeforeUnload} />
 
 <svelte:head>
-  <title>{m.nav_practice()} · DitPath</title>
+  <title>{m.nav_practice()} · OpenCW</title>
 </svelte:head>
 
 <div class="page-narrow">
-  <MorseSectionNav current="practice" />
   <header class="practice-header">
     <h1 class="page-title">{m.nav_practice()}</h1>
-    <p class="body-text">{m.practice_hub_subtitle()}</p>
-    <p class="practice-notice">{m.practice_mastery_notice()}</p>
+    <InfoTip
+      label={m.common_tip_label({ topic: m.nav_practice() })}
+      text={m.practice_mastery_notice()}
+    />
   </header>
 
   <TrainingSyncStatus
@@ -121,13 +122,9 @@
 </div>
 
 <style>
-  .practice-header .body-text {
-    margin: var(--space-2) 0 0;
-  }
-
-  .practice-notice {
-    margin: var(--space-2) 0 0;
-    color: var(--text-muted);
-    font-size: var(--text-xs);
+  .practice-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 </style>

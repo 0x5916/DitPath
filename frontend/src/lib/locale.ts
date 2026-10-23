@@ -1,9 +1,18 @@
-import { baseLocale, isLocale, locales } from '#lib/paraglide/runtime.js';
+import { baseLocale, isLocale, locales, localizeHref } from '#lib/paraglide/runtime.js';
 
 export type Locale = (typeof locales)[number];
 export type LocalePreference = Locale | 'auto';
 
 export const LOCALE_PREFERENCE_STORAGE_KEY = 'PARAGLIDE_LOCALE_PREF';
+
+/** Keep localized Home links aligned with SvelteKit's trailingSlash: 'never'. */
+export function localizeAppHref(path: string, locale: Locale): string {
+  const href = localizeHref(path, { locale });
+  const home = `/${locale}/`;
+  return href === home || href.startsWith(`${home}?`) || href.startsWith(`${home}#`)
+    ? `/${locale}${href.slice(home.length)}`
+    : href;
+}
 
 const LOCALE_DISPLAY: Record<Locale, { short: string; native: string }> = {
   en: { short: 'EN', native: 'English' },

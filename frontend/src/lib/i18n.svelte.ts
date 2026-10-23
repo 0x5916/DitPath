@@ -1,10 +1,11 @@
-import { baseLocale, locales, localizeHref, overwriteGetLocale } from '#lib/paraglide/runtime.js';
+import { baseLocale, locales, overwriteGetLocale } from '#lib/paraglide/runtime.js';
 import { migrateLegacyPreferences } from '#lib/cookies.ts';
 import {
   LOCALE_PREFERENCE_STORAGE_KEY,
   matchLocaleCandidate,
   normalizeLocalePreference,
   detectLocaleFromAcceptedLanguages,
+  localizeAppHref,
   type Locale,
   type LocalePreference
 } from '#lib/locale.ts';
@@ -19,7 +20,7 @@ export type { Locale, LocalePreference };
  * re-render when the active language changes.
  */
 export function localizedHref(path: string): string {
-  return localizeHref(path, { locale: lang.value });
+  return localizeAppHref(path, lang.value);
 }
 
 function applyDocumentLocale(locale: Locale): void {
@@ -47,7 +48,7 @@ function navigateToLocalizedPathIfNeeded(): void {
   if (typeof window === 'undefined') return;
 
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const next = localizeHref(current, { locale: lang.value });
+  const next = localizeAppHref(current, lang.value);
 
   const currentUrl = new URL(window.location.href);
   const nextUrl = new URL(next, window.location.origin);

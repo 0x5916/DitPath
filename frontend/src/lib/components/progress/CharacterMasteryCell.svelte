@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CharacterMastery } from '../../training/v2/types';
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import { CheckCircle2, CircleDot, AlertCircle, Circle } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -33,41 +34,31 @@
   );
 </script>
 
-<span
-  class="mastery-cell status-{status}"
-  role="img"
-  aria-label={accessibleLabel}
-  title={accessibleLabel}
->
-  <span class="cell-char">{character}</span>
-  <span class="cell-status-icon" aria-hidden="true">
-    {#if status === 'stable'}
-      <CheckCircle2 size={12} />
-    {:else if status === 'learning'}
-      <CircleDot size={12} />
-    {:else if status === 'review'}
-      <AlertCircle size={12} />
-    {:else}
-      <Circle size={10} />
-    {/if}
-  </span>
+<span class="mastery-cell status-{status}">
+  <InfoTip label={accessibleLabel} text={accessibleLabel}>
+    <span class="cell-char" aria-hidden="true">{character}</span>
+    <span class="cell-status-icon" aria-hidden="true">
+      {#if status === 'stable'}
+        <CheckCircle2 size={12} />
+      {:else if status === 'learning'}
+        <CircleDot size={12} />
+      {:else if status === 'review'}
+        <AlertCircle size={12} />
+      {:else}
+        <Circle size={10} />
+      {/if}
+    </span>
+  </InfoTip>
 </span>
 
 <style>
   .mastery-cell {
     display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.15rem;
-    min-width: var(--answer-target-min);
-    min-height: var(--answer-target-min);
-    width: 3.25rem;
-    height: 3.25rem;
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    position: relative;
+    --tip-trigger-size: 3.25rem;
+    --tip-trigger-direction: column;
+    --tip-trigger-gap: 0.15rem;
+    --tip-trigger-background: var(--bg-surface);
+    --tip-trigger-border: 1px solid var(--cell-border, var(--border));
   }
 
   .cell-char {
@@ -100,10 +91,10 @@
   }
 
   .status-stable {
-    border-color: color-mix(in srgb, var(--status-good) 30%, var(--border));
+    --cell-border: color-mix(in srgb, var(--status-good) 30%, var(--border));
   }
 
   .status-review {
-    border-color: color-mix(in srgb, var(--status-ok) 40%, var(--border));
+    --cell-border: color-mix(in srgb, var(--status-ok) 40%, var(--border));
   }
 </style>

@@ -51,6 +51,35 @@ export function progressRecordDays(items: HistorySessionRecord[]): ProgressDay[]
   return [...counts].map(([date, count]) => ({ date, count }));
 }
 
+/** Distinct training days in one UTC year, with weekday ties resolved Monday-first. */
+export function buildTrainingHabits(
+  records: HistorySessionRecord[],
+  year: number,
+  todayMs: number
+): { activeDays: number; longestStreak: number; favoriteWeekday: number | null } {
+  const days = progressRecordDays(
+    records.filter((record) => Date.parse(sessionOccurredAt(record)) <= todayMs)
+  )
+    .map(({ date }) => Date.parse(date))
+    .filter((day) => new Date(day).getUTCFullYear() === year)
+    .sort((a, b) => a - b);
+  const weekdays = Array<number>(7).fill(0);
+  let longestStreak = 0;
+  let streak = 0;
+  let previousDay = -Infinity;
+  for (const day of days) {
+    streak = day - previousDay === DAY_MS ? streak + 1 : 1;
+    longestStreak = Math.max(longestStreak, streak);
+    weekdays[new Date(day).getUTCDay()] += 1;
+    previousDay = day;
+  }
+  const mondayFirst = [1, 2, 3, 4, 5, 6, 0];
+  const favoriteWeekday = days.length
+    ? mondayFirst.reduce((best, day) => (weekdays[day] > weekdays[best] ? day : best))
+    : null;
+  return { activeDays: days.length, longestStreak, favoriteWeekday };
+}
+
 export function utcDayStart(ms: number): number {
   return Math.floor(ms / DAY_MS) * DAY_MS;
 }

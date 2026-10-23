@@ -3,13 +3,14 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { goto } from '$app/navigation';
   import {
-    House,
+    Dumbbell,
+    Cloud,
     Info,
     Languages,
     LogIn,
     LogOut,
-    MessageSquare,
     Monitor,
+    Radio,
     Settings,
     User,
     UserPlus,
@@ -65,8 +66,7 @@
 </script>
 
 <div class="page-narrow">
-  <!-- Phone-only hub. The masthead matches the other pages (page-title only);
-       the app mark lives in the top bar, which stays visible on this screen. -->
+  <!-- Phone-only hub; the masthead matches the other pages (page-title only). -->
   <header class="more-heading">
     <h1 class="page-title">{m.nav_more()}</h1>
   </header>
@@ -74,16 +74,17 @@
   <section class="panel panel--ledger">
     <h2 class="card-title">{m.more_app_section()}</h2>
     <div class="more-list">
-      <a href={href('/morse')} class="more-link"
-        ><Wrench size={16} aria-hidden="true" /><span class="more-link-text">{m.morse_title()}</span
+      <a href={href('/morse/learn')} class="more-link"
+        ><Radio size={16} aria-hidden="true" /><span class="more-link-text">{m.nav_learn()}</span
         ></a
       >
-      <a href={href('/')} class="more-link"
-        ><House size={16} aria-hidden="true" /><span class="more-link-text">{m.nav_home()}</span></a
+      <a href={href('/morse/practice')} class="more-link"
+        ><Dumbbell size={16} aria-hidden="true" /><span class="more-link-text"
+          >{m.nav_practice()}</span
+        ></a
       >
-      <a href={href('/forum')} class="more-link"
-        ><MessageSquare size={16} aria-hidden="true" /><span class="more-link-text"
-          >{m.nav_forum()}</span
+      <a href={href('/morse')} class="more-link"
+        ><Wrench size={16} aria-hidden="true" /><span class="more-link-text">{m.morse_title()}</span
         ></a
       >
       <a href={href('/about')} class="more-link"
@@ -104,6 +105,10 @@
           >{m.nav_settings()}</span
         ></a
       >
+      <a href={`${href('/settings')}#sync-storage`} class="more-link">
+        <Cloud size={16} aria-hidden="true" />
+        <span class="more-link-text">{m.settings_sync_storage_title()}</span>
+      </a>
       {#if $user}
         <button type="button" class="more-link" onclick={() => void handleLogout()}
           ><LogOut size={16} aria-hidden="true" /><span class="more-link-text"
@@ -176,6 +181,7 @@
     align-items: center;
     gap: 0.6rem;
     width: 100%;
+    min-height: var(--answer-target-min);
     padding: var(--space-3) 0;
     font-family: inherit;
     font-size: var(--text-sm);
