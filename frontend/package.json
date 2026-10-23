@@ -32,7 +32,7 @@
     "@eslint/js": "^10.0.1",
     "@sveltejs/adapter-static": "^4.0.0",
     "@sveltejs/kit": "^3.0.1",
-    "@sveltejs/mcp": "0.1.26",
+    "@sveltejs/mcp": "0.1.27",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
