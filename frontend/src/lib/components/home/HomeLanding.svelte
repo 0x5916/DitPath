@@ -168,7 +168,6 @@
     display: grid;
     gap: var(--space-6);
     padding-top: var(--space-8);
-    border-top: 1px solid var(--border);
   }
 
   .method .step-number {
@@ -225,7 +224,6 @@
     gap: var(--space-4);
     min-height: 7rem;
     padding: var(--space-5) var(--space-3);
-    border-bottom: 1px solid var(--border);
   }
 
   .dest-icon {

@@ -255,7 +255,7 @@ body {
   padding: var(--space-4);
 }
 
-/* Ledger sections use whitespace between groups and a rule beneath each title. */
+/* Ledger sections use whitespace and typography to distinguish groups. */
 .panel--ledger {
   border: none;
   border-radius: 0;
@@ -438,9 +438,7 @@ body {
   margin: 0 0 var(--space-4);
 }
 
-/* Level three steps down by size and weight alone. Its rule was pixel-identical
-   to `.section-title`'s, so it drew no boundary the section rule had not already
-   drawn — it only striped the page. The type step carries the level instead. */
+/* Level three headings step down by size and weight alone. */
 .sub-title {
   color: var(--text-primary);
   font-size: var(--text-lg);
