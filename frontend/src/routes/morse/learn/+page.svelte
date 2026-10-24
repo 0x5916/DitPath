@@ -224,7 +224,9 @@
 
 {#snippet lessonRequirements()}
   {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0}
-    <details class="unlock-checks">
+    <details
+      class={['unlock-checks', (heroKind === 'new' || heroKind === 'next') && 'with-start-row']}
+    >
       <summary>{unlockTitle}</summary>
       <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
       <ul class="mastery-checks" role="list">
@@ -331,6 +333,16 @@
 </div>
 
 <style>
+  .unlock-checks.with-start-row {
+    margin-inline-start: calc(var(--answer-target-min) + var(--space-3));
+  }
+
+  @media (max-width: 399px) {
+    .unlock-checks.with-start-row {
+      margin-inline-start: 0;
+    }
+  }
+
   .unlock-checks summary {
     min-height: var(--answer-target-min);
     padding-block: var(--space-3);

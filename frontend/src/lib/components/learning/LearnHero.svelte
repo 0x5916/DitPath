@@ -37,7 +37,9 @@
 
 {#snippet activeHeading(heading: string, characters: string, status: string)}
   <div class="hero-heading">
-    <span class="hero-character">{characters.split('').join(', ')}</span>
+    <span class={['hero-character', characters.length > 1 && 'has-multiple']}
+      >{characters.split('').join(', ')}</span
+    >
     <div class="hero-heading-copy">
       <h2 class="hero-title">{heading}</h2>
       {#if status}
@@ -45,6 +47,37 @@
       {/if}
     </div>
   </div>
+{/snippet}
+
+{#snippet startLesson(lessonStep: number, characters: string, showInstruction = false)}
+  {#if embedded}
+    <div class="hero-start-row">
+      <span class={['hero-character', characters.length > 1 && 'has-multiple']}>
+        {characters.split('').join(', ')}
+      </span>
+      <h2 class="hero-title">{m.learn_path_lesson({ step: lessonStep })}</h2>
+      <button
+        type="button"
+        class="btn-cta hero-btn compact-start"
+        aria-label={m.learn_start_action({ step: lessonStep })}
+        onclick={() => onStart(lessonStep)}
+        ><Play size={18} /><span>{m.learn_start_short()}</span></button
+      >
+    </div>
+    {#if showInstruction}<p class="hero-desc compact-description">
+        {m.learn_new_description()}
+      </p>{/if}
+  {:else}
+    <h2 class="hero-title">
+      {m.home_lesson_title({ step: lessonStep, characters: characters.split('').join(', ') })}
+    </h2>
+    {#if showInstruction}<p class="hero-desc">{m.learn_new_description()}</p>{/if}
+    <div class="hero-actions">
+      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(lessonStep)}>
+        <Play size={18} /><span>{m.learn_start_action({ step: lessonStep })}</span>
+      </button>
+    </div>
+  {/if}
 {/snippet}
 
 <div
@@ -122,37 +155,9 @@
       </button>
     </div>
   {:else if kind === 'new'}
-    {#if embedded}
-      {@render activeHeading(m.learn_path_lesson({ step: 1 }), LESSONS[0], m.learn_ready_status())}
-    {:else}
-      <h2 class="hero-title">
-        {m.home_lesson_title({ step: 1, characters: LESSONS[0].split('').join(', ') })}
-      </h2>
-    {/if}
-    <p class="hero-desc">
-      {m.learn_new_description()}
-    </p>
-    <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(1)}>
-        <Play size={18} />
-        <span>{m.learn_start_action({ step: 1 })}</span>
-      </button>
-    </div>
+    {@render startLesson(1, LESSONS[0], true)}
   {:else}
-    <!-- kind === 'next' -->
-    {#if embedded}
-      {@render activeHeading(m.learn_path_lesson({ step }), introducedChar, m.learn_ready_status())}
-    {:else}
-      <h2 class="hero-title">
-        {m.home_lesson_title({ step, characters: introducedChar.split('').join(', ') })}
-      </h2>
-    {/if}
-    <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
-        <Play size={18} />
-        <span>{m.learn_start_action({ step })}</span>
-      </button>
-    </div>
+    {@render startLesson(step, introducedChar)}
   {/if}
 </div>
 
@@ -192,9 +197,9 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    min-width: var(--answer-target-min);
-    min-height: var(--answer-target-min);
-    padding: var(--space-2);
+    width: var(--answer-target-min);
+    height: var(--answer-target-min);
+    padding: 0;
     border-radius: var(--radius-sm);
     background: var(--bg-inset);
     color: var(--accent);
@@ -202,6 +207,26 @@
     font-size: var(--text-2xl);
     font-weight: 600;
     line-height: 1;
+  }
+
+  .hero-character.has-multiple {
+    font-size: var(--text-lg);
+  }
+
+  .hero-start-row {
+    display: grid;
+    grid-template-columns: var(--answer-target-min) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+  }
+
+  .hero-start-row .compact-start {
+    padding-inline: var(--space-4);
+  }
+
+  .hero-desc.compact-description {
+    margin-inline-start: calc(var(--answer-target-min) + var(--space-3));
   }
 
   .hero-heading-copy {
@@ -293,5 +318,17 @@
     height: 3rem;
     width: 12rem;
     margin-top: var(--space-3);
+  }
+  @media (max-width: 399px) {
+    .hero-start-row {
+      grid-template-columns: var(--answer-target-min) minmax(0, 1fr);
+    }
+    .hero-start-row .compact-start {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .hero-desc.compact-description {
+      margin-inline-start: 0;
+    }
   }
 </style>

@@ -99,19 +99,21 @@
           })}
           onclick={() => onSelectStep(previousStep)}
         >
-          <span class="previous-character" aria-hidden="true">{previousCharacters}</span>
+          <span class="previous-marker status-{previousStatus}" aria-hidden="true">
+            {#if previousStatus === 'stable'}
+              <CheckCircle2 size={18} />
+            {:else if previousStatus === 'review'}
+              <AlertCircle size={18} />
+            {:else}
+              <Circle size={18} />
+            {/if}
+          </span>
           <span class="previous-copy">
-            <span class="previous-step">{m.learn_path_lesson({ step: previousStep })}</span>
-            <span class="previous-status status-{previousStatus}">
-              {#if previousStatus === 'stable'}
-                <CheckCircle2 size={16} aria-hidden="true" />
-              {:else if previousStatus === 'review'}
-                <AlertCircle size={16} aria-hidden="true" />
-              {:else}
-                <Circle size={16} aria-hidden="true" />
-              {/if}
-              {previousLabel}
+            <span class="previous-step">
+              {m.learn_path_lesson({ step: previousStep })}
+              <span class="previous-glyph" aria-hidden="true">{previousCharacters}</span>
             </span>
+            <span class="previous-status status-{previousStatus}">{previousLabel}</span>
           </span>
         </button>
         <div class="connector" aria-hidden="true"><ArrowRight size={24} /></div>
@@ -183,35 +185,44 @@
     background: var(--bg-inset);
   }
 
-  .previous-character {
+  .previous-marker {
     display: grid;
     place-items: center;
     flex-shrink: 0;
     width: 48px;
-    height: 48px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-inset);
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    font-weight: 600;
+    height: 32px;
   }
 
   .previous-copy {
-    display: grid;
-    gap: var(--space-1);
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
     min-width: 0;
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
 
-  .previous-status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
+  .previous-step {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
   }
 
-  .previous-status :global(svg) {
-    flex-shrink: 0;
+  .previous-glyph {
+    display: inline-grid;
+    place-items: center;
+    min-width: var(--space-5);
+    padding-inline: var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--bg-inset);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+  }
+
+  .previous-status {
+    font-size: var(--text-xs);
   }
 
   .status-stable {
@@ -226,7 +237,7 @@
     display: grid;
     place-items: center;
     width: 48px;
-    height: 32px;
+    height: var(--space-4);
     color: var(--text-muted);
   }
 

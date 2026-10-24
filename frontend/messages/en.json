@@ -349,7 +349,7 @@
   "api_error_email_not_verified": "Verify your email address before posting.",
   "api_error_invalid_query_parameter": "The page cursor is invalid. Reload the forum.",
   "learn_path_title": "Choose a lesson",
-  "learn_ready_status": "Ready to start",
+  "learn_start_short": "Start",
   "learn_path_other": "Other lessons ({count})",
   "learn_path_unlocked": "{count} of {total} lessons unlocked",
   "learn_path_earlier": "Earlier lessons ({count})",

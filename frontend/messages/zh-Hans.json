@@ -349,7 +349,7 @@
   "api_error_email_not_verified": "发帖前请先验证邮箱。",
   "api_error_invalid_query_parameter": "分页游标无效，请重新加载论坛。",
   "learn_path_title": "选择课程",
-  "learn_ready_status": "可以开始",
+  "learn_start_short": "开始",
   "learn_path_other": "其他课程（{count}）",
   "learn_path_unlocked": "已解锁 {count} 课，共 {total} 课",
   "learn_path_earlier": "之前的课程（{count}）",

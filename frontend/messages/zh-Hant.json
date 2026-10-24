@@ -349,7 +349,7 @@
   "api_error_email_not_verified": "發文前請先驗證電郵。",
   "api_error_invalid_query_parameter": "分頁游標無效，請重新載入論壇。",
   "learn_path_title": "選擇課程",
-  "learn_ready_status": "可以開始",
+  "learn_start_short": "開始",
   "learn_path_other": "其他課程（{count}）",
   "learn_path_unlocked": "已解鎖 {count} 課，共 {total} 課",
   "learn_path_earlier": "之前的課程（{count}）",

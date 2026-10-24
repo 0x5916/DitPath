@@ -349,7 +349,7 @@
   "api_error_email_not_verified": "Bestätige deine E-Mail-Adresse, bevor du schreibst.",
   "api_error_invalid_query_parameter": "Der Seitenzeiger ist ungültig. Lade das Forum neu.",
   "learn_path_title": "Lektion auswählen",
-  "learn_ready_status": "Bereit zum Start",
+  "learn_start_short": "Starten",
   "learn_path_other": "Weitere Lektionen ({count})",
   "learn_path_unlocked": "{count} von {total} Lektionen freigeschaltet",
   "learn_path_earlier": "Frühere Lektionen ({count})",

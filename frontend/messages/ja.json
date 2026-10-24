@@ -349,7 +349,7 @@
   "api_error_email_not_verified": "投稿する前にメールアドレスを認証してください。",
   "api_error_invalid_query_parameter": "ページカーソルが無効です。フォーラムを再読み込みしてください。",
   "learn_path_title": "レッスンを選ぶ",
-  "learn_ready_status": "開始できます",
+  "learn_start_short": "開始",
   "learn_path_other": "ほかのレッスン（{count}）",
   "learn_path_unlocked": "全{total}レッスン中{count}レッスンが利用可能",
   "learn_path_earlier": "前のレッスン（{count}）",
