@@ -20,7 +20,6 @@
   import CoursePath from '#lib/components/learning/CoursePath.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
-  import InfoTip from '#lib/components/InfoTip.svelte';
   import {
     getTrainingOwner,
     trainingSyncState,
@@ -57,6 +56,8 @@
   });
 
   let currentIntroduced = $derived(LESSONS[currentStep - 1] ?? 'KM');
+  let activeStep = $derived(inProgressSession?.step ?? currentStep);
+  let activeIntroduced = $derived(LESSONS[activeStep - 1] ?? 'KM');
   let unlockTitle = $derived(
     currentStep < LESSONS.length
       ? m.learn_unlock_next_title({
@@ -201,10 +202,106 @@
   </div>
 {/snippet}
 
+{#snippet currentLesson()}
+  <LearnHero
+    embedded
+    kind={heroKind}
+    step={activeStep}
+    introducedChar={activeIntroduced}
+    {reviewChars}
+    resumableSessionId={inProgressSession?.id}
+    errorMessage={errorMsg}
+    {sessionActionPending}
+    onStart={handleStartLesson}
+    onResume={handleResumeSession}
+    onDiscardResume={handleDiscardResume}
+  />
+  {#if errorMsg}
+    <button type="button" class="btn-primary" onclick={loadLessons}>{m.progress_retry()}</button>
+  {/if}
+  {#if sessionActionError}<p role="alert">{sessionActionError}</p>{/if}
+{/snippet}
+
+{#snippet lessonRequirements()}
+  {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0}
+    <details class="unlock-checks">
+      <summary>{unlockTitle}</summary>
+      <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
+      <ul class="mastery-checks" role="list">
+        {#each masteryChecks as { character, mastery, blockers } (character)}
+          <li class="mastery-character">
+            <strong class="check-character">{character}</strong>
+            <div class="character-checks">
+              {#each blockers as blocker (blocker)}
+                {#if blocker === 'attempts'}
+                  {@render masteryCheck(
+                    m.learn_unlock_attempts_label(),
+                    m.learn_unlock_count({
+                      count: mastery.totalAttempts,
+                      required: policy.minAttemptsForStability
+                    }),
+                    mastery.totalAttempts,
+                    policy.minAttemptsForStability
+                  )}
+                {:else if blocker === 'sessions'}
+                  {@render masteryCheck(
+                    m.learn_unlock_sessions_label(),
+                    m.learn_unlock_count({
+                      count: mastery.sessionCount,
+                      required: policy.minSessionsForStability
+                    }),
+                    mastery.sessionCount,
+                    policy.minSessionsForStability
+                  )}
+                {:else if blocker === 'accuracy'}
+                  {@render masteryCheck(
+                    m.learn_unlock_accuracy_label(),
+                    mastery.totalAttempts === 0
+                      ? m.learn_unlock_accuracy_missing_value({
+                          required: Math.round(policy.targetAccuracy * 100)
+                        })
+                      : m.learn_unlock_accuracy_value({
+                          current: (mastery.rollingAccuracy * 100).toFixed(1),
+                          required: Math.round(policy.targetAccuracy * 100)
+                        }),
+                    mastery.totalAttempts === 0 ? undefined : mastery.rollingAccuracy,
+                    policy.targetAccuracy
+                  )}
+                {:else if blocker === 'speed'}
+                  {@render masteryCheck(
+                    m.learn_unlock_speed_label(),
+                    mastery.medianLatencyMs === null
+                      ? m.learn_unlock_speed_missing_value({
+                          required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
+                        })
+                      : m.learn_unlock_speed_value({
+                          current: (Math.ceil(mastery.medianLatencyMs) / 1000).toFixed(3),
+                          required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
+                        })
+                  )}
+                {:else}
+                  <p class="review-check">
+                    <CircleAlert size={16} aria-hidden="true" />{m.learn_unlock_review_due()}
+                  </p>
+                {/if}
+              {/each}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    </details>
+  {/if}
+{/snippet}
+
 <div class="page-narrow">
   <div class="learn-home-container">
     <header class="learn-header">
       <h1 class="page-title">{m.nav_learn()}</h1>
+      {#if !loading && !errorMsg}
+        <span class="path-meta">
+          {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
+        </span>
+      {/if}
     </header>
 
     <TrainingSyncStatus
@@ -215,108 +312,17 @@
       synced={trainingSyncState.synced}
     />
 
-    <LearnHero
-      kind={heroKind}
-      step={inProgressSession?.step ?? currentStep}
-      introducedChar={currentIntroduced}
-      {reviewChars}
-      resumableSessionId={inProgressSession?.id}
-      errorMessage={errorMsg}
-      {sessionActionPending}
-      onStart={handleStartLesson}
-      onResume={handleResumeSession}
-      onDiscardResume={handleDiscardResume}
+    <CoursePath
+      {currentStep}
+      {masteryMap}
+      {suggestedStep}
+      displayStep={activeStep}
+      ready={!loading && !errorMsg}
+      showPrevious={activeStep === currentStep && !courseComplete}
+      current={currentLesson}
+      requirements={lessonRequirements}
+      onSelectStep={handleStartLesson}
     />
-    {#if errorMsg}
-      <button type="button" class="btn-primary" onclick={loadLessons}>{m.progress_retry()}</button>
-    {/if}
-    {#if sessionActionError}<p role="alert">{sessionActionError}</p>{/if}
-
-    <section class="path-section" aria-labelledby="path-heading">
-      <div class="section-header-row">
-        <div class="section-heading">
-          <h2 id="path-heading" class="section-title">{m.learn_path_title()}</h2>
-          <InfoTip
-            label={m.common_tip_label({ topic: m.learn_path_title() })}
-            text={m.learn_path_hint()}
-          />
-        </div>
-        {#if !loading && !errorMsg}
-          <span class="path-meta">
-            {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
-          </span>
-        {/if}
-      </div>
-
-      {#if !loading && !errorMsg}
-        <CoursePath {currentStep} {masteryMap} {suggestedStep} onSelectStep={handleStartLesson} />
-      {/if}
-    </section>
-
-    {#if !loading && !errorMsg && (hasAttempts || inProgressSession) && masteryChecks.length > 0}
-      <details class="unlock-checks">
-        <summary>{unlockTitle}</summary>
-        <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
-        <ul class="mastery-checks" role="list">
-          {#each masteryChecks as { character, mastery, blockers } (character)}
-            <li class="mastery-character">
-              <strong class="check-character">{character}</strong>
-              <div class="character-checks">
-                {#each blockers as blocker (blocker)}
-                  {#if blocker === 'attempts'}
-                    {@render masteryCheck(
-                      m.learn_unlock_attempts_label(),
-                      m.learn_unlock_count({
-                        count: mastery.totalAttempts,
-                        required: policy.minAttemptsForStability
-                      }),
-                      mastery.totalAttempts,
-                      policy.minAttemptsForStability
-                    )}
-                  {:else if blocker === 'sessions'}
-                    {@render masteryCheck(
-                      m.learn_unlock_sessions_label(),
-                      m.learn_unlock_count({
-                        count: mastery.sessionCount,
-                        required: policy.minSessionsForStability
-                      }),
-                      mastery.sessionCount,
-                      policy.minSessionsForStability
-                    )}
-                  {:else if blocker === 'accuracy'}
-                    {@render masteryCheck(
-                      m.learn_unlock_accuracy_label(),
-                      m.learn_unlock_accuracy_value({
-                        current: (mastery.rollingAccuracy * 100).toFixed(1),
-                        required: Math.round(policy.targetAccuracy * 100)
-                      }),
-                      mastery.rollingAccuracy,
-                      policy.targetAccuracy
-                    )}
-                  {:else if blocker === 'speed'}
-                    {@render masteryCheck(
-                      m.learn_unlock_speed_label(),
-                      mastery.medianLatencyMs === null
-                        ? m.learn_unlock_speed_missing_value({
-                            required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
-                          })
-                        : m.learn_unlock_speed_value({
-                            current: (Math.ceil(mastery.medianLatencyMs) / 1000).toFixed(3),
-                            required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
-                          })
-                    )}
-                  {:else}
-                    <p class="review-check">
-                      <CircleAlert size={16} aria-hidden="true" />{m.learn_unlock_review_due()}
-                    </p>
-                  {/if}
-                {/each}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      </details>
-    {/if}
 
     {#if !$user}
       <GuestNotice class="body-text" />
@@ -328,9 +334,9 @@
   .unlock-checks summary {
     min-height: var(--answer-target-min);
     padding-block: var(--space-3);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
   }
 
@@ -431,8 +437,9 @@
   .learn-header {
     text-align: left;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: var(--space-2);
   }
 
@@ -443,37 +450,8 @@
     color: var(--text-primary);
   }
 
-  .path-section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    width: 100%;
-    max-width: var(--max-width-narrow);
-  }
-
-  .section-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .section-title {
-    margin: 0;
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
   .path-meta {
     font-size: var(--text-xs);
     color: var(--text-muted);
-  }
-
-  .section-heading {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
   }
 </style>

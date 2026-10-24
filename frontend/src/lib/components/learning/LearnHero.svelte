@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, Play, RotateCcw, AlertCircle } from '@lucide/svelte';
+  import { Play, RotateCcw, AlertCircle } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
   import { LESSONS } from '#lib/training/sequence.ts';
 
@@ -14,6 +14,7 @@
     resumableSessionId?: string;
     errorMessage?: string;
     sessionActionPending?: boolean;
+    embedded?: boolean;
     onStart: (step: number) => void;
     onResume?: (sessionId: string) => void;
     onDiscardResume?: () => void;
@@ -27,14 +28,27 @@
     resumableSessionId,
     errorMessage = '',
     sessionActionPending = false,
+    embedded = false,
     onStart = () => {},
     onResume = () => {},
     onDiscardResume = () => {}
   }: Props = $props();
 </script>
 
+{#snippet activeHeading(heading: string, characters: string, status: string)}
+  <div class="hero-heading">
+    <span class="hero-character">{characters.split('').join(', ')}</span>
+    <div class="hero-heading-copy">
+      <h2 class="hero-title">{heading}</h2>
+      {#if status}
+        <p class={['hero-status', kind === 'review-due' && 'is-review']}>{status}</p>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
 <div
-  class="learn-hero-card"
+  class={['learn-hero-card', embedded && 'is-embedded']}
   role="region"
   aria-label={m.learn_next_recommendation()}
   aria-busy={kind === 'loading' || sessionActionPending}
@@ -54,7 +68,11 @@
       </div>
     </div>
   {:else if kind === 'resume' && resumableSessionId}
-    <h2 class="hero-title">{m.learn_restart_title({ step })}</h2>
+    {#if embedded}
+      {@render activeHeading(m.learn_restart_title({ step }), introducedChar, '')}
+    {:else}
+      <h2 class="hero-title">{m.learn_restart_title({ step })}</h2>
+    {/if}
     <p class="hero-desc">{m.learn_restart_description()}</p>
     <div class="hero-actions">
       <button
@@ -76,8 +94,16 @@
       </button>
     </div>
   {:else if kind === 'review-due'}
-    <div class="hero-eyebrow eyebrow-review">{m.learn_review_eyebrow()}</div>
-    <h2 class="hero-title">{m.learn_review_title({ characters: reviewChars.join(', ') })}</h2>
+    {#if embedded}
+      {@render activeHeading(
+        m.learn_review_title({ characters: reviewChars.join(', ') }),
+        introducedChar,
+        m.learn_review_eyebrow()
+      )}
+    {:else}
+      <div class="hero-eyebrow eyebrow-review">{m.learn_review_eyebrow()}</div>
+      <h2 class="hero-title">{m.learn_review_title({ characters: reviewChars.join(', ') })}</h2>
+    {/if}
     <p class="hero-desc">{m.learn_review_description()}</p>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
@@ -96,27 +122,35 @@
       </button>
     </div>
   {:else if kind === 'new'}
-    <h2 class="hero-title">
-      {m.home_lesson_title({ step: 1, characters: LESSONS[0].split('').join(', ') })}
-    </h2>
+    {#if embedded}
+      {@render activeHeading(m.learn_path_lesson({ step: 1 }), LESSONS[0], m.learn_ready_status())}
+    {:else}
+      <h2 class="hero-title">
+        {m.home_lesson_title({ step: 1, characters: LESSONS[0].split('').join(', ') })}
+      </h2>
+    {/if}
     <p class="hero-desc">
       {m.learn_new_description()}
     </p>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(1)}>
+        <Play size={18} />
         <span>{m.learn_start_action({ step: 1 })}</span>
-        <ArrowRight size={18} />
       </button>
     </div>
   {:else}
     <!-- kind === 'next' -->
-    <h2 class="hero-title">
-      {m.home_lesson_title({ step, characters: introducedChar.split('').join(', ') })}
-    </h2>
+    {#if embedded}
+      {@render activeHeading(m.learn_path_lesson({ step }), introducedChar, m.learn_ready_status())}
+    {:else}
+      <h2 class="hero-title">
+        {m.home_lesson_title({ step, characters: introducedChar.split('').join(', ') })}
+      </h2>
+    {/if}
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
+        <Play size={18} />
         <span>{m.learn_start_action({ step })}</span>
-        <ArrowRight size={18} />
       </button>
     </div>
   {/if}
@@ -136,6 +170,54 @@
     width: 100%;
     max-width: var(--max-width-narrow);
     position: relative;
+  }
+
+  .learn-hero-card.is-embedded {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .hero-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hero-character {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--answer-target-min);
+    min-height: var(--answer-target-min);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg-inset);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .hero-heading-copy {
+    display: grid;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+
+  .hero-status {
+    margin: 0;
+    color: var(--learning-current);
+    font-size: var(--text-sm);
+  }
+
+  .hero-status.is-review {
+    color: var(--learning-review);
   }
 
   .hero-eyebrow {
