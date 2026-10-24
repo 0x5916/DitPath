@@ -16,6 +16,7 @@
   let { step, characters, status, isCurrent = false, onSelect = () => {} }: Props = $props();
 
   let isInteractive = $derived(status !== 'locked');
+  let characterLabel = $derived(characters.split('').join(', '));
   let statusLabel = $derived.by(() => {
     switch (status) {
       case 'stable':
@@ -40,7 +41,11 @@
     class="path-item is-interactive"
     class:is-current={isCurrent}
     onclick={onSelect}
-    aria-label={m.learn_path_lesson_label({ step, characters, status: statusLabel })}
+    aria-label={m.learn_path_lesson_label({
+      step,
+      characters: characterLabel,
+      status: statusLabel
+    })}
     aria-current={isCurrent ? 'step' : undefined}
   >
     <div class="node-icon status-{status}" aria-hidden="true">
@@ -58,7 +63,7 @@
     <div class="node-details">
       <div class="node-title">
         <span class="step-label">{m.learn_path_lesson({ step })}</span>
-        <span class="char-label">{characters}</span>
+        <span class="char-label">{characterLabel}</span>
       </div>
       <span class="status-text status-text-{status}">{statusLabel}</span>
     </div>
@@ -72,7 +77,7 @@
     <div class="node-details">
       <div class="node-title">
         <span class="step-label">{m.learn_path_lesson({ step })}</span>
-        <span class="char-label">{characters}</span>
+        <span class="char-label">{characterLabel}</span>
       </div>
       <span class="status-text status-text-locked">{statusLabel}</span>
     </div>

@@ -58,7 +58,12 @@
 
   let currentIntroduced = $derived(LESSONS[currentStep - 1] ?? 'KM');
   let unlockTitle = $derived(
-    currentStep < LESSONS.length ? m.learn_unlock_next_title() : m.learn_unlock_complete_title()
+    currentStep < LESSONS.length
+      ? m.learn_unlock_next_title({
+          step: currentStep + 1,
+          characters: LESSONS[currentStep].split('').join(', ')
+        })
+      : m.learn_unlock_complete_title()
   );
   let masteryChecks = $derived(
     currentIntroduced.split('').flatMap((character) => {
@@ -227,15 +232,31 @@
     {/if}
     {#if sessionActionError}<p role="alert">{sessionActionError}</p>{/if}
 
-    {#if !loading && !errorMsg && (hasAttempts || inProgressSession) && masteryChecks.length > 0}
-      <section aria-labelledby="unlock-checks-title">
+    <section class="path-section" aria-labelledby="path-heading">
+      <div class="section-header-row">
         <div class="section-heading">
-          <h2 id="unlock-checks-title" class="section-title">{unlockTitle}</h2>
+          <h2 id="path-heading" class="section-title">{m.learn_path_title()}</h2>
           <InfoTip
-            label={m.common_tip_label({ topic: unlockTitle })}
-            text={m.learn_unlock_checks_hint()}
+            label={m.common_tip_label({ topic: m.learn_path_title() })}
+            text={m.learn_path_hint()}
           />
         </div>
+        {#if !loading && !errorMsg}
+          <span class="path-meta">
+            {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
+          </span>
+        {/if}
+      </div>
+
+      {#if !loading && !errorMsg}
+        <CoursePath {currentStep} {masteryMap} {suggestedStep} onSelectStep={handleStartLesson} />
+      {/if}
+    </section>
+
+    {#if !loading && !errorMsg && (hasAttempts || inProgressSession) && masteryChecks.length > 0}
+      <details class="unlock-checks">
+        <summary>{unlockTitle}</summary>
+        <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
         <ul class="mastery-checks" role="list">
           {#each masteryChecks as { character, mastery, blockers } (character)}
             <li class="mastery-character">
@@ -294,37 +315,36 @@
             </li>
           {/each}
         </ul>
-      </section>
+      </details>
     {/if}
 
     {#if !$user}
       <GuestNotice class="body-text" />
     {/if}
-
-    <section class="path-section" aria-labelledby="path-heading">
-      <div class="section-header-row">
-        <div class="section-heading">
-          <h2 id="path-heading" class="section-title">{m.learn_path_title()}</h2>
-          <InfoTip
-            label={m.common_tip_label({ topic: m.learn_path_title() })}
-            text={m.learn_path_hint()}
-          />
-        </div>
-        {#if !loading && !errorMsg}
-          <span class="path-meta">
-            {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
-          </span>
-        {/if}
-      </div>
-
-      {#if !loading && !errorMsg}
-        <CoursePath {currentStep} {masteryMap} {suggestedStep} onSelectStep={handleStartLesson} />
-      {/if}
-    </section>
   </div>
 </div>
 
 <style>
+  .unlock-checks summary {
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-3);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .unlock-checks summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .unlock-hint {
+    margin: var(--space-2) 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
   .mastery-checks {
     list-style: none;
     margin: 0;

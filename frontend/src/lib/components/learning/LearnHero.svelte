@@ -96,8 +96,9 @@
       </button>
     </div>
   {:else if kind === 'new'}
-    <div class="hero-eyebrow">{m.learn_new_eyebrow()}</div>
-    <h2 class="hero-title">{m.learn_new_title({ characters: LESSONS[0].split('').join(', ') })}</h2>
+    <h2 class="hero-title">
+      {m.home_lesson_title({ step: 1, characters: LESSONS[0].split('').join(', ') })}
+    </h2>
     <p class="hero-desc">
       {m.learn_new_description()}
     </p>
@@ -109,11 +110,9 @@
     </div>
   {:else}
     <!-- kind === 'next' -->
-    <div class="hero-eyebrow">{m.learn_next_eyebrow()}</div>
-    <h2 class="hero-title">{m.learn_next_title({ step, characters: introducedChar })}</h2>
-    <p class="hero-desc">
-      {m.learn_next_description({ characters: introducedChar })}
-    </p>
+    <h2 class="hero-title">
+      {m.home_lesson_title({ step, characters: introducedChar.split('').join(', ') })}
+    </h2>
     <div class="hero-actions">
       <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
         <span>{m.learn_start_action({ step })}</span>
@@ -128,8 +127,8 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-6);
+    gap: var(--space-2);
+    padding: var(--space-5);
     background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-inline-start: 3px solid var(--accent);
@@ -155,7 +154,7 @@
 
   .hero-title {
     margin: 0;
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     font-weight: 700;
     color: var(--text-primary);
     line-height: var(--leading-tight);
@@ -173,7 +172,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: var(--space-3);
-    margin-top: var(--space-3);
+    margin-top: 0;
   }
 
   .hero-btn {
