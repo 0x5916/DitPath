@@ -16,6 +16,7 @@
   import { formatClock, percentage } from '../../format';
   import MorsePlayer from '../MorsePlayer.svelte';
   import ResultOverlay from '../ResultOverlay.svelte';
+  import ExitSessionDialog from '../learning/ExitSessionDialog.svelte';
   import { ChevronLeft, ChevronRight } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -59,6 +60,10 @@
   let newExerciseTimer: ReturnType<typeof setTimeout> | null = null;
   let focusTimer: ReturnType<typeof setTimeout> | null = null;
   let answerEl = $state<HTMLTextAreaElement | null>(null);
+  let discardOpen = $state(false);
+  let discardReturnFocus = $state<HTMLElement | null>(null);
+  let resolveDiscard: ((confirmed: boolean) => void) | null = null;
+  let destroyed = false;
 
   let player = $state<{
     playNow: () => Promise<void>;
@@ -77,20 +82,12 @@
   });
 
   let currentLessonChars = $derived(getLessonChars(activeLesson).split('').filter(Boolean));
-  let isLetter = (c: string) => /[A-Z]/.test(c);
-  let isNumber = (c: string) => /[0-9]/.test(c);
-  let numberChars = $derived(currentLessonChars.filter(isNumber));
-  let symbolChars = $derived(currentLessonChars.filter((c) => !isLetter(c) && !isNumber(c)));
-  let lessonKindLabel = $derived(
-    numberChars.length + symbolChars.length > 0
-      ? m.trainer_lesson_mixed()
-      : m.trainer_lesson_letters()
-  );
 
   let sendSeconds = $derived(Math.floor(attempt.duration));
   let transportLive = $derived(session.status === 'playing' || session.status === 'paused');
   let sessionStarted = $derived(session.status !== 'ready' && session.status !== 'disposed');
   let checkEnabled = $derived(canCheck(session) && inputText.trim() !== '');
+  let unfinished = $derived(result < 0 && (inputText.trim() !== '' || session.status !== 'ready'));
 
   let flowSteps = $derived([
     { index: 0, label: m.trainer_flow_start },
@@ -145,8 +142,25 @@
     showOverlay = false;
   }
 
+  async function confirmReplaceExercise(): Promise<boolean> {
+    if (destroyed || savePending || resolveDiscard) return false;
+    if (!unfinished) return true;
+    const exercise = attempt.exercise;
+    discardReturnFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    discardOpen = true;
+    const confirmed = await new Promise<boolean>((resolve) => (resolveDiscard = resolve));
+    return confirmed && !destroyed && !savePending && attempt.exercise === exercise;
+  }
+
+  function finishDiscardDecision(confirmed: boolean) {
+    const resolve = resolveDiscard;
+    resolveDiscard = null;
+    discardOpen = false;
+    resolve?.(confirmed);
+  }
+
   function requestNewExercise() {
-    const unfinished = result < 0 && (inputText.trim() !== '' || session.status !== 'ready');
     if (newExerciseTimer) clearTimeout(newExerciseTimer);
 
     if (!newExerciseArmed && !unfinished) {
@@ -169,7 +183,7 @@
     if (focusTimer) clearTimeout(focusTimer);
     focusTimer = setTimeout(() => {
       focusTimer = null;
-      if (!showOverlay && sessionStarted) answerEl?.focus();
+      if (!showOverlay && !discardOpen && sessionStarted) answerEl?.focus();
     }, 100);
   }
 
@@ -185,20 +199,20 @@
     showOverlay = true;
   }
 
-  function handleNextLesson() {
-    if (activeLesson < LESSONS.length) {
+  async function handleNextLesson() {
+    if (activeLesson < LESSONS.length && (await confirmReplaceExercise())) {
       regenerate(activeLesson + 1);
     }
   }
 
-  function handlePrevLesson() {
-    if (activeLesson > 1) {
+  async function handlePrevLesson() {
+    if (activeLesson > 1 && (await confirmReplaceExercise())) {
       regenerate(activeLesson - 1);
     }
   }
 
   function onPracticeKeydown(event: KeyboardEvent) {
-    if (showOverlay) return;
+    if (showOverlay || discardOpen) return;
     const intent = practiceKeyIntent(event);
     if (intent === 'check' && sessionStarted) {
       event.preventDefault();
@@ -213,6 +227,8 @@
   }
 
   onDestroy(() => {
+    destroyed = true;
+    finishDiscardDecision(false);
     if (newExerciseTimer) clearTimeout(newExerciseTimer);
     if (focusTimer) clearTimeout(focusTimer);
   });
@@ -248,10 +264,7 @@
       </div>
 
       <p class="console-title">
-        {m.trainer_lesson_summary({
-          lesson: String(activeLesson),
-          kind: lessonKindLabel
-        })}
+        {m.trainer_practice_characters({ characters: currentLessonChars.join(' ') })}
       </p>
     </div>
 
@@ -289,6 +302,7 @@
       bind:freq={settings.freq}
       bind:volume={settings.volume}
       bind:startDelay={settings.startDelay}
+      onBeforeSettingsInput={confirmReplaceExercise}
       onSettingsInput={() => regenerate()}
       showSettings
       playTone={sessionStarted && !transportLive ? 'quiet' : 'primary'}
@@ -373,6 +387,18 @@
   {/if}
 </div>
 
+<ExitSessionDialog
+  isOpen={discardOpen}
+  title={m.trainer_new_exercise_confirm()}
+  description={m.trainer_discard_description()}
+  confirmLabel={m.trainer_discard_action()}
+  cancelLabel={m.forum_cancel()}
+  returnFocusTo={discardReturnFocus}
+  fallbackFocus={answerEl}
+  onConfirm={() => finishDiscardDecision(true)}
+  onCancel={() => finishDiscardDecision(false)}
+/>
+
 <style>
   .continuous-copy-practice {
     display: flex;
@@ -425,6 +451,7 @@
     font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text-secondary);
+    overflow-wrap: anywhere;
   }
 
   .console-meta {
@@ -547,6 +574,7 @@
 
   .action-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: var(--space-3);
     margin-top: var(--space-2);
@@ -555,5 +583,11 @@
   .btn-ghost.is-armed {
     border-color: var(--status-bad);
     color: var(--status-bad);
+  }
+
+  @media (max-width: 479px) {
+    .action-row {
+      flex-direction: column;
+    }
   }
 </style>

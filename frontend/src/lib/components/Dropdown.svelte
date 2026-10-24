@@ -87,7 +87,7 @@
   }
 
   function onTriggerKeydown(event: KeyboardEvent) {
-    if (event.key === 'ArrowDown') {
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       void openMenu('first');
     } else if (event.key === 'ArrowUp') {

@@ -67,6 +67,7 @@
   let topError = $state('');
   let topSubmitting = $state(false);
   let threadComposerOpen = $state(false);
+  let threadReplyButton = $state<HTMLButtonElement | null>(null);
 
   let inlineDraft = $state('');
   // The target keeps the parent's body: "Replying to alan" alone does not say
@@ -226,6 +227,7 @@
   function cancelThreadComposer(): void {
     threadComposerOpen = false;
     topError = '';
+    threadReplyButton?.focus();
   }
 
   function setReplyTarget(reply: ForumReplyContent): void {
@@ -405,6 +407,7 @@
             type="button"
             class="action-quiet"
             aria-expanded={threadComposerOpen}
+            bind:this={threadReplyButton}
             onclick={openThreadComposer}
           >
             <CornerDownRight size={14} aria-hidden="true" />
@@ -531,6 +534,10 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+  }
+
+  .thread-head .page-title {
+    overflow-wrap: anywhere;
   }
 
   .thread-author {

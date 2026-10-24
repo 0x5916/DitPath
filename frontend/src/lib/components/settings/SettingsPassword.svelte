@@ -123,3 +123,17 @@
     {/if}
   </form>
 </section>
+
+<style>
+  .settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+  }
+
+  .settings-action-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+</style>

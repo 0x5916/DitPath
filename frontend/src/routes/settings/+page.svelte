@@ -573,10 +573,12 @@
             <input type="text" value={username} class="input" disabled />
             <span class="field-hint">{m.settings_username_locked_hint()}</span>
           </label>
-          <label class="field">
-            <span class="label-text">{m.settings_call_sign_label()}</span>
+          <div class="field">
+            <label for="settings-call-sign" class="label-text">{m.settings_call_sign_label()}</label
+            >
             <div class="settings-input-action">
               <input
+                id="settings-call-sign"
                 type="text"
                 bind:value={callSign}
                 class="input"
@@ -587,22 +589,22 @@
                 <SaveButton saving={callSignSaving} saved={callSignSaved} />
               {/if}
             </div>
-          </label>
+          </div>
           {#if callSignError}
             <ErrorAlert message={callSignError} />
           {/if}
         </form>
 
         <form onsubmit={saveEmail} class="settings-form">
-          <label class="field">
-            <span class="label-text">{m.settings_email_label()}</span>
+          <div class="field">
+            <label for="settings-email" class="label-text">{m.settings_email_label()}</label>
             <div class="settings-input-action">
-              <input type="email" bind:value={email} class="input" required />
+              <input id="settings-email" type="email" bind:value={email} class="input" required />
               {#if emailDirty || emailSaving || emailSaved}
                 <SaveButton saving={emailSaving} saved={emailSaved} />
               {/if}
             </div>
-          </label>
+          </div>
           {#if emailError}
             <ErrorAlert message={emailError} />
           {/if}
@@ -635,10 +637,13 @@
               onsubmit={submitEmailVerification}
               class="settings-form settings-verification-form"
             >
-              <label class="field">
-                <span class="label-text">{m.settings_email_verify_code_label()}</span>
+              <div class="field">
+                <label for="settings-verification-code" class="label-text"
+                  >{m.settings_email_verify_code_label()}</label
+                >
                 <div class="settings-input-action">
                   <input
+                    id="settings-verification-code"
                     type="text"
                     bind:value={verificationCode}
                     class="input"
@@ -658,7 +663,7 @@
                         : m.settings_email_verify_confirm()}
                   </button>
                 </div>
-              </label>
+              </div>
             </form>
           {/if}
 

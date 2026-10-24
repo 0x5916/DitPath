@@ -208,20 +208,24 @@
     return Monitor;
   }
 
-  // Toggle a body class when an input/textarea gains or loses focus so the
-  // mobile bottom nav can hide while the soft keyboard is open. Selects are
-  // excluded on purpose: they open a picker, not a keyboard, and leaving one
-  // focused would keep the tab bar hidden.
+  // Only text-entry controls open a soft keyboard; sliders and pickers leave
+  // the phone navigation available.
+  function usesTextKeyboard(target: EventTarget | null): boolean {
+    return (
+      (target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement &&
+          ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].includes(target.type))) &&
+      !target.readOnly &&
+      !target.disabled
+    );
+  }
+
   function onDocumentFocusIn(event: FocusEvent) {
-    const target = event.target;
-    if (target instanceof HTMLElement && target.matches('input, textarea')) {
-      document.body.classList.add('keyboard-open');
-    }
+    document.body.classList.toggle('keyboard-open', usesTextKeyboard(event.target));
   }
 
   function onDocumentFocusOut(event: FocusEvent) {
-    const target = event.target;
-    if (target instanceof HTMLElement && target.matches('input, textarea')) {
+    if (usesTextKeyboard(event.target)) {
       document.body.classList.remove('keyboard-open');
     }
   }

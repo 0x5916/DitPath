@@ -8,6 +8,10 @@
     onCancel: () => void;
     returnFocusTo?: HTMLElement | null;
     fallbackFocus?: HTMLElement | null;
+    title?: string;
+    description?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
   }
 
   let {
@@ -15,7 +19,11 @@
     onConfirm = () => {},
     onCancel = () => {},
     returnFocusTo = null,
-    fallbackFocus = null
+    fallbackFocus = null,
+    title,
+    description,
+    confirmLabel,
+    cancelLabel
   }: Props = $props();
 
   let dialogEl = $state<HTMLDialogElement | null>(null);
@@ -76,14 +84,18 @@
   onclick={handleBackdropClick}
   onkeydown={handleKeydown}
 >
-  <h2 id={`${dialogId}-title`} class="section-title">{m.lesson_exit_title()}</h2>
+  <h2 id={`${dialogId}-title`} class="section-title">{title ?? m.lesson_exit_title()}</h2>
   <p id={`${dialogId}-description`} class="dialog-text">
-    {m.learn_exit_description()}
+    {description ?? m.learn_exit_description()}
   </p>
 
   <div class="dialog-actions">
-    <button type="button" class="btn-primary" onclick={onCancel}>{m.lesson_resume()}</button>
-    <button type="button" class="btn-ghost" onclick={onConfirm}>{m.lesson_exit()}</button>
+    <button type="button" class="btn-primary" onclick={onCancel}
+      >{cancelLabel ?? m.lesson_resume()}</button
+    >
+    <button type="button" class="btn-ghost" onclick={onConfirm}
+      >{confirmLabel ?? m.lesson_exit()}</button
+    >
   </div>
 </dialog>
 

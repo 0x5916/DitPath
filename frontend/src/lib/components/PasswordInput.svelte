@@ -68,18 +68,19 @@
   .password-input {
     flex: 1;
     min-width: 0;
-    padding-right: 2.5rem;
+    min-height: var(--answer-target-min);
+    padding-right: calc(var(--answer-target-min) + var(--space-2));
   }
 
   .password-toggle {
     position: absolute;
     top: 50%;
-    right: 0.35rem;
+    right: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.85rem;
-    height: 1.85rem;
+    width: var(--answer-target-min);
+    height: var(--answer-target-min);
     padding: 0;
     border: none;
     border-radius: var(--radius-sm);
@@ -97,12 +98,5 @@
   .password-toggle:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
-  }
-
-  @media (pointer: coarse) {
-    .password-toggle {
-      width: 2.25rem;
-      height: 2.25rem;
-    }
   }
 </style>

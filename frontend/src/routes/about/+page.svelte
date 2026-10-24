@@ -260,7 +260,7 @@
 
   /* Below the navbar breakpoint the top bar is `display: none`, so the desktop
      4.5rem clearance only parks the target below a hole of empty page. */
-  @media (max-width: 639px) {
+  @media (max-width: 799px) {
     .about-section {
       scroll-margin-top: var(--space-4);
     }

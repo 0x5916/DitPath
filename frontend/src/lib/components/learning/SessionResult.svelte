@@ -164,7 +164,7 @@
 
   .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-3);
     width: 100%;
     padding: var(--space-4) var(--space-2);
@@ -190,10 +190,13 @@
     font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
+    overflow-wrap: anywhere;
   }
 
   .weak-section {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
     gap: var(--space-2);
     font-size: var(--text-xs);
@@ -202,6 +205,8 @@
 
   .weak-chips {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--space-1);
   }
 
@@ -228,5 +233,31 @@
     gap: var(--space-2);
     font-size: var(--text-xs);
     color: var(--text-muted);
+  }
+
+  @media (max-width: 479px) {
+    .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .metric-item {
+      flex-direction: row;
+      justify-content: space-between;
+      gap: var(--space-3);
+      text-align: start;
+    }
+
+    .metric-val {
+      flex-shrink: 0;
+      max-width: 50%;
+      text-align: end;
+    }
+
+    .metric-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      text-transform: none;
+      letter-spacing: normal;
+    }
   }
 </style>

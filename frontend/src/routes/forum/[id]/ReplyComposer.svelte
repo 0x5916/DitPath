@@ -107,6 +107,12 @@
   <LoadingSpinner />
 {/if}
 
+{#if onCancel && (postingStatus === 'guest' || postingStatus === 'unverified')}
+  <div class="composer-actions">
+    <button type="button" class="btn-ghost" onclick={onCancel}>{m.forum_cancel()}</button>
+  </div>
+{/if}
+
 <style>
   .composer-target {
     display: flex;

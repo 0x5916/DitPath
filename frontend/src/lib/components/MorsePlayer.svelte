@@ -32,6 +32,7 @@
     /* Stop, skip and the clock stay hidden until playback has started, so the
        ready state shows one obvious action instead of dead controls. */
     showTransportExtras?: boolean;
+    onBeforeSettingsInput?: () => boolean | Promise<boolean>;
     onSettingsInput?: () => void;
     /* Fired whenever playback starts, whichever control started it. The page
        uses it to unlock the answer box or mask the drill character. */
@@ -54,6 +55,7 @@
     showSettings = false,
     playTone = 'primary',
     showTransportExtras = true,
+    onBeforeSettingsInput = () => true,
     onSettingsInput = () => {},
     onStart = () => {},
     onEnded = () => {},
@@ -84,6 +86,8 @@
     onEnded: () => onEnded()
   });
   let settingsOpen = $state(false);
+  let settingsDecisionPending = false;
+  let disposed = false;
   let settingsEl = $state<HTMLDetailsElement | null>(null);
   let settingsPanelEl = $state<HTMLDivElement | null>(null);
   /* Phones only: script placement for the viewport-anchored popover. Kept null on
@@ -219,6 +223,8 @@
     if (!settingsOpen) return;
     function onDocumentClick(event: MouseEvent) {
       const target = event.target;
+      if (settingsDecisionPending || (target instanceof Element && target.closest('dialog')))
+        return;
       if (settingsEl && target instanceof Node && !settingsEl.contains(target)) {
         settingsOpen = false;
       }
@@ -265,12 +271,20 @@
     ({ charWpm, effWpm, freq, volume, startDelay } = next);
   }
 
-  function commitSetting(key: keyof PlaybackSettings, event: Event) {
+  async function commitSetting(key: keyof PlaybackSettings, event: Event) {
     const input = event.currentTarget as HTMLInputElement;
     const next = normalizePlaybackSettings({ ...settings, [key]: input.valueAsNumber });
-    applySettings(next);
-    input.value = String(next[key]);
-    onSettingsInput();
+    input.value = String(settings[key]);
+    if (disposed || settingsDecisionPending || next[key] === settings[key]) return;
+    settingsDecisionPending = true;
+    try {
+      if (!(await onBeforeSettingsInput()) || disposed) return;
+      applySettings(next);
+      input.value = String(next[key]);
+      onSettingsInput();
+    } finally {
+      settingsDecisionPending = false;
+    }
   }
 
   export async function playNow() {
@@ -286,6 +300,7 @@
   }
 
   onDestroy(() => {
+    disposed = true;
     // `onDestroy` also runs during SSR teardown, where there is no rAF API.
     if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
     void transport.dispose();

@@ -97,8 +97,8 @@
     {unclaimedCount}
     {importing}
   />
-  <div class="settings-form">
-    <h3 class="cache-title">{m.settings_data_title()}</h3>
+  <details class="cache-options">
+    <summary>{m.settings_data_title()}</summary>
     <p class="field-hint">{m.settings_data_description()}</p>
 
     <div class="data-actions-row">
@@ -153,7 +153,7 @@
         </div>
       </div>
     {/if}
-  </div>
+  </details>
 </section>
 
 <style>
@@ -161,9 +161,21 @@
     scroll-margin-block-start: 5rem;
   }
 
-  .cache-title {
-    margin: var(--space-5) 0 0;
+  .cache-options {
+    margin-top: var(--space-4);
+  }
+
+  .cache-options > summary {
+    padding: var(--space-3) 0;
+    cursor: pointer;
     font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .cache-options > summary:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-xs);
   }
 
   .data-actions-row {
