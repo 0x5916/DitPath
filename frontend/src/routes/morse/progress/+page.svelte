@@ -248,6 +248,9 @@
     padding: var(--space-4) 0;
     border-bottom: 1px solid var(--border);
   }
+  .history-row:first-child {
+    padding-top: 0;
+  }
   .session-summary,
   .session-title,
   .session-status {

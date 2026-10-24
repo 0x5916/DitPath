@@ -274,7 +274,7 @@ body {
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   font-weight: 600;
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-2);
 }
 
 /* One caps-label recipe for every surface — a card, a trainer panel, a metric

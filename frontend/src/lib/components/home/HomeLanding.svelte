@@ -98,7 +98,7 @@
   .learning-intro,
   .destinations,
   .colophon {
-    --home-section-gap: calc(var(--space-6) * 2);
+    --home-section-gap: var(--section-gap);
     font-family: var(--font-home);
   }
 
@@ -167,7 +167,6 @@
     min-width: 0;
     display: grid;
     gap: var(--space-6);
-    padding-top: var(--space-8);
   }
 
   .method .step-number {
@@ -179,7 +178,7 @@
   }
 
   .section-title {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-3);
     padding: 0;
     border: 0;
     font-family: var(--font-home);
@@ -195,7 +194,7 @@
   }
 
   .method-intro {
-    margin: calc(var(--space-4) * -1) 0 var(--space-6);
+    margin: 0;
     font-size: var(--text-base);
   }
 
@@ -222,8 +221,8 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-4);
-    min-height: 7rem;
-    padding: var(--space-5) var(--space-3);
+    min-height: var(--answer-target-min);
+    padding: var(--space-3);
   }
 
   .dest-icon {
@@ -260,7 +259,6 @@
 
   .colophon {
     margin-top: var(--home-section-gap);
-    padding-top: var(--space-8);
   }
 
   .colophon :global(.body-text) {

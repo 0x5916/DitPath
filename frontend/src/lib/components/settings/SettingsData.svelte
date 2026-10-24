@@ -162,7 +162,7 @@
   }
 
   .cache-options {
-    margin-top: var(--space-4);
+    margin-top: var(--space-2);
   }
 
   .cache-options > summary {
