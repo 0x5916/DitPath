@@ -542,6 +542,8 @@
   "history_sync_attention": "Synchronisierung prüfen",
   "history_sync_waiting": "{count} Änderungen warten auf Synchronisierung",
   "home_lesson_title": "Lektion {step}: {characters}",
+  "home_all_lessons": "Alle Lektionen",
+  "home_start_lesson_title": "Lektion {step} starten: {characters}",
   "progress_history_lesson_characters": "Geführte Lektion {step}: {characters}",
   "profile_guest_summary": "Auf diesem Gerät gespeicherte Aktivität.",
   "profile_habits_title": "Trainingsgewohnheiten {year}",

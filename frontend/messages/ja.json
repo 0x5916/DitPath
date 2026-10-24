@@ -542,6 +542,8 @@
   "history_sync_attention": "同期の確認が必要です",
   "history_sync_waiting": "{count} 件の変更が同期待ちです",
   "home_lesson_title": "レッスン{step}：{characters}",
+  "home_all_lessons": "すべてのレッスン",
+  "home_start_lesson_title": "レッスン{step}を開始：{characters}",
   "progress_history_lesson_characters": "ガイド付きレッスン{step}：{characters}",
   "profile_guest_summary": "この端末に保存された学習記録です。",
   "profile_habits_title": "{year}年のトレーニング習慣",

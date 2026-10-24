@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
+  import { ArrowRight, ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
   import HomeLanding from '#lib/components/home/HomeLanding.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
@@ -32,11 +32,11 @@
       return { title, hint: m.learn_complete_title(), path };
     const { currentStep, reviewChars } = dashboard.guidance;
     const step = unfinished?.step ?? currentStep;
+    const characters = (LESSONS[step - 1] ?? '').split('').join(', ');
     return {
-      title: m.home_lesson_title({
-        step,
-        characters: (LESSONS[step - 1] ?? '').split('').join(', ')
-      }),
+      title: unfinished
+        ? m.home_lesson_title({ step, characters })
+        : m.home_start_lesson_title({ step, characters }),
       hint: unfinished
         ? m.learn_restart_title({ step })
         : reviewChars.length
@@ -93,8 +93,11 @@
   <HomeLanding />
 {:else}
   <div class="page-narrow page-stack home-dashboard">
-    <header>
+    <header class="home-heading">
       <h1 class="page-title">{m.home_dashboard_title()}</h1>
+      <a class="link browse-lessons" href={href('/morse/learn')}>
+        {m.home_all_lessons()}<ArrowRight size={16} aria-hidden="true" />
+      </a>
     </header>
     <nav aria-label={m.home_go_title()}>
       <ul class="training-links">
@@ -157,6 +160,20 @@
 {/if}
 
 <style>
+  .home-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+  }
+  .browse-lessons {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--answer-target-min);
+    font-size: var(--text-sm);
+  }
   .training-links {
     display: grid;
     gap: var(--space-3);

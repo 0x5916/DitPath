@@ -32,7 +32,7 @@
     <p class="masthead-lede">{m.home_hero_subtitle()}</p>
     <div class="masthead-actions">
       <a href={href('/morse/learn/session?step=1')} class="btn-cta">{m.home_cta()}</a>
-      <a href={href('/morse/learn')} class="link practice-link">{m.nav_learn()}</a>
+      <a href={href('/morse/learn')} class="link practice-link">{m.home_all_lessons()}</a>
       <a href={href('/morse/practice')} class="link practice-link">{m.home_hero_cta_secondary()}</a>
     </div>
     <p class="body-text reassurance">

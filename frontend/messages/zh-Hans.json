@@ -542,6 +542,8 @@
   "history_sync_attention": "同步需要处理",
   "history_sync_waiting": "{count} 项更改等待同步",
   "home_lesson_title": "第{step}课：{characters}",
+  "home_all_lessons": "全部课程",
+  "home_start_lesson_title": "开始第{step}课：{characters}",
   "progress_history_lesson_characters": "引导式第{step}课：{characters}",
   "profile_guest_summary": "学习活动已保存在此设备上。",
   "profile_habits_title": "{year} 年的训练习惯",

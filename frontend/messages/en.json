@@ -542,6 +542,8 @@
   "history_sync_attention": "Sync needs attention",
   "history_sync_waiting": "{count} changes waiting to sync",
   "home_lesson_title": "Lesson {step}: {characters}",
+  "home_all_lessons": "All lessons",
+  "home_start_lesson_title": "Start Lesson {step}: {characters}",
   "progress_history_lesson_characters": "Guided lesson {step}: {characters}",
   "profile_guest_summary": "Activity saved on this device.",
   "profile_habits_title": "Training habits in {year}",
