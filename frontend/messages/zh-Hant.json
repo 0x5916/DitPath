@@ -518,7 +518,7 @@
   "practice_history_saving": "正在將自由練習儲存到此裝置…",
   "practice_history_saved": "自由練習結果已儲存到此裝置。",
   "practice_history_failed": "自由練習結果尚未儲存。請保持此頁面開啟並重試。",
-  "progress_free_practice": "自由練習",
+  "progress_session_breakdown": "課程：{guided} 次；自由練習：{practice} 次。",
   "progress_history_heading": "近期訓練（最多20次）",
   "progress_history_lesson": "引導式第{step}課",
   "progress_history_practice_lesson": "自由練習：第{step}課",

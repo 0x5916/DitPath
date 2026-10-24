@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InfoTip from '#lib/components/InfoTip.svelte';
   import { lang } from '#lib/i18n.svelte.ts';
   import { accuracyClass } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
@@ -32,19 +33,18 @@
     <span class="ledger-period">{m.progress_activity_period()}</span>
   </div>
   <div class="ledger-metrics">
-    <div class="metric-block">
-      <span class="metric-label">{m.progress_sessions()}</span>
+    <div class="metric-block session-metric">
+      <div class="metric-label">
+        <span>{m.progress_sessions()}</span>
+        <InfoTip
+          label={m.common_tip_label({ topic: m.progress_sessions() })}
+          text={m.progress_session_breakdown({
+            guided: guidedSessionCount,
+            practice: practiceSessionCount
+          })}
+        />
+      </div>
       <span class="metric-val">{sessionCount}</span>
-      <dl class="session-breakdown">
-        <div>
-          <dt>{m.nav_learn()}</dt>
-          <dd>{guidedSessionCount}</dd>
-        </div>
-        <div>
-          <dt>{m.progress_free_practice()}</dt>
-          <dd>{practiceSessionCount}</dd>
-        </div>
-      </dl>
     </div>
     <div class="metric-block">
       <span class="metric-label">{m.progress_time()}</span>
@@ -130,36 +130,16 @@
   }
 
   .metric-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    gap: var(--space-1);
     font-size: var(--text-xs);
     color: var(--text-muted);
     font-weight: 500;
     letter-spacing: normal;
     text-transform: none;
-  }
-
-  .session-breakdown {
-    display: grid;
-    gap: var(--space-1);
-    width: 100%;
-    max-width: 12rem;
-    margin: var(--space-1) 0 0;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    text-align: start;
-  }
-
-  .session-breakdown > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-2);
-    align-items: baseline;
-  }
-
-  .session-breakdown dd {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-weight: 600;
-    text-align: end;
   }
 
   .metric-val {
@@ -235,11 +215,11 @@
       text-align: end;
       overflow-wrap: anywhere;
     }
-    .session-breakdown {
-      grid-column: 1 / -1;
-      max-width: none;
-      margin: 0;
-      padding-inline-start: var(--space-3);
+    .session-metric {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .metric-label {
+      justify-content: flex-start;
     }
     .accuracy-measure {
       justify-self: end;

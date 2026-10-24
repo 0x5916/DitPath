@@ -518,7 +518,7 @@
   "practice_history_saving": "Saving practice on this device…",
   "practice_history_saved": "Practice result saved on this device.",
   "practice_history_failed": "Your practice result has not been saved. Keep this page open and retry.",
-  "progress_free_practice": "Free practice",
+  "progress_session_breakdown": "Lessons: {guided}. Free practice: {practice}.",
   "progress_history_heading": "Recent sessions (up to 20)",
   "progress_history_lesson": "Guided lesson {step}",
   "progress_history_practice_lesson": "Practice: Lesson {step}",

@@ -518,7 +518,7 @@
   "practice_history_saving": "自由練習をこのデバイスに保存中…",
   "practice_history_saved": "自由練習の結果をこのデバイスに保存しました。",
   "practice_history_failed": "自由練習の結果を保存できませんでした。このページを開いたまま、もう一度お試しください。",
-  "progress_free_practice": "自由練習",
+  "progress_session_breakdown": "レッスン：{guided}回。自由練習：{practice}回。",
   "progress_history_heading": "最近のセッション（最大20件）",
   "progress_history_lesson": "ガイド付きレッスン{step}",
   "progress_history_practice_lesson": "自主練習：レッスン{step}",
