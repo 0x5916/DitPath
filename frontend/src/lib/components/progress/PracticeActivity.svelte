@@ -138,17 +138,19 @@
   }
 
   .session-breakdown {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
+    display: grid;
+    gap: var(--space-1);
+    width: 100%;
+    max-width: 12rem;
     margin: var(--space-1) 0 0;
     font-size: var(--text-xs);
     color: var(--text-secondary);
+    text-align: start;
   }
 
   .session-breakdown > div {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-2);
     align-items: baseline;
   }
@@ -157,6 +159,7 @@
     margin: 0;
     font-family: var(--font-mono);
     font-weight: 600;
+    text-align: end;
   }
 
   .metric-val {
@@ -234,7 +237,9 @@
     }
     .session-breakdown {
       grid-column: 1 / -1;
-      justify-content: flex-start;
+      max-width: none;
+      margin: 0;
+      padding-inline-start: var(--space-3);
     }
     .accuracy-measure {
       justify-self: end;
