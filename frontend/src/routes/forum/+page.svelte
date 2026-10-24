@@ -246,7 +246,7 @@
         href={categoryHref(category)}>{forumCategoryLabel(category)}</a
       >
     {/each}
-    {#if totalCount !== null && !loading && (filter !== null || nextCursor !== null || threads.length < totalCount)}
+    {#if totalCount !== null && !loading}
       <span class="filter-count"
         >{m.forum_threads_count({
           shown: String(threads.length),
@@ -345,7 +345,7 @@
       </button>
     </div>
   {:else if threads.length === 0}
-    <section class="state-block">
+    <section class="state-block forum-empty">
       <h2 class="state-title">
         {filter
           ? m.forum_threads_empty_filtered_title({ category: forumCategoryLabel(filter) })
@@ -462,6 +462,21 @@
     font-size: var(--text-xs);
     color: var(--text-muted);
     white-space: nowrap;
+  }
+
+  .forum-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .forum-empty .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
+    padding-inline: var(--space-3);
   }
 
   .composer {
