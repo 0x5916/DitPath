@@ -155,6 +155,8 @@ Deployment can bootstrap `.env` and generate a missing JWT secret, but required 
 
 The [frontend image](frontend/Dockerfile) installs the locked development dependencies and runs `npm run verify` before building. IndexedDB tests use `fake-indexeddb`, which is declared in [frontend/package.json](frontend/package.json) and pinned by [frontend/package-lock.json](frontend/package-lock.json). A failed verification gate stops the image build; fix the reported failure in the repository before deployment.
 
+The frontend builder uses patched Node 26.12.1. Both the frontend runtime and the [derived pgAdmin image](pgadmin/Dockerfile) require patched system Brotli; pgAdmin also updates its independent Python binding. Both Compose stacks build that pgAdmin image for the web service and its configuration renderer. Rebuild these images when applying the [HTTP2Shell remediation contract](docs/http2shell-remediation.md); pulling the upstream pgAdmin image alone does not apply the OpenCW dependency patch. Runtime checks are documented in the [script guide](scripts/README.md#regression-checks).
+
 Local endpoints are frontend `http://127.0.0.1:3000`, health `http://127.0.0.1:8080/v1/health`, and pgAdmin `http://127.0.0.1:5050` unless its port changed. `pgadmin-config` exits after rendering configuration; exit 0 is expected.
 
 From **inside the LXC**, check the running services and local endpoints:

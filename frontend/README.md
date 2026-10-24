@@ -15,7 +15,7 @@ preserving unrelated caches. Existing tabs finish before the new worker activate
 
 ## Development
 
-Use Node 26. From this directory:
+Use Node 26.12.1 or newer within Node 26. From this directory:
 
 ```sh
 export PATH="/opt/homebrew/opt/node/bin:$PATH"

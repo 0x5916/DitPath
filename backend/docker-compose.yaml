@@ -76,7 +76,9 @@ services:
   # One-shot renderer: turns the credentials in .env into pgAdmin's server definition and
   # .pgpass, then exits. Runs before pgadmin on every `docker compose up -d`.
   pgadmin-config:
-    image: dpage/pgadmin4:9.18.0
+    image: opencw-pgadmin:9.18.0-brotli1.2.1
+    build:
+      context: ../pgadmin
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     environment:
@@ -90,7 +92,9 @@ services:
       - ../scripts/render-pgadmin.py:/usr/local/bin/opencw-pgadmin-config.py:ro
 
   pgadmin:
-    image: dpage/pgadmin4:9.18.0
+    image: opencw-pgadmin:9.18.0-brotli1.2.1
+    build:
+      context: ../pgadmin
     restart: unless-stopped
     depends_on:
       db:

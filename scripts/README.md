@@ -84,3 +84,14 @@ For a missing upstream, configure branch tracking or pass `--ref`. After rollbac
 Run `python3 scripts/tests/test-operations.py` from the root. Fixtures copy scripts into temporary directories and stub Docker, Git network operations, and host utilities; they never use the live database or project `.env`. The runner prefers Bash 4 or newer. A macOS Bash 3 compatibility run removes only the version guard in copied scripts and reports the unavailable native Bash 4 gate. Run shell syntax checks separately and rehearse recovery on an isolated Linux stack before production use.
 
 Run `node --test scripts/validate-messages.test.mjs` from `frontend/` for nine catalogue-validation regression cases.
+
+After building the patched pgAdmin image, run its native/Python Brotli and HTTP-decoding compatibility checks in an isolated container. These use no application volumes, credentials, or network:
+
+```bash
+docker run --rm -i --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --memory 128m --pids-limit 32 \
+  --entrypoint /venv/bin/python3 opencw-pgadmin:9.18.0-brotli1.2.1 \
+  -B - < scripts/tests/test-brotli-runtime.py
+```
+
+The checks verify the upstream block-switch fix, patched versions, valid single/streamed/HTTP decoding, and malformed/truncated input rejection. They are compatibility and patch-presence checks; they do not attempt code execution against a running service. See the [approved remediation contract](../docs/http2shell-remediation.md).

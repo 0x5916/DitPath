@@ -4,7 +4,7 @@ OpenCW is a sound-first Morse code trainer with guided Koch lessons, free practi
 
 ## Start developing
 
-The frontend requires Node 26; the backend requires the Go version declared in [go.mod](backend/go.mod) and PostgreSQL. Run each subsystem from its own directory:
+The frontend requires Node 26.12.1 or newer within Node 26; the backend requires the Go version declared in [go.mod](backend/go.mod) and PostgreSQL. Run each subsystem from its own directory:
 
 ```sh
 cd frontend
