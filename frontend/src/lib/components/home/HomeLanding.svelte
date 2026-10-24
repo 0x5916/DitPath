@@ -263,7 +263,6 @@
   .colophon {
     margin-top: var(--home-section-gap);
     padding-top: var(--space-8);
-    border-top: 1px solid var(--border);
   }
 
   .colophon :global(.body-text) {

@@ -428,7 +428,7 @@ body {
   color: var(--accent);
 }
 
-/* Section headings use the same quiet divider as panel headings. */
+/* Section headings establish hierarchy through type and spacing. */
 .section-title {
   color: var(--text-primary);
   font-size: var(--text-xl);
@@ -436,8 +436,6 @@ body {
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
 }
 
 /* Level three steps down by size and weight alone. Its rule was pixel-identical
