@@ -24,6 +24,8 @@
     startDelay?: number;
     volume?: number;
     playLabel?: string;
+    /* Reserve the widest state label so changing the action does not move it. */
+    reservePlayLabels?: string[];
     label?: string;
     showSettings?: boolean;
     /* 'primary' keeps the play control accented; 'quiet' dresses it as a secondary
@@ -51,6 +53,7 @@
     startDelay = $bindable(0),
     volume = $bindable(1.0),
     playLabel = '',
+    reservePlayLabels = [],
     label = '',
     showSettings = false,
     playTone = 'primary',
@@ -63,6 +66,7 @@
   }: Props = $props();
 
   let effectivePlayLabel = $derived(playLabel || m.player_play());
+  let reservedPlayLabels = $derived([...new Set(reservePlayLabels)]);
 
   /* Playback is delegated to an audio engine; this component keeps only the
      transport/UI view of it. `activePlan` is the exact schedule the engine is
@@ -353,11 +357,15 @@
         >
           {#if started && !paused}
             <Pause size={16} />
-            {m.player_pause()}
           {:else}
             <Play size={16} />
-            {effectivePlayLabel}
           {/if}
+          <span class="player-play-label">
+            {#each reservedPlayLabels as reservedLabel (reservedLabel)}
+              <span class="player-play-reserve" aria-hidden="true">{reservedLabel}</span>
+            {/each}
+            <span>{started && !paused ? m.player_pause() : effectivePlayLabel}</span>
+          </span>
         </button>
         {#if showTransportExtras}
           <button
@@ -581,6 +589,22 @@
     flex: 0 0 auto;
     max-width: 100%;
     padding-inline: var(--space-4);
+  }
+
+  .player-play-label {
+    display: grid;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .player-play-label > span {
+    grid-area: 1 / 1;
+  }
+
+  .player-play-reserve {
+    visibility: hidden;
+    /* Primary and quiet controls have different weights; keep sizing stable. */
+    font-weight: 600;
   }
 
   .player-settings-menu {
