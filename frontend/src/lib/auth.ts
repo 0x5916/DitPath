@@ -37,6 +37,7 @@ export class AuthStorageError extends Error {
 let storageBlocked = false;
 let generation = 0;
 let credentialAttempt = 0;
+let credentialController = new AbortController();
 let storedIdentity = '';
 let sessionController = new AbortController();
 let refreshInFlight: { generation: number; promise: Promise<boolean> } | null = null;
@@ -111,6 +112,53 @@ export async function login(username: string, password: string): Promise<void> {
   );
 }
 
+export interface CredentialAttempt {
+  readonly signal: AbortSignal;
+  isCurrent(): boolean;
+  assertCurrent(): void;
+  cancel(): void;
+}
+
+/** Shared ordering for password submissions, Google popups and username completion. */
+export function beginCredentialAttempt(): CredentialAttempt {
+  credentialController.abort();
+  const controller = new AbortController();
+  credentialController = controller;
+  const attempt = ++credentialAttempt;
+  const session = getAuthSession();
+  let canceled = false;
+  const isCurrent = () =>
+    !canceled && attempt === credentialAttempt && isAuthSessionCurrent(session);
+  return {
+    signal: AbortSignal.any([sessionController.signal, controller.signal]),
+    isCurrent,
+    assertCurrent() {
+      if (!isCurrent()) throw new SessionChangedError();
+    },
+    cancel() {
+      canceled = true;
+      controller.abort();
+      if (attempt === credentialAttempt) credentialAttempt += 1;
+    }
+  };
+}
+
+export function googleSignIn(
+  credential: string,
+  nonce: string,
+  attempt: CredentialAttempt,
+  username?: string
+): Promise<void> {
+  return postCredentials(
+    username === undefined ? '/auth/google' : '/auth/google/register',
+    username === undefined ? { credential, nonce } : { credential, nonce, username },
+    'GOOGLE_SIGN_IN_UNAVAILABLE',
+    '',
+    attempt,
+    { 'X-OpenCW-Auth': 'google' }
+  );
+}
+
 /**
  * POST credentials, resolve the display username and persist the session.
  * `fallbackCode` is the API error code used when the response carries none.
@@ -119,19 +167,17 @@ async function postCredentials(
   path: string,
   payload: Record<string, string>,
   fallbackCode: string,
-  fallbackUsername: string
+  fallbackUsername: string,
+  attempt: CredentialAttempt = beginCredentialAttempt(),
+  extraHeaders: Record<string, string> = {}
 ): Promise<void> {
-  const attempt = ++credentialAttempt;
-  const session = getAuthSession();
-  const signal = sessionController.signal;
-  const assertCurrentAttempt = () => {
-    assertAuthSessionCurrent(session);
-    if (attempt !== credentialAttempt) throw new SessionChangedError();
-  };
+  const signal = attempt.signal;
+  const assertCurrentAttempt = attempt.assertCurrent;
+  assertCurrentAttempt();
   const response = await fetch(`${API_BASE}${path}`, {
     signal,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: JSON.stringify(payload)
   });
 
@@ -146,6 +192,7 @@ async function postCredentials(
   assertCurrentAttempt();
   const resolvedUsername = await resolveUsername(data.access_token, fallbackUsername, signal);
   assertCurrentAttempt();
+  if (!resolvedUsername) throw new Error(fallbackCode);
   persistTokens(data.access_token, data.refresh_token, resolvedUsername);
   advanceSession();
   user.set({ username: resolvedUsername });

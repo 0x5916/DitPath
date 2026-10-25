@@ -61,6 +61,7 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       AUTH_TRUSTED_PROXY_CIDRS: ${AUTH_TRUSTED_PROXY_CIDRS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       db:
         condition: service_healthy

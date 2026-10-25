@@ -61,6 +61,7 @@
   let email = $state('');
   let initialEmail = $state('');
   let emailVerified = $state(false);
+  let passwordEnabled = $state<boolean | null>(null);
   let emailSaving = $state(false);
   let emailError = $state('');
   let emailSaved = $state(false);
@@ -272,6 +273,7 @@
     email = '';
     initialEmail = '';
     emailVerified = false;
+    passwordEnabled = null;
     callSignSaving = emailSaving = pageSaving = cwSaving = false;
     callSignSaved = emailSaved = pageSaved = cwSaved = false;
     callSignError = emailError = pageError = cwError = '';
@@ -305,6 +307,7 @@
       email = info.email;
       initialEmail = info.email;
       emailVerified = info.email_verified;
+      passwordEnabled = info.password_enabled;
       resetEmailVerificationState();
       applyCwState(cw);
       applyPageState(page);
@@ -676,7 +679,14 @@
         </div>
       </section>
 
-      <SettingsPassword />
+      {#if passwordEnabled === true}
+        <SettingsPassword />
+      {:else if passwordEnabled === false}
+        <section class="panel panel--ledger">
+          <h2 class="card-title">{m.settings_password_section()}</h2>
+          <p class="body-text">{m.google_password_notice()}</p>
+        </section>
+      {/if}
     {/if}
 
     <!-- Preferences -->

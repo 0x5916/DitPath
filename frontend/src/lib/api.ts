@@ -143,6 +143,7 @@ export interface UserInfo {
   username: string;
   email: string;
   email_verified: boolean;
+  password_enabled: boolean;
   created_at: string;
 }
 

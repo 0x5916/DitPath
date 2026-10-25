@@ -57,6 +57,7 @@ type schemaDatabase interface {
 func migrate(db schemaDatabase) error {
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.UserIdentity{},
 		&models.EmailOTP{},
 		&models.RefreshToken{},
 		&models.CWSettings{},

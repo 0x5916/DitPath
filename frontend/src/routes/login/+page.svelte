@@ -5,6 +5,7 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
   import AuthCard from '#lib/components/AuthCard.svelte';
+  import GoogleSignIn from '#lib/components/GoogleSignIn.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import PasswordInput from '#lib/components/PasswordInput.svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
@@ -17,6 +18,7 @@
   let password = $state('');
   let err = $state('');
   let loading = $state(false);
+  let authRevision = $state(0);
 
   // A signed-in visitor has nothing to do here; send them home instead of
   // showing a login form for an account they're already in.
@@ -32,6 +34,7 @@
     let current = scope.begin();
     err = '';
     loading = true;
+    authRevision += 1;
     try {
       await login(username, password);
     } catch (error) {
@@ -51,6 +54,9 @@
 </script>
 
 <AuthCard title={m.login_title()} subtitle={m.login_subtitle()}>
+  {#key authRevision}
+    <GoogleSignIn disabled={loading} />
+  {/key}
   <form onsubmit={handleLogin} class="auth-form">
     <label class="field">
       <span class="label-text">{m.login_username_label()}</span>

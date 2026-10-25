@@ -6,16 +6,18 @@ The [router](internal/server/router.go) defines route protection. Exact JSON fie
 
 ## Authentication and health
 
-| Method and path                         | Access        | Request                                                   | Success                                                  |
-| --------------------------------------- | ------------- | --------------------------------------------------------- | -------------------------------------------------------- |
-| `GET /v1/health`                        | Public        | None                                                      | 200: `status` and Unix `timestamp`                       |
-| `POST /v1/auth/register`                | Public        | `username`, `email`, `password`                           | 200: `access_token`, `refresh_token`                     |
-| `POST /v1/auth/login`                   | Public        | `identifier`, `password`; identifier is username or email | 200: token pair                                          |
-| `POST /v1/auth/refresh`                 | Refresh token | `refresh_token`                                           | 200: new token pair; revokes the submitted refresh token |
-| `POST /v1/auth/logout`                  | Refresh token | `refresh_token`                                           | 200: `message`; revokes the matching refresh token       |
-| `POST /v1/auth/send-verification-email` | Bearer        | None                                                      | 200: `message`                                           |
-| `POST /v1/auth/verify-email`            | Bearer        | `code`                                                    | 200: `message`                                           |
-| `GET /v1/hello`                         | Bearer        | None                                                      | 200: `message`                                           |
+| Method and path                         | Access            | Request                                                   | Success                                                                |
+| --------------------------------------- | ----------------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /v1/health`                        | Public            | None                                                      | 200: `status` and Unix `timestamp`                                     |
+| `POST /v1/auth/register`                | Public            | `username`, `email`, `password`                           | 200: `access_token`, `refresh_token`                                   |
+| `POST /v1/auth/login`                   | Public            | `identifier`, `password`; identifier is username or email | 200: token pair                                                        |
+| `POST /v1/auth/google`                  | Google credential | `credential`, `nonce`                                     | 200: token pair; unknown identity returns `409 GOOGLE_SIGNUP_REQUIRED` |
+| `POST /v1/auth/google/register`         | Google credential | `credential`, `nonce`, `username`                         | 200: token pair for the new or already-registered identity             |
+| `POST /v1/auth/refresh`                 | Refresh token     | `refresh_token`                                           | 200: new token pair; revokes the submitted refresh token               |
+| `POST /v1/auth/logout`                  | Refresh token     | `refresh_token`                                           | 200: `message`; revokes the matching refresh token                     |
+| `POST /v1/auth/send-verification-email` | Bearer            | None                                                      | 200: `message`                                                         |
+| `POST /v1/auth/verify-email`            | Bearer            | `code`                                                    | 200: `message`                                                         |
+| `GET /v1/hello`                         | Bearer            | None                                                      | 200: `message`                                                         |
 
 Registration accepts a 3–16 character username using ASCII letters, digits, `_`, and `-`, beginning and ending with a letter or digit. Email must be valid and at most 254 characters; password must be 8–256 characters. A verified email cannot be claimed by another live user.
 
@@ -34,6 +36,14 @@ Example registration body:
 A token-pair response contains `access_token` and `refresh_token`; send the returned opaque refresh value unchanged to refresh/logout. Keep bearer and refresh tokens private. Refresh rotation and credential-based token issuance lock the live account and recheck current token/password state. A database transaction begin/commit failure returns `500 INTERNAL_SERVER_ERROR` without a successful token pair.
 
 Authentication and account JSON consumers enforce a complete **16 KiB** encoded-body limit, including unknown-length/chunked bodies and trailing content. Oversize bodies return `413 REQUEST_BODY_TOO_LARGE` with `Cache-Control: no-store` before password work or mutations. Exactly 16 KiB remains eligible for ordinary validation. Public login/registration quota admission still precedes this check; protected routes authenticate/load the user first. See the [body binder](internal/handlers/v1/auth_json.go) and [hardening contract](docs/backend-hardening-spec.md).
+
+### Google sign-in
+
+When configured, the two [Google routes](internal/server/google_auth.go) require JSON, an explicitly allowed `Origin`, and `X-OpenCW-Auth: google`. Credentials are Google ID tokens, limited to 12 KiB within the existing 16 KiB body cap; the nonce is 32 random bytes encoded as unpadded base64url and must match the signed nonce. All responses use `Cache-Control: no-store`. Sign-in shares the existing login quota; Google registration shares the registration quota. Google verification has separate bounded work and key-cache admission, without Argon2 work.
+
+An unknown Google identity selects a username before registration. Accounts are identified by canonical issuer and subject through `user_identities`; email never links an existing account. New usernames use the existing registration rules. Known identities keep their original account UUID and username. A deleted identity/owner or verified-email conflict returns `409 GOOGLE_ACCOUNT_CONFLICT`; username conflicts retain `409 USERNAME_ALREADY_IN_USE`. Google-only users receive `401 INVALID_CREDENTIALS` for password login and `409 PASSWORD_NOT_AVAILABLE` for password changes. `GET /v1/user/me` adds `password_enabled` so clients can show the appropriate account controls.
+
+Disabled configuration returns `503 GOOGLE_SIGN_IN_DISABLED`; Origin/header protection returns `403 GOOGLE_REQUEST_REJECTED`; unsupported media types return `415 GOOGLE_JSON_REQUIRED`; invalid credentials return `401 GOOGLE_CREDENTIAL_INVALID`. Verification/key availability refusals return `503 GOOGLE_SIGN_IN_UNAVAILABLE` with `Retry-After: 1`. Existing body, quota, database, and token error envelopes remain. [The approved specification](docs/google-sign-in-spec.md) defines precedence, identity constraints, trust policy, and acceptance requirements; [backend setup](README.md#google-sign-in) owns configuration.
 
 ### Authentication resource admission
 
@@ -91,14 +101,14 @@ CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page response
 
 ## Training synchronization
 
-| Method and canonical path | Success | Temporary compatibility alias |
-| --- | --- | --- |
-| `POST /v1/training/events/batch` | 200: `acknowledged_ids`, `rejected_events` | `POST /v2/training/events/batch` |
-| `POST /v1/training/sessions/batch` | 200: `acknowledged_ids`, `rejected_sessions` | None |
-| `GET /v1/training/sessions` | 200: `sessions`, `limit`, `next_cursor`, `has_more`, `high_water_revision`, optional `summary` | None |
-| `GET /v1/training/changes` | 200: `changes`, `next_cursor`, `has_more` | None |
-| `GET /v1/training/snapshot` | 200: course position, activity, character masteries | `GET /v2/training/snapshot` |
-| `PUT /v1/training/settings` | 200: `updated_at` | `PUT /v2/training/settings` |
+| Method and canonical path          | Success                                                                                        | Temporary compatibility alias    |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------- |
+| `POST /v1/training/events/batch`   | 200: `acknowledged_ids`, `rejected_events`                                                     | `POST /v2/training/events/batch` |
+| `POST /v1/training/sessions/batch` | 200: `acknowledged_ids`, `rejected_sessions`                                                   | None                             |
+| `GET /v1/training/sessions`        | 200: `sessions`, `limit`, `next_cursor`, `has_more`, `high_water_revision`, optional `summary` | None                             |
+| `GET /v1/training/changes`         | 200: `changes`, `next_cursor`, `has_more`                                                      | None                             |
+| `GET /v1/training/snapshot`        | 200: course position, activity, character masteries                                            | `GET /v2/training/snapshot`      |
+| `PUT /v1/training/settings`        | 200: `updated_at`                                                                              | `PUT /v2/training/settings`      |
 
 All require bearer authentication and an existing user. Canonical paths and aliases call the same handler, share the existing database, and preserve payload schema 1 and first-write-wins event retries. There are no redirects or changes to authentication. See the [implemented training contract](docs/training-events-v2.md) for fields, limits, and errors.
 

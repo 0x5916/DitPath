@@ -35,11 +35,12 @@ type AuthTokenPairResponse struct {
 }
 
 type UserInfoResponse struct {
-	CallSign      *string   `json:"call_sign"`
-	Username      string    `json:"username"`
-	Email         string    `json:"email"`
-	EmailVerified bool      `json:"email_verified"`
-	CreatedAt     time.Time `json:"created_at"`
+	CallSign        *string   `json:"call_sign"`
+	Username        string    `json:"username"`
+	Email           string    `json:"email"`
+	EmailVerified   bool      `json:"email_verified"`
+	PasswordEnabled bool      `json:"password_enabled"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type MessageResponse struct {

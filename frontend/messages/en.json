@@ -549,5 +549,14 @@
   "profile_habits_longest_streak": "Longest streak",
   "profile_habits_favorite_weekday": "Most active weekday",
   "profile_habits_day_one": "1 day",
-  "profile_habits_days": "{count} days"
+  "profile_habits_days": "{count} days",
+  "google_loading": "Loading Google sign-in…",
+  "google_choose_username": "Choose your OpenCW username",
+  "google_create_account": "Create account",
+  "google_cancel": "Cancel",
+  "google_unavailable": "Google sign-in is unavailable. Try again or use your password.",
+  "google_request_rejected": "Google sign-in could not be completed. Refresh the page and try again.",
+  "google_credential_invalid": "Your Google sign-in expired or could not be verified. Please sign in with Google again.",
+  "google_account_conflict": "This email belongs to an existing account. Use your existing sign-in method.",
+  "google_password_notice": "You sign in with Google. Manage your password in your Google Account."
 }

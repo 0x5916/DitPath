@@ -71,6 +71,7 @@ services:
       dockerfile: Dockerfile
       args:
         PUBLIC_API_BASE: ${PUBLIC_API_BASE}
+        PUBLIC_GOOGLE_CLIENT_ID: ${PUBLIC_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     # With a Cloudflare Tunnel (or a local reverse proxy) this can be narrowed to
     # 127.0.0.1:3000:80. Keep the mapping either way: deploy.sh, update.sh and status.sh
@@ -109,6 +110,7 @@ services:
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL}
       CORS_ORIGINS: ${CORS_ORIGINS}
       AUTH_TRUSTED_PROXY_CIDRS: ${AUTH_TRUSTED_PROXY_CIDRS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       READ_TIMEOUT: ${READ_TIMEOUT:-15s}
       READ_HEADER_TIMEOUT: ${READ_HEADER_TIMEOUT:-5s}
       WRITE_TIMEOUT: ${WRITE_TIMEOUT:-30s}

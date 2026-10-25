@@ -549,5 +549,14 @@
   "profile_habits_longest_streak": "Längste Serie",
   "profile_habits_favorite_weekday": "Häufigster Trainingstag",
   "profile_habits_day_one": "1 Tag",
-  "profile_habits_days": "{count} Tage"
+  "profile_habits_days": "{count} Tage",
+  "google_loading": "Google-Anmeldung wird geladen…",
+  "google_choose_username": "Wähle deinen OpenCW-Benutzernamen",
+  "google_create_account": "Konto erstellen",
+  "google_cancel": "Abbrechen",
+  "google_unavailable": "Die Google-Anmeldung ist nicht verfügbar. Versuche es erneut oder verwende dein Passwort.",
+  "google_request_rejected": "Die Google-Anmeldung konnte nicht abgeschlossen werden. Lade die Seite neu und versuche es erneut.",
+  "google_credential_invalid": "Deine Google-Anmeldung ist abgelaufen oder konnte nicht bestätigt werden. Melde dich erneut mit Google an.",
+  "google_account_conflict": "Diese E-Mail-Adresse gehört zu einem bestehenden Konto. Verwende deine bisherige Anmeldemethode.",
+  "google_password_notice": "Du meldest dich mit Google an. Verwalte dein Passwort in deinem Google-Konto."
 }

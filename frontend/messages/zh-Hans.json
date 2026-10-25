@@ -549,5 +549,14 @@
   "profile_habits_longest_streak": "最长连续训练",
   "profile_habits_favorite_weekday": "最常训练的星期",
   "profile_habits_day_one": "1 天",
-  "profile_habits_days": "{count} 天"
+  "profile_habits_days": "{count} 天",
+  "google_loading": "正在加载 Google 登录…",
+  "google_choose_username": "选择你的 OpenCW 用户名",
+  "google_create_account": "创建账户",
+  "google_cancel": "取消",
+  "google_unavailable": "暂时无法使用 Google 登录。请重试或使用密码登录。",
+  "google_request_rejected": "无法完成 Google 登录。请刷新页面后重试。",
+  "google_credential_invalid": "Google 登录已过期或无法验证。请重新使用 Google 登录。",
+  "google_account_conflict": "此邮箱属于现有账户。请使用原有的登录方式。",
+  "google_password_notice": "你使用 Google 登录。请在 Google 账户中管理密码。"
 }

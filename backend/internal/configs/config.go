@@ -26,6 +26,7 @@ type Config struct {
 	ResendFromEmail       string         `required:"true"`
 	GinMode               string         `required:"true"`
 	CORSOrigins           []string       // optional — no tag
+	GoogleClientID        string         // optional; empty disables Google sign-in
 	AuthTrustedProxyCIDRs []netip.Prefix // optional, auth attribution only
 
 	ReadTimeout       time.Duration `required:"true"`
@@ -51,7 +52,7 @@ func Load() {
 	var corsOrigins []string
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		for _, o := range strings.Split(raw, ",") {
-			if trimmed := strings.TrimSpace(o); trimmed != "" {
+			if trimmed := strings.TrimSpace(o); trimmed != "" || os.Getenv("GOOGLE_CLIENT_ID") != "" {
 				corsOrigins = append(corsOrigins, trimmed)
 			}
 		}
@@ -68,6 +69,7 @@ func Load() {
 		ResendFromEmail:       os.Getenv("RESEND_FROM_EMAIL"),
 		GinMode:               os.Getenv("GIN_MODE"),
 		CORSOrigins:           corsOrigins,
+		GoogleClientID:        os.Getenv("GOOGLE_CLIENT_ID"),
 		AuthTrustedProxyCIDRs: proxies,
 		ReadTimeout:           getDurationEnv("READ_TIMEOUT", 15*time.Second),
 		ReadHeaderTimeout:     getDurationEnv("READ_HEADER_TIMEOUT", 5*time.Second),
@@ -143,7 +145,7 @@ func (c Config) Validate() error {
 			return fmt.Errorf("config field %q is required but empty", field.Name)
 		}
 	}
-	return nil
+	return c.validateGoogle()
 }
 
 func isZero(v reflect.Value) bool {

@@ -26,6 +26,8 @@ npm run dev
 
 Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
 
+For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for an OpenCW username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
+
 ## Checks and builds
 
 [package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally.

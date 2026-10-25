@@ -5,6 +5,7 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
   import AuthCard from '#lib/components/AuthCard.svelte';
+  import GoogleSignIn from '#lib/components/GoogleSignIn.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import PasswordInput from '#lib/components/PasswordInput.svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
@@ -19,6 +20,7 @@
   let confirmPassword = $state('');
   let err = $state('');
   let loading = $state(false);
+  let authRevision = $state(0);
 
   // A signed-in visitor has nothing to do here; send them home instead of
   // showing a registration form for a new account they don't need.
@@ -40,6 +42,7 @@
     }
 
     loading = true;
+    authRevision += 1;
     try {
       await register(username, email, password);
     } catch (error) {
@@ -59,6 +62,9 @@
 </script>
 
 <AuthCard title={m.register_title()} subtitle={m.register_subtitle()}>
+  {#key authRevision}
+    <GoogleSignIn disabled={loading} />
+  {/key}
   <form onsubmit={handleRegister} class="auth-form">
     <label class="field">
       <span class="label-text">{m.register_username_label()}</span>

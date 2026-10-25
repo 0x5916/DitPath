@@ -549,5 +549,14 @@
   "profile_habits_longest_streak": "最長連続日数",
   "profile_habits_favorite_weekday": "よく練習する曜日",
   "profile_habits_day_one": "1日",
-  "profile_habits_days": "{count}日"
+  "profile_habits_days": "{count}日",
+  "google_loading": "Google ログインを読み込み中…",
+  "google_choose_username": "OpenCW のユーザー名を選択",
+  "google_create_account": "アカウントを作成",
+  "google_cancel": "キャンセル",
+  "google_unavailable": "Google ログインを利用できません。再試行するか、パスワードでログインしてください。",
+  "google_request_rejected": "Google ログインを完了できませんでした。ページを再読み込みして再試行してください。",
+  "google_credential_invalid": "Google ログインの有効期限が切れたか、確認できませんでした。Google でもう一度ログインしてください。",
+  "google_account_conflict": "このメールアドレスは既存のアカウントで使用されています。現在のログイン方法を使用してください。",
+  "google_password_notice": "Google でログインしています。パスワードは Google アカウントで管理してください。"
 }

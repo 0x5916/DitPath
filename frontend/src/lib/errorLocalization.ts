@@ -5,6 +5,20 @@ export function localizeApiError(error: unknown, fallback: () => string): string
   const code = extractErrorCode(error);
 
   switch (code) {
+    case 'GOOGLE_SIGN_IN_DISABLED':
+    case 'GOOGLE_SIGN_IN_UNAVAILABLE':
+      return m.google_unavailable();
+    case 'GOOGLE_REQUEST_REJECTED':
+    case 'GOOGLE_JSON_REQUIRED':
+      return m.google_request_rejected();
+    case 'GOOGLE_CREDENTIAL_INVALID':
+      return m.google_credential_invalid();
+    case 'GOOGLE_SIGNUP_REQUIRED':
+      return m.google_choose_username();
+    case 'GOOGLE_ACCOUNT_CONFLICT':
+      return m.google_account_conflict();
+    case 'PASSWORD_NOT_AVAILABLE':
+      return m.google_password_notice();
     case 'BROWSER_STORAGE_FAILED':
       return m.auth_storage_error();
     case 'INVALID_REQUEST_BODY':

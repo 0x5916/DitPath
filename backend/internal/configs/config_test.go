@@ -58,6 +58,9 @@ func TestConfigValidateCurrentNonzeroValues(t *testing.T) {
 		field := fields.Field(index)
 		switch field.Kind() {
 		case reflect.String:
+			if fields.Type().Field(index).Name == "GoogleClientID" {
+				continue // Google has a separate opt-in syntax contract.
+			}
 			field.SetString(" \t")
 		case reflect.Int, reflect.Int64:
 			field.SetInt(-1)

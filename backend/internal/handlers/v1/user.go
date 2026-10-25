@@ -20,11 +20,12 @@ func (h UserHandler) GetUserInfo(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
 	c.JSON(http.StatusOK, common.UserInfoResponse{
-		CallSign:      user.CallSign,
-		Username:      user.Username,
-		Email:         user.Email,
-		EmailVerified: user.EmailVerified,
-		CreatedAt:     user.CreatedAt,
+		CallSign:        user.CallSign,
+		Username:        user.Username,
+		Email:           user.Email,
+		EmailVerified:   user.EmailVerified,
+		PasswordEnabled: user.Password != "",
+		CreatedAt:       user.CreatedAt,
 	})
 }
 
@@ -75,6 +76,11 @@ func (h UserHandler) UpdatePassword(c *gin.Context) {
 	var input common.UpdatePasswordInput
 	if err := bindAuthJSON(c, &input); err != nil {
 		respondAuthBindingError(c, err)
+		return
+	}
+
+	if user.Password == "" {
+		c.JSON(http.StatusConflict, common.NewErrorResponse(common.ErrorCodePasswordNotAvailable, "This account signs in with Google and has no password."))
 		return
 	}
 

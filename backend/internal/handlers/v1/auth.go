@@ -146,6 +146,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	if user.Password == "" {
+		c.JSON(http.StatusUnauthorized, common.NewErrorResponse(common.ErrorCodeInvalidCredentials, "Invalid credentials"))
+		return
+	}
 	match, err := reservation.Compare(input.Password, user.Password)
 	reservation.Close()
 	if authCanceled(c, err) {

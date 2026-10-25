@@ -78,7 +78,7 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 	for _, model := range probe.models {
 		models = append(models, reflect.TypeOf(model).Elem().Name())
 	}
-	want := []string{"User", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange"}
+	want := []string{"User", "UserIdentity", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange"}
 	if !reflect.DeepEqual(models, want) {
 		t.Fatalf("models = %v, want %v", models, want)
 	}
@@ -119,5 +119,40 @@ func TestTrainingHistoryOwnershipConstraints(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUserIdentityOwnershipConstraints(t *testing.T) {
+	parsed, err := schema.Parse(&models.UserIdentity{}, &sync.Map{}, schema.NamingStrategy{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	user := parsed.Relationships.Relations["User"]
+	if user == nil || user.ParseConstraint() == nil || user.ParseConstraint().OnDelete != "CASCADE" {
+		t.Fatal("external identities must belong to and cascade with their account")
+	}
+	for _, name := range []string{"UserID", "Provider", "Issuer", "Subject"} {
+		if !parsed.FieldsByName[name].NotNull {
+			t.Fatalf("identity %s must be required", name)
+		}
+	}
+	indexes := parsed.ParseIndexes()
+	seen := map[string]bool{}
+	for _, index := range indexes {
+		if index.Name == "idx_user_identities_issuer_subject" {
+			if index.Class != "UNIQUE" || index.Where != "" || len(index.Fields) != 2 || index.Fields[0].DBName != "issuer" || index.Fields[1].DBName != "subject" {
+				t.Fatal("issuer/subject must remain globally reserved after deletion")
+			}
+			seen[index.Name] = true
+		}
+		if index.Name == "idx_user_identities_active_provider" {
+			if index.Class != "UNIQUE" || index.Where != "deleted_at IS NULL" || len(index.Fields) != 2 || index.Fields[0].DBName != "user_id" || index.Fields[1].DBName != "provider" {
+				t.Fatal("accounts must have at most one active identity per provider")
+			}
+			seen[index.Name] = true
+		}
+	}
+	if len(seen) != 2 || len(parsed.ParseCheckConstraints()) != 3 {
+		t.Fatal("identity uniqueness and bounded string constraints are required")
 	}
 }

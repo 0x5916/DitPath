@@ -108,15 +108,16 @@ nano .env
 
 Paste the generated value into `JWT_SECRET` and fill the required values below. In Nano, save with **Ctrl+O**, confirm with **Enter**, then exit with **Ctrl+X**. Keep `.env` out of Git and do not source it as shell code; values such as the sender address contain spaces.
 
-| Configuration | Required values and meaning                                                                                                                                      |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database      | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; select `POSTGRES_DATA_PATH` on persistent storage. An unset path falls back to `./data/postgres`.           |
-| Access tokens | `JWT_SECRET`: base64 bytes; `make check` requires at least 32 decoded bytes.                                                                                     |
-| Email         | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; both are required by backend startup validation.                                                                          |
-| Browser API   | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.example.com/v1`. It is embedded when the frontend is built.                                |
-| CORS          | `CORS_ORIGINS`: comma-separated frontend origins. This is backend runtime configuration.                                                                         |
-| Auth source   | `AUTH_TRUSTED_PROXY_CIDRS`: optional comma-separated proxy CIDRs; empty by default. See [authentication source attribution](#authentication-source-attribution). |
-| pgAdmin       | `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`: separate from database credentials; used to initialize its account.                                         |
+| Configuration  | Required values and meaning                                                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database       | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; select `POSTGRES_DATA_PATH` on persistent storage. An unset path falls back to `./data/postgres`.           |
+| Access tokens  | `JWT_SECRET`: base64 bytes; `make check` requires at least 32 decoded bytes.                                                                                     |
+| Email          | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; both are required by backend startup validation.                                                                          |
+| Browser API    | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.example.com/v1`. It is embedded when the frontend is built.                                |
+| CORS           | `CORS_ORIGINS`: comma-separated frontend origins. This is backend runtime configuration.                                                                         |
+| Auth source    | `AUTH_TRUSTED_PROXY_CIDRS`: optional comma-separated proxy CIDRs; empty by default. See [authentication source attribution](#authentication-source-attribution). |
+| Google sign-in | Optional `GOOGLE_CLIENT_ID` and matching build-time `PUBLIC_GOOGLE_CLIENT_ID`; leave both empty to disable. See [Google sign-in setup](#google-sign-in-setup).   |
+| pgAdmin        | `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`: separate from database credentials; used to initialize its account.                                         |
 
 Set the database's RAM budget on a shared or nested host; see [PostgreSQL resource tuning](#postgresql-resource-tuning). The template selects PGTune's web profile; other tuning inputs remain commented until you remove their leading `#`. Review optional ports, HTTP timeouts, connection pool settings, and tunnel values in [example.env](example.env), then run `make check`.
 
@@ -142,6 +143,14 @@ make tune
 ```
 
 Proceed when validation exits successfully and the read-only preview shows the intended database budget and settings. Neither command starts PostgreSQL; Docker container startup and browser connectivity are verified next.
+
+### Google sign-in setup
+
+Create a Google OAuth client of type **Web application**, configure OAuth branding, and add the exact frontend origins under Authorized JavaScript origins, following [Google's setup guide](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid). This integration uses the GIS popup callback, so it needs no Google client secret or redirect endpoint. Set matching `GOOGLE_CLIENT_ID` and `PUBLIC_GOOGLE_CLIENT_ID`; Compose passes the former to the API and the latter as a frontend build argument.
+
+Set `CORS_ORIGINS` to the intended HTTPS frontend origins. Explicit HTTP localhost origins are allowed for development; ordinary HTTP LAN origins cannot enable Google sign-in. Unlike the general development API policy, Google always checks its exact allowlist. Existing reverse-proxy CSP/COOP settings must permit Google's SDK and popup communication; verify the real browser flow before rollout and change headers only when required by Google's guidance. The [backend guide](backend/README.md#google-sign-in) owns runtime configuration and the [approved specification](backend/docs/google-sign-in-spec.md) owns the API and schema acceptance gates.
+
+Rebuild the frontend after changing its client ID. Backend startup adds the `user_identities` table through the existing additive migration path. Validate the migration and existing account preservation against a disposable database before an authorized rollout. Source implementation and mocked browser tests do not establish that a live Google client/origin is configured correctly.
 
 ## Build and verify
 

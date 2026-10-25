@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/pprof"
 	"net/netip"
@@ -10,6 +11,7 @@ import (
 	"opencw/internal/common"
 	"opencw/internal/configs"
 	"opencw/internal/databases"
+	"opencw/internal/googleauth"
 	handlers "opencw/internal/handlers/v1"
 	v2handlers "opencw/internal/handlers/v2"
 	"opencw/internal/middlewares"
@@ -43,6 +45,9 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	auth.POST("/login", middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), authHandler.Login)
 	auth.POST("/logout", authHandler.Logout)
 	auth.POST("/refresh", authHandler.Refresh)
+	registerGoogleAuthRoutes(auth, db, limiter, proxies, func(ctx context.Context, credential, nonce string) (googleauth.Identity, error) {
+		return googleauth.DefaultVerifier().Verify(ctx, configs.App.GoogleClientID, credential, nonce)
+	})
 
 	protected := v1.Group("/")
 	protected.Use(middlewares.AuthRequired())
@@ -126,6 +131,9 @@ func registerTrainingRoutes(protected *gin.RouterGroup, db *gorm.DB) {
 
 func CORSSetup(engine *gin.Engine) {
 	engine.Use(func(c *gin.Context) {
+		if googleCORS(c) {
+			return
+		}
 		origin := c.Request.Header.Get("Origin")
 		if origin == "" || !isCORSAllowed(origin) {
 			c.Next()

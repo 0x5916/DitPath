@@ -465,3 +465,194 @@ describe('auth storage failures', () => {
     await rejected;
   });
 });
+
+describe('Google authentication fencing', () => {
+  async function flow() {
+    const { createGoogleSignInFlow } = await import('#lib/google-sign-in.ts');
+    const update = vi.fn();
+    return { ...createGoogleSignInFlow(update), update };
+  }
+
+  it('keeps signup credentials in memory and reuses the fenced attempt for username completion', async () => {
+    const google = await flow();
+    expect(google.nonce).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ code: 'GOOGLE_SIGNUP_REQUIRED' }, { status: 409 }))
+      .mockResolvedValueOnce(credentials('new-user'));
+    google.begin();
+    await google.receive('google-id-token');
+    expect(google.update).toHaveBeenLastCalledWith({
+      busy: false,
+      needsUsername: true,
+      error: null
+    });
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    await google.register('new-user');
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      expect.stringMatching(/\/auth\/google$/),
+      expect.stringMatching(/\/auth\/google\/register$/)
+    ]);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers).toMatchObject({
+        'Content-Type': 'application/json',
+        'X-OpenCW-Auth': 'google'
+      });
+      expect(JSON.parse(init.body)).toMatchObject({
+        credential: 'google-id-token',
+        nonce: google.nonce
+      });
+    }
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.username)).toBe('new-user');
+    expect(localStorage.getItem('google-id-token')).toBeNull();
+    google.dispose();
+  });
+
+  it('does not exchange an old SDK callback after a newer failed password attempt', async () => {
+    const google = await flow();
+    google.begin();
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ code: 'INVALID_CREDENTIALS' }, { status: 401 })
+    );
+    await expect(auth.login('alice', 'wrong')).rejects.toThrow('INVALID_CREDENTIALS');
+    await google.receive('stale-google-token');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    google.dispose();
+  });
+
+  it('cannot complete username selection after another auth attempt or logout', async () => {
+    const google = await flow();
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ code: 'GOOGLE_SIGNUP_REQUIRED' }, { status: 409 })
+    );
+    google.begin();
+    await google.receive('token');
+    await auth.logout();
+    await google.register('new-user');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(get(auth.user)).toBeNull();
+    google.dispose();
+  });
+
+  it.each(['dispose', 'cancel'] as const)(
+    'fences delayed responses when a Google flow is %s',
+    async (action) => {
+      const google = await flow();
+      const pending = deferred<Response>();
+      fetchMock.mockReturnValueOnce(pending.promise);
+      google.begin();
+      const exchange = google.receive('token');
+      google[action]();
+      pending.resolve(credentials('alice'));
+      await exchange;
+      expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+      expect(get(auth.user)).toBeNull();
+    }
+  );
+
+  it('rejects an SDK callback after a cross-tab account change', async () => {
+    const google = await flow();
+    google.begin();
+    setSession('bob');
+    await google.receive('token');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.username)).toBe('bob');
+    google.dispose();
+  });
+
+  it('preserves a newer password login when a Google exchange responds later', async () => {
+    const google = await flow();
+    const old = deferred<Response>();
+    fetchMock.mockReturnValueOnce(old.promise).mockResolvedValueOnce(credentials('bob'));
+    google.begin();
+    const exchange = google.receive('old-token');
+    await auth.login('bob', 'secret');
+    old.resolve(credentials('alice'));
+    await exchange;
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.username)).toBe('bob');
+    google.dispose();
+  });
+
+  it('retains username selection for a username conflict and clears it for invalid Google credentials', async () => {
+    const google = await flow();
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ code: 'GOOGLE_SIGNUP_REQUIRED' }, { status: 409 }))
+      .mockResolvedValueOnce(Response.json({ code: 'USERNAME_ALREADY_IN_USE' }, { status: 409 }))
+      .mockResolvedValueOnce(Response.json({ code: 'GOOGLE_CREDENTIAL_INVALID' }, { status: 401 }));
+    google.begin();
+    await google.receive('token');
+    await google.register('taken');
+    expect(google.update.mock.calls.at(-1)![0]).toMatchObject({ needsUsername: true });
+    await google.register('available');
+    expect(google.update.mock.calls.at(-1)![0]).toMatchObject({
+      busy: false,
+      needsUsername: false
+    });
+    await google.register('again');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    google.dispose();
+  });
+
+  it('reports blocked storage and rolls back Google session writes', async () => {
+    const google = await flow();
+    const originalSet = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (key === AUTH_STORAGE_KEYS.refreshToken) throw new Error('blocked');
+      originalSet(key, value);
+    });
+    fetchMock.mockResolvedValueOnce(credentials('alice'));
+    google.begin();
+    await google.receive('token');
+    expect(google.update.mock.calls.at(-1)![0].error).toBeInstanceOf(auth.AuthStorageError);
+    expect(Object.values(AUTH_STORAGE_KEYS).map((key) => localStorage.getItem(key))).toEqual([
+      null,
+      null,
+      null
+    ]);
+    expect(get(auth.user)).toBeNull();
+    google.dispose();
+  });
+
+  it.each(['before-popup', 'after-popup'])(
+    'reports inaccessible storage %s without exchanging a credential',
+    async (when) => {
+      const google = await flow();
+      if (when === 'after-popup') google.begin();
+      vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+        throw new Error('storage denied');
+      });
+      if (when === 'before-popup') google.begin();
+      await google.receive('token');
+      expect(google.update.mock.calls.at(-1)![0].error).toBeInstanceOf(auth.AuthStorageError);
+      expect(fetchMock).not.toHaveBeenCalled();
+      google.dispose();
+    }
+  );
+
+  it('preserves immutable account UUID partitions after Google sign-in', async () => {
+    const accountId = '11111111-1111-4111-8111-111111111111';
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
+        access_token: `header.${btoa(JSON.stringify({ sub: accountId, username: 'alice', exp: Date.now() / 1000 + 3600 }))}.signature`,
+        refresh_token: 'refresh-google'
+      })
+    );
+    await auth.googleSignIn('google-token', 'nonce', auth.beginCredentialAttempt());
+    expect(auth.getAuthAccountId()).toBe(accountId);
+  });
+
+  it('does not substitute a requested username when the canonical account lookup fails', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: `header.${btoa(JSON.stringify({ sub: '11111111-1111-4111-8111-111111111111', exp: Date.now() / 1000 + 3600 }))}.signature`,
+          refresh_token: 'google-refresh'
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(
+      auth.googleSignIn('token', 'nonce', auth.beginCredentialAttempt(), 'requested-name')
+    ).rejects.toThrow('GOOGLE_SIGN_IN_UNAVAILABLE');
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(get(auth.user)).toBeNull();
+  });
+});
