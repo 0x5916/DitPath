@@ -4,10 +4,11 @@
   interface Props {
     options: string[];
     disabled?: boolean;
+    large?: boolean;
     onSelect: (option: string) => void;
   }
 
-  let { options = [], disabled = false, onSelect = () => {} }: Props = $props();
+  let { options = [], disabled = false, large = false, onSelect = () => {} }: Props = $props();
 
   function handleKeydown(event: KeyboardEvent) {
     if (disabled || !acceptsSessionShortcut(event, true)) return;
@@ -21,7 +22,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="character-grid" role="group" aria-label={m.lesson_character_options()}>
+<div class="character-grid" class:large role="group" aria-label={m.lesson_character_options()}>
   {#each options as option (option)}
     <button
       type="button"
@@ -36,6 +37,21 @@
 </div>
 
 <style>
+  .character-grid.large {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 30rem;
+    margin: 0;
+  }
+  .large .grid-cell {
+    width: 100%;
+    height: 7rem;
+  }
+  .large .grid-char {
+    font-size: 2.75rem;
+  }
+
   .character-grid {
     display: flex;
     flex-wrap: wrap;

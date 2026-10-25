@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { acceptsSessionContinue, acceptsSessionEscape, acceptsSessionShortcut } from './keyboard';
+import {
+  acceptsAnswerReplay,
+  acceptsSessionContinue,
+  acceptsSessionEscape,
+  acceptsSessionShortcut
+} from './keyboard';
 
 function keyEvent(overrides: Partial<KeyboardEvent> = {}, targetSelector?: string): KeyboardEvent {
   return {
@@ -12,6 +17,24 @@ function keyEvent(overrides: Partial<KeyboardEvent> = {}, targetSelector?: strin
 }
 
 describe('guided session keyboard policy', () => {
+  it('replays from the answer field while preserving composition and modified keys', () => {
+    const replay = keyEvent({ key: ' ', code: 'Space' }, 'input');
+    expect(acceptsAnswerReplay(replay)).toBe(true);
+    for (const overrides of [
+      { isComposing: true },
+      { keyCode: 229 },
+      { repeat: true },
+      { shiftKey: true },
+      { altKey: true },
+      { ctrlKey: true },
+      { metaKey: true },
+      { defaultPrevented: true }
+    ]) {
+      expect(acceptsAnswerReplay({ ...replay, ...overrides })).toBe(false);
+    }
+    expect(acceptsAnswerReplay(keyEvent({ code: 'Space' }, 'dialog[open]'))).toBe(false);
+    expect(acceptsAnswerReplay(keyEvent({ key: 'K', code: 'KeyK' }, 'input'))).toBe(false);
+  });
   it.each([
     { defaultPrevented: true },
     { repeat: true },

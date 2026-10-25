@@ -1,263 +1,240 @@
 <script lang="ts">
-  import type { SessionSummary } from '../../training/v2/types';
-  import { CheckCircle2, RotateCcw, AlertCircle, LoaderCircle } from '@lucide/svelte';
+  import type { Snippet } from 'svelte';
+  import { Check } from '@lucide/svelte';
+  import { DEFAULT_MASTERY_POLICY, type SessionSummary } from '../../training/v2/types';
   import type { SessionPersistenceStatus } from '../../training/v2/session-controller.svelte';
+  import { resultView } from './result-view';
+  import InfoTip from '../InfoTip.svelte';
   import * as m from '#lib/paraglide/messages.js';
-
-  interface Props {
-    summary: SessionSummary;
-    persistenceStatus: SessionPersistenceStatus;
-    busy?: boolean;
-    onNextLesson?: () => void;
-    onRepeatLesson?: () => void;
-    onFinish: () => void;
-  }
 
   let {
     summary,
     persistenceStatus,
     busy = false,
-    onNextLesson = () => {},
-    onRepeatLesson = () => {},
-    onFinish = () => {}
-  }: Props = $props();
-
-  let accuracyPercent = $derived(Math.round(summary.accuracy * 100));
-  let latencySec = $derived(
-    summary.medianLatencyMs !== null
-      ? m.lesson_result_seconds({ seconds: (summary.medianLatencyMs / 1000).toFixed(1) })
-      : m.lesson_result_insufficient()
-  );
+    onNextLesson,
+    onRepeatLesson,
+    onFinish,
+    storageStatus
+  }: {
+    summary: SessionSummary;
+    persistenceStatus: SessionPersistenceStatus;
+    busy?: boolean;
+    onNextLesson: () => void;
+    onRepeatLesson: () => void;
+    onFinish: () => void;
+    storageStatus?: Snippet;
+  } = $props();
+  const view = $derived(resultView(summary));
+  const disabled = $derived(busy || persistenceStatus === 'saving');
+  const recommendation = $derived.by(() => {
+    switch (view.reason) {
+      case 'next':
+        return m.lesson_result_unlocked({ step: view.nextStep!, characters: view.nextCharacters });
+      case 'complete':
+        return m.lesson_result_course_complete();
+      case 'accuracy':
+        return m.lesson_result_accuracy_hint({
+          percent: Math.round(DEFAULT_MASTERY_POLICY.targetAccuracy * 100)
+        });
+      case 'characters':
+        return m.lesson_result_weak({ characters: summary.weakCharacters.join(', ') });
+      case 'attempts':
+        return m.lesson_result_more_answers();
+      case 'sessions':
+        return m.lesson_result_more_sessions();
+      default:
+        return m.lesson_result_continue();
+    }
+  });
+  function focusHeading(heading: HTMLElement) {
+    heading.focus();
+  }
 </script>
 
-<div class="result-card" role="region" aria-label={m.lesson_result_label()}>
-  <div class="result-header">
-    <div class="result-badge">
-      <CheckCircle2 size={24} class="result-icon" />
-      <h2 class="result-title">{m.lesson_result_title()}</h2>
-    </div>
-    {#if summary.unlockedNextStep}
-      <p class="result-subtitle text-good">
-        {m.lesson_result_unlocked()}
-      </p>
-    {:else if summary.weakCharacters.length > 0}
-      <p class="result-subtitle">
-        {m.lesson_result_weak({ characters: summary.weakCharacters.join(', ') })}
-      </p>
-    {:else}
-      <p class="result-subtitle">{m.lesson_result_continue()}</p>
-    {/if}
-  </div>
+<section class="result" aria-label={m.lesson_result_label()}>
+  <header>
+    <p class="lesson-label">
+      {m.home_lesson_title({ step: summary.step, characters: view.lessonCharacters })}
+    </p>
+    <h1 tabindex="-1" {@attach focusHeading}>
+      <Check size={28} aria-hidden="true" />
+      {view.reason === 'complete' ? m.lesson_result_course_title() : m.lesson_result_title()}
+    </h1>
+  </header>
 
-  <div class="metrics-grid">
-    <div class="metric-item">
-      <span class="metric-label">{m.lesson_result_accuracy()}</span>
-      <span class="metric-val">{accuracyPercent}%</span>
+  <dl class="metrics">
+    <div>
+      <dt>{m.lesson_result_accuracy()}</dt>
+      <dd class="value" class:unmeasured={view.accuracyPercent === null}>
+        {view.accuracyPercent === null
+          ? m.lesson_result_insufficient()
+          : `${view.accuracyPercent}%`}
+      </dd>
+      {#if view.accuracyPercent !== null}<dd class="detail">
+          {m.lesson_result_count({
+            correct: summary.correctAttempts,
+            total: summary.scoredAttempts
+          })}
+        </dd>{/if}
     </div>
-    <div class="metric-item">
-      <span class="metric-label">{m.lesson_result_latency()}</span>
-      <span class="metric-val">{latencySec}</span>
+    <div>
+      <dt>
+        {m.lesson_result_latency()}<InfoTip
+          label={m.lesson_result_latency()}
+          text={m.lesson_result_latency_hint()}
+        />
+      </dt>
+      <dd class="value" class:unmeasured={view.latencySeconds === null}>
+        {view.latencySeconds === null
+          ? m.lesson_result_insufficient()
+          : m.lesson_result_seconds({ seconds: view.latencySeconds })}
+      </dd>
     </div>
-    <div class="metric-item">
-      <span class="metric-label">{m.lesson_result_replays()}</span>
-      <span class="metric-val">{summary.totalReplays}</span>
+    <div class="replays">
+      <dt>
+        {m.lesson_result_replays()}<InfoTip
+          label={m.lesson_result_replays()}
+          text={m.lesson_result_replays_hint()}
+        />
+      </dt>
+      <dd>{summary.totalReplays}</dd>
     </div>
-  </div>
+  </dl>
 
-  {#if summary.weakCharacters.length > 0}
-    <div class="weak-section">
-      <span class="weak-label">{m.lesson_result_weak_label()}</span>
-      <div class="weak-chips">
-        {#each summary.weakCharacters as ch (ch)}
-          <span class="weak-chip">{ch}</span>
-        {/each}
-      </div>
-    </div>
-  {/if}
+  <p class="recommendation">{recommendation}</p>
+  <div class="storage">{@render storageStatus?.()}</div>
 
-  <div class="result-actions">
-    {#if summary.unlockedNextStep}
-      <button
-        type="button"
-        class="btn-primary"
-        disabled={busy || persistenceStatus === 'saving'}
-        onclick={onNextLesson}>{m.lesson_result_next()}</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="btn-primary"
-        disabled={busy || persistenceStatus === 'saving'}
-        onclick={onRepeatLesson}
-      >
-        <RotateCcw size={16} />
-        <span>{m.lesson_result_repeat()}</span>
-      </button>
-    {/if}
-
+  <footer>
+    <button
+      type="button"
+      class={persistenceStatus === 'failed' ? 'btn-ghost' : 'btn-primary'}
+      {disabled}
+      onclick={view.action === 'next'
+        ? onNextLesson
+        : view.action === 'finish'
+          ? onFinish
+          : onRepeatLesson}
+    >
+      {view.action === 'next'
+        ? m.lesson_result_next()
+        : view.action === 'finish'
+          ? m.lesson_result_finish()
+          : m.lesson_result_repeat()}
+    </button>
     <button
       type="button"
       class="btn-ghost"
-      disabled={busy || persistenceStatus === 'saving'}
-      onclick={onFinish}>{m.lesson_result_finish()}</button
+      {disabled}
+      onclick={view.action === 'finish' ? onRepeatLesson : onFinish}
     >
-  </div>
-
-  <footer class="result-footer" role="status">
-    {#if persistenceStatus === 'saved'}
-      <CheckCircle2 size={16} aria-hidden="true" /><span>{m.lesson_saved()}</span>
-    {:else if persistenceStatus === 'saving'}
-      <LoaderCircle size={16} aria-hidden="true" /><span>{m.lesson_saving()}</span>
-    {:else}
-      <AlertCircle size={16} aria-hidden="true" /><span>{m.lesson_save_failed()}</span>
-    {/if}
+      {view.action === 'finish' ? m.lesson_result_repeat() : m.lesson_result_finish()}
+    </button>
   </footer>
-</div>
+</section>
 
 <style>
-  .result-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-6);
-    padding: var(--space-6);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    width: 100%;
-    max-width: 28rem;
-    box-shadow: var(--shadow-overlay);
-  }
-
-  .result-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-    text-align: center;
-  }
-
-  .result-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    color: var(--learning-stable);
-  }
-
-  .result-title {
-    margin: 0;
-    font-size: var(--text-xl);
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .result-subtitle {
-    margin: 0;
+  .lesson-label {
+    margin: 0 0 var(--space-4);
     font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .result {
+    width: 100%;
+    max-width: 30rem;
+    min-height: min(36rem, calc(100dvh - 8rem));
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding-block: var(--space-4);
+  }
+  h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    margin: 0;
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+    overflow-wrap: anywhere;
+  }
+  h1:focus {
+    outline: none;
+  }
+  h1 :global(svg) {
+    color: var(--status-good);
+    flex-shrink: 0;
+  }
+  .metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin: 0;
+    text-align: start;
+  }
+  .metrics > div {
+    flex: 1 1 8rem;
+    min-width: 0;
+  }
+  dt {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+  }
+  dd {
+    margin: 0;
+  }
+  .value {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .detail {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin-top: var(--space-2);
+  }
+  .unmeasured {
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    font-weight: 400;
     color: var(--text-secondary);
     line-height: var(--leading-normal);
   }
-
-  .text-good {
-    color: var(--learning-stable);
+  .metrics > .replays {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
-    width: 100%;
-    padding: var(--space-4) var(--space-2);
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+  .replays dd {
+    font-family: var(--font-mono);
   }
-
-  .metric-item {
+  .recommendation {
+    margin: 0;
+    padding: var(--space-4);
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    text-align: start;
+    color: var(--text-secondary);
+    line-height: var(--leading-normal);
+  }
+  .storage {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  footer {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: var(--space-1);
-    text-align: center;
-  }
-
-  .metric-label {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-  }
-
-  .metric-val {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    font-weight: 700;
-    color: var(--text-primary);
-    overflow-wrap: anywhere;
-  }
-
-  .weak-section {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
     gap: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    margin-top: auto;
   }
-
-  .weak-chips {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--space-1);
-  }
-
-  .weak-chip {
-    padding: 0.1rem 0.4rem;
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border-radius: var(--radius-xs);
-    background-color: var(--status-bad-tint);
-    color: var(--learning-error);
-  }
-
-  .result-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+  footer button {
     width: 100%;
-    max-width: 18rem;
-  }
-
-  .result-footer {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-  }
-
-  @media (max-width: 479px) {
-    .metrics-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .metric-item {
-      flex-direction: row;
-      justify-content: space-between;
-      gap: var(--space-3);
-      text-align: start;
-    }
-
-    .metric-val {
-      flex-shrink: 0;
-      max-width: 50%;
-      text-align: end;
-    }
-
-    .metric-label {
-      min-width: 0;
-      overflow-wrap: anywhere;
-      text-transform: none;
-      letter-spacing: normal;
-    }
+    min-height: 3.5rem;
+    white-space: normal;
   }
 </style>

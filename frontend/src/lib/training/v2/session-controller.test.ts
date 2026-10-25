@@ -551,15 +551,23 @@ describe('guided persistence commit ordering and recovery', () => {
     intro.isScored = false;
     const attempts = createFakeAttemptRepo();
     const sessions = createFakeSessionRepo();
+    const audio = createFakeAudioEngine();
     const controller = new GuidedSessionController({
       step: 1,
       prompts: [intro, createMockPrompt('recall', 'K')],
-      audioEngine: createFakeAudioEngine(),
+      audioEngine: audio,
       attemptRepo: attempts,
       sessionRepo: sessions
     });
     await controller.start();
-    controller.continue();
+    expect(controller.continue()).toBe(false);
+    expect(sessions.sessions[0].completedPromptCount).toBe(0);
+    controller.play();
+    expect(controller.continue()).toBe(false);
+    audio.finish();
+    controller.play();
+    audio.finish();
+    expect(controller.continue()).toBe(true);
     await controller.flushPersistence();
     expect(sessions.sessions[0].completedPromptCount).toBe(1);
     expect(attempts.saved).toHaveLength(0);

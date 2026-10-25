@@ -1,12 +1,15 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import type { InputMode } from '../../training/v2/types';
+  import { acceptsAnswerReplay } from './keyboard';
   import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     disabled?: boolean;
     expectedLength?: number;
     autoFocus?: boolean;
+    value?: string;
+    onReplay?: () => void;
     onSubmit: (text: string, mode: InputMode) => void;
   }
 
@@ -14,30 +17,34 @@
     disabled = false,
     expectedLength = 1,
     autoFocus = true,
+    value = $bindable(''),
+    onReplay = () => {},
     onSubmit = () => {}
   }: Props = $props();
 
-  let inputVal = $state('');
-  let inputEl = $state<HTMLInputElement | null>(null);
   let composing = false;
   const inputId = $props.id();
   let inputLength = $derived(
     Number.isFinite(expectedLength) ? Math.max(1, Math.trunc(expectedLength)) : 1
   );
 
-  $effect(() => {
-    if (!disabled && autoFocus && inputEl) {
-      tick().then(() => {
-        if (!disabled && autoFocus) inputEl?.focus();
-      });
-    }
-  });
+  function focusWhenReady(input: HTMLInputElement) {
+    if (disabled || !autoFocus) return;
+    let active = true;
+    void tick().then(() => {
+      if (active && !disabled && autoFocus) input.focus();
+    });
+    return () => {
+      active = false;
+    };
+  }
 
   function handleInput(event: Event) {
     if (disabled || composing || (event as InputEvent).isComposing) return;
     const target = event.target as HTMLInputElement;
     const clean = target.value.trim().toUpperCase();
-    inputVal = clean;
+    value = clean;
+    target.value = clean;
 
     // Auto-submit when expected single character or group length is reached
     if (clean.length === inputLength) {
@@ -48,6 +55,13 @@
   function handleKeydown(event: KeyboardEvent) {
     if (disabled || composing || event.isComposing || event.keyCode === 229) return;
 
+    if (acceptsAnswerReplay(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      onReplay();
+      return;
+    }
+
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
@@ -57,9 +71,9 @@
         !event.metaKey &&
         !event.altKey &&
         !event.shiftKey &&
-        inputVal.length === inputLength
+        value.length === inputLength
       ) {
-        submit(inputVal, 'keyboard');
+        submit(value, 'keyboard');
       }
     }
   }
@@ -67,21 +81,24 @@
   function submit(text: string, mode: InputMode) {
     if (disabled || text.trim() === '') return;
     const finalVal = text.trim().toUpperCase();
-    inputVal = '';
+    value = '';
     onSubmit(finalVal, mode);
   }
 </script>
 
 <div class="answer-input-container">
   <input
-    bind:this={inputEl}
+    {@attach focusWhenReady}
     type="text"
     class="answer-field"
-    value={inputVal}
+    {value}
     {disabled}
     maxlength={inputLength}
     style:--answer-length={inputLength}
     autocomplete="off"
+    autocorrect="off"
+    inputmode="text"
+    enterkeyhint="done"
     autocapitalize="characters"
     spellcheck="false"
     aria-label={m.lesson_answer_label()}

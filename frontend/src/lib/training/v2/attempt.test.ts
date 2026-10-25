@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scorePromptAttempt } from './attempt';
+import { reduceCharacterMastery } from './mastery';
 import type { Prompt } from './types';
 
 function createMockPrompt(
@@ -123,20 +124,21 @@ describe('Prompt Attempt Scoring', () => {
     expect(event.enteredText).toBe('?');
   });
 
-  it('classifies unscored prompts as unmeasured regardless of correctness', () => {
-    const prompt = createMockPrompt('R', false, 'introduction');
+  it.each(['R', 'K', ''])('keeps warm-up answer %j unmeasured', (enteredText) => {
+    const prompt = createMockPrompt('R', false, 'unscored-match');
     const event = scorePromptAttempt({
       prompt,
       sessionId: 'sess_1',
-      enteredText: 'R',
+      enteredText,
       answerReadyAtMs: 1000,
       submittedAtMs: 2000,
       replayCount: 0,
       inputMode: 'grid'
     });
 
-    expect(event.isCorrect).toBe(true);
+    expect(event.isCorrect).toBe(enteredText === 'R');
     expect(event.classification).toBe('unmeasured');
+    expect(reduceCharacterMastery('R', [event]).totalAttempts).toBe(0);
   });
 
   it('rejects impossible timestamps where submission precedes answerReady', () => {

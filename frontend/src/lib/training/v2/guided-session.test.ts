@@ -48,6 +48,48 @@ function createMockAttempt(promptId: string, isCorrect = true): AttemptEvent {
 }
 
 describe('Guided Session State Machine', () => {
+  it.each(['unplayed', 'interrupted', 'failed'] as const)(
+    'requires finished introduction audio after an %s playback',
+    (condition) => {
+      let state = createGuidedSession({
+        sessionId: 'intro',
+        step: 1,
+        prompts: [
+          createMockPrompt('k', 'introduction', 'K'),
+          createMockPrompt('m', 'introduction', 'M')
+        ]
+      });
+      state = guidedSessionTransition(state, { type: 'start' }).state;
+      if (condition !== 'unplayed') {
+        state = guidedSessionTransition(state, { type: 'play' }).state;
+        if (condition === 'interrupted') {
+          state = guidedSessionTransition(state, { type: 'pause' }).state;
+          state = guidedSessionTransition(state, { type: 'resume' }).state;
+        } else {
+          state = guidedSessionTransition(state, {
+            type: 'audio-error',
+            error: 'Unavailable'
+          }).state;
+        }
+      }
+      expect(guidedSessionTransition(state, { type: 'continue' })).toMatchObject({
+        ok: false,
+        state
+      });
+      state = guidedSessionTransition(state, { type: 'play' }).state;
+      expect(guidedSessionTransition(state, { type: 'continue' }).ok).toBe(false);
+      state = guidedSessionTransition(state, { type: 'play-end', endedAtMs: 0 }).state;
+      state = guidedSessionTransition(state, { type: 'pause' }).state;
+      state = guidedSessionTransition(state, { type: 'resume' }).state;
+      const next = guidedSessionTransition(state, { type: 'continue' });
+      expect(next.ok).toBe(true);
+      expect(next.state.currentPrompt?.id).toBe('m');
+      expect(next.state.attempts).toEqual([]);
+      expect(next.state.answerReadyAtMs).toBeNull();
+      expect(guidedSessionTransition(next.state, { type: 'continue' }).ok).toBe(false);
+    }
+  );
+
   it('initializes in idle state and transitions to ready or introducing on start', () => {
     const promptRecall = createMockPrompt('prm_1', 'recall', 'T');
     const state = createGuidedSession({

@@ -2,6 +2,7 @@
   import { Volume2, RotateCcw, Play, CircleAlert } from '@lucide/svelte';
   import type { GuidedSessionPhase } from '../../training/v2/guided-session';
   import { acceptsSessionShortcut } from './keyboard';
+  import IntroductionPrompt from './IntroductionPrompt.svelte';
   import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
@@ -10,6 +11,8 @@
     audioError?: string | null;
     isIntro?: boolean;
     introCharacter?: string;
+    introPlayed?: boolean;
+    onContinue?: () => void;
     onPlay: () => void;
     onReplay: () => void;
   }
@@ -20,6 +23,8 @@
     audioError = null,
     isIntro = false,
     introCharacter = '',
+    introPlayed = false,
+    onContinue = () => {},
     onPlay = () => {},
     onReplay = () => {}
   }: Props = $props();
@@ -47,69 +52,68 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="audio-prompt-container">
-  {#if isIntro}
-    <div class="intro-badge">{m.lesson_new_sound()}</div>
-    <div
-      class="intro-character"
-      role="img"
-      aria-label={m.lesson_new_character_label({ character: introCharacter })}
-    >
-      {introCharacter}
-    </div>
-    <p class="intro-hint">{m.lesson_intro_hint()}</p>
-  {:else}
+{#if isIntro}
+  <IntroductionPrompt
+    {phase}
+    character={introCharacter}
+    hasPlayed={introPlayed}
+    {audioError}
+    {onPlay}
+    {onContinue}
+  />
+{:else}
+  <div class="audio-prompt-container">
     <div class="prompt-title">{m.lesson_prompt_question()}</div>
-  {/if}
 
-  <div class="audio-control-zone">
-    {#if isPlaying}
-      <div class="pulse-indicator" role="status" aria-label={m.lesson_playing_audio()}>
-        <span class="pulse-icon">
-          <Volume2 size={36} aria-hidden="true" />
-        </span>
-        <span class="pulse-label">{m.lesson_listening()}</span>
-      </div>
-    {:else if canReplay}
-      <button type="button" class="replay-button" onclick={onReplay} aria-keyshortcuts="Space">
-        <RotateCcw size={22} aria-hidden="true" />
-        <span>{m.lesson_replay_sound()}</span>
-      </button>
-    {:else if canPlay}
-      <button type="button" class="play-button" onclick={onPlay} aria-keyshortcuts="Space">
-        <Play size={26} aria-hidden="true" />
-        <span>{m.lesson_play_sound()}</span>
-      </button>
-    {/if}
-  </div>
-
-  <div class="audio-meta">
-    {#if canReplay}
-      <span class="meta-item">{m.lesson_hint_replay()}</span>
-      {#if replayCount > 0}
-        <span class="meta-item meta-replay-count">
-          {replayCount === 1
-            ? m.lesson_replay_count_one()
-            : m.lesson_replay_count({ count: replayCount })}
-        </span>
+    <div class="audio-control-zone">
+      {#if isPlaying}
+        <div class="pulse-indicator" role="status" aria-label={m.lesson_playing_audio()}>
+          <span class="pulse-icon">
+            <Volume2 size={36} aria-hidden="true" />
+          </span>
+          <span class="pulse-label">{m.lesson_listening()}</span>
+        </div>
+      {:else if canReplay}
+        <button type="button" class="replay-button" onclick={onReplay} aria-keyshortcuts="Space">
+          <RotateCcw size={22} aria-hidden="true" />
+          <span>{m.lesson_replay_sound()}</span>
+        </button>
+      {:else if canPlay}
+        <button type="button" class="play-button" onclick={onPlay} aria-keyshortcuts="Space">
+          <Play size={26} aria-hidden="true" />
+          <span>{m.lesson_play_sound()}</span>
+        </button>
       {/if}
-    {:else if canPlay}
-      <span class="meta-item">{m.lesson_hint_play()}</span>
-    {/if}
+    </div>
 
-    {#if audioError}
-      <div class="audio-error-notice" role="alert">
-        <CircleAlert size={16} aria-hidden="true" />
-        <span>{m.lesson_feedback_audio_error()}</span>
-        {#if canPlay || canReplay}
-          <button type="button" class="btn-ghost" onclick={canReplay ? onReplay : onPlay}>
-            {m.lesson_audio_retry()}
-          </button>
+    <div class="audio-meta">
+      {#if canReplay}
+        <span class="meta-item">{m.lesson_hint_replay()}</span>
+        {#if replayCount > 0}
+          <span class="meta-item meta-replay-count">
+            {replayCount === 1
+              ? m.lesson_replay_count_one()
+              : m.lesson_replay_count({ count: replayCount })}
+          </span>
         {/if}
-      </div>
-    {/if}
+      {:else if canPlay}
+        <span class="meta-item">{m.lesson_hint_play()}</span>
+      {/if}
+
+      {#if audioError}
+        <div class="audio-error-notice" role="alert">
+          <CircleAlert size={16} aria-hidden="true" />
+          <span>{m.lesson_feedback_audio_error()}</span>
+          {#if canPlay || canReplay}
+            <button type="button" class="btn-ghost" onclick={canReplay ? onReplay : onPlay}>
+              {m.lesson_audio_retry()}
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   .audio-prompt-container {
@@ -119,31 +123,6 @@
     gap: var(--space-4);
     width: 100%;
     margin-bottom: var(--space-6);
-  }
-
-  .intro-badge {
-    font-size: var(--text-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--learning-current);
-  }
-
-  .intro-character {
-    font-family: var(--font-mono);
-    font-size: 3.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-    margin: var(--space-2) 0;
-  }
-
-  .intro-hint {
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    max-width: 24rem;
-    line-height: var(--leading-normal);
   }
 
   .prompt-title {

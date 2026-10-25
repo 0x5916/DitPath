@@ -12,16 +12,13 @@
   import type { InputMode } from '#lib/training/v2/types.ts';
   import SessionShell from '#lib/components/learning/SessionShell.svelte';
   import AudioPrompt from '#lib/components/learning/AudioPrompt.svelte';
-  import AnswerInput from '#lib/components/learning/AnswerInput.svelte';
-  import CharacterGrid from '#lib/components/learning/CharacterGrid.svelte';
-  import PromptFeedback from '#lib/components/learning/PromptFeedback.svelte';
-  import ContrastRepair from '#lib/components/learning/ContrastRepair.svelte';
+  import RecognitionPrompt from '#lib/components/learning/RecognitionPrompt.svelte';
   import SessionResult from '#lib/components/learning/SessionResult.svelte';
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { LESSONS } from '#lib/training/sequence.ts';
   import { retainTrainingPersistence } from '#lib/pending-training-persistence.ts';
-  import { AlertCircle } from '@lucide/svelte';
+  import { AlertCircle, Check, Pause } from '@lucide/svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import {
     getTrainingOwner,
@@ -40,7 +37,7 @@
   let bypassDestination: string | null = null;
   let allowUnload = false;
   let cancelHistoryRestore: (() => void) | null = null;
-  let comparingContrast = $state(false);
+  let answerDraft = $state('');
   let onVisibility: (() => void) | null = null;
   let initialization = 0;
   let destroyed = false;
@@ -85,6 +82,7 @@
   }
 
   async function startSession(requestedStep: number) {
+    answerDraft = '';
     const owner = getTrainingOwner();
     sessionOwner = owner;
     const generation = ++initialization;
@@ -98,7 +96,6 @@
     initializationError = false;
     pendingAction = null;
     pendingNavigation = null;
-    comparingContrast = false;
     let database: IDBDatabase | null = null;
     try {
       await releaseSession(previousController, previousDb);
@@ -150,7 +147,6 @@
       initialization++;
       pendingAction = null;
       pendingNavigation = null;
-      comparingContrast = false;
       resumeAfterExit = false;
       sessionOwner = getTrainingOwner();
       const previousController = controller;
@@ -329,13 +325,12 @@
 
   function handleSubmitAnswer(text: string, mode: InputMode) {
     if (!controller) return;
-    controller.submitAnswer(text, mode);
+    if (controller.submitAnswer(text, mode)) answerDraft = '';
   }
 
   function handleContinue() {
     if (!controller) return;
-    comparingContrast = false;
-    controller.continue();
+    if (controller.continue()) answerDraft = '';
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -381,27 +376,8 @@
     <div class="skeleton loading-box"></div>
   </div>
 {:else}
-  <SessionShell
-    currentPromptIndex={controller.currentPromptIndex}
-    totalPrompts={controller.totalPrompts}
-    isPaused={controller.phase === 'paused'}
-    canPause={!leaving &&
-      ['introducing', 'ready', 'playing', 'answering', 'paused'].includes(controller.phase)}
-    onExit={handleExit}
-    onExitRequest={handleExitRequest}
-    onExitCancel={handleExitCancel}
-    onPauseToggle={handlePauseToggle}
-  >
-    {#if controller.persistenceStatus === 'saved'}
-      <TrainingSyncStatus
-        owner={trainingSyncState.owner}
-        pending={trainingSyncState.pending}
-        error={trainingSyncState.error}
-        syncing={trainingSyncState.syncing}
-        synced={trainingSyncState.synced && ['complete', 'abandoned'].includes(controller.phase)}
-      />
-    {/if}
-    {#if controller.persistenceStatus === 'failed'}
+  {#snippet storageStatus()}
+    {#if controller?.persistenceStatus === 'failed'}
       <div class="recovery-panel" role="alert">
         <AlertCircle size={20} aria-hidden="true" />
         <p>{m.lesson_save_failed()}</p>
@@ -422,12 +398,50 @@
           >
         {/if}
       </div>
-    {:else if controller.persistenceStatus === 'saving' && controller.phase !== 'complete'}
-      <p role="status">{m.lesson_saving()}</p>
+    {:else if controller?.persistenceStatus === 'saving'}
+      <p class="save-status" role="status">{m.lesson_saving()}</p>
+    {:else if controller?.persistenceStatus === 'saved'}
+      {#if controller.phase === 'complete'}
+        <p class="save-status" role="status">
+          <Check size={18} aria-hidden="true" />{m.lesson_saved()}
+        </p>
+      {/if}
+      <TrainingSyncStatus
+        owner={trainingSyncState.owner}
+        pending={trainingSyncState.pending}
+        error={trainingSyncState.error}
+        syncing={trainingSyncState.syncing}
+        synced={trainingSyncState.synced && ['complete', 'abandoned'].includes(controller.phase)}
+      />
     {/if}
+  {/snippet}
+
+  <SessionShell
+    currentPromptIndex={controller.currentPromptIndex}
+    totalPrompts={controller.totalPrompts}
+    isPaused={controller.phase === 'paused'}
+    complete={controller.phase === 'complete'}
+    busy={leaving || (controller.phase === 'complete' && controller.persistenceStatus === 'saving')}
+    canPause={!leaving &&
+      ['introducing', 'ready', 'playing', 'answering', 'paused'].includes(controller.phase)}
+    onExit={handleExit}
+    onExitRequest={handleExitRequest}
+    onExitCancel={handleExitCancel}
+    onPauseToggle={handlePauseToggle}
+  >
+    {#if controller.phase !== 'complete'}{@render storageStatus()}{/if}
     {#if controller.phase === 'paused' && !resumeAfterExit}
       <div class="paused-banner">
-        <h2>{m.lesson_paused()}</h2>
+        <Pause size={28} aria-hidden="true" />
+        <h1
+          tabindex="-1"
+          {@attach (heading) => {
+            heading.focus();
+          }}
+        >
+          {m.lesson_paused()}
+        </h1>
+        <p>{m.lesson_pause_hint()}</p>
         <button type="button" class="btn-primary" onclick={() => controller?.resume()}>
           {m.lesson_resume()}
         </button>
@@ -437,70 +451,46 @@
         summary={controller.summary}
         persistenceStatus={controller.persistenceStatus}
         busy={leaving}
+        {storageStatus}
         onNextLesson={handleNextLesson}
         onRepeatLesson={handleRepeatLesson}
         onFinish={handleExit}
       />
-    {:else if comparingContrast && controller.currentPrompt && controller.lastAttempt}
-      <ContrastRepair
-        charA={controller.currentPrompt.spec.expectedText}
-        charB={controller.lastAttempt.enteredText}
-        playingCharacter={controller.feedbackCharacter}
-        onPlayA={() => controller?.playFeedback(controller.currentPrompt!.spec.expectedText)}
-        onPlayB={() => controller?.playFeedback(controller.lastAttempt!.enteredText)}
-        onContinue={handleContinue}
-      />
-    {:else if controller.phase === 'feedback' && controller.lastAttempt && controller.currentPrompt}
-      <PromptFeedback
-        classification={controller.lastAttempt.classification}
-        isCorrect={controller.lastAttempt.isCorrect}
-        playingCharacter={controller.feedbackCharacter}
-        expected={controller.currentPrompt.spec.expectedText}
-        entered={controller.lastAttempt.enteredText}
-        onContinue={handleContinue}
-        onPlayExpected={() => controller?.playFeedback(controller.currentPrompt!.spec.expectedText)}
-        onCompare={() => (comparingContrast = true)}
-      />
-    {:else if controller.currentPrompt && !['abandoned', 'idle'].includes(controller.phase)}
-      <div class="prompt-stage">
-        <AudioPrompt
+    {:else if controller.currentPrompt && ['unscored-match', 'contrast', 'recall', 'short-group'].includes(controller.currentPrompt.spec.kind) && ['ready', 'playing', 'answering', 'feedback', 'paused'].includes(controller.phase)}
+      {#key controller.currentPrompt.id}
+        <RecognitionPrompt
           phase={controller.phase}
-          replayCount={controller.replayCount}
+          typed={['recall', 'short-group'].includes(controller.currentPrompt.spec.kind)}
+          scored={controller.currentPrompt.isScored}
+          firstRecall={controller.currentPromptIndex ===
+            controller.state.prompts.findIndex((prompt) => prompt.spec.kind === 'recall')}
+          bind:draft={answerDraft}
+          classification={controller.lastAttempt?.classification}
+          options={controller.currentPrompt.spec.options ?? []}
+          expected={controller.currentPrompt.spec.expectedText}
+          entered={controller.lastAttempt?.enteredText}
+          isCorrect={controller.lastAttempt?.isCorrect}
+          playingCharacter={controller.feedbackCharacter}
           audioError={controller.state.audioError}
-          isIntro={controller.currentPrompt.spec.kind === 'introduction'}
-          introCharacter={controller.currentPrompt.spec.expectedText}
           onPlay={() => controller?.play()}
           onReplay={() => controller?.replay()}
+          onSelect={(ch) => handleSubmitAnswer(ch, 'grid')}
+          onSubmit={handleSubmitAnswer}
+          onHear={(ch) => controller?.playFeedback(ch)}
+          onContinue={handleContinue}
         />
-
-        {#if controller.currentPrompt.spec.kind === 'introduction'}
-          <div class="intro-actions">
-            <button
-              type="button"
-              class="btn-primary"
-              disabled={controller.phase !== 'introducing'}
-              aria-keyshortcuts="Enter"
-              onclick={handleContinue}
-            >
-              {m.lesson_continue()} <kbd aria-hidden="true">Enter</kbd>
-            </button>
-          </div>
-        {:else if controller.currentPrompt.spec.options && controller.currentPrompt.spec.options.length > 0}
-          <CharacterGrid
-            options={controller.currentPrompt.spec.options}
-            disabled={controller.phase !== 'answering'}
-            onSelect={(ch) => handleSubmitAnswer(ch, 'grid')}
-          />
-        {:else}
-          {#key controller.currentPrompt.id}
-            <AnswerInput
-              disabled={controller.phase !== 'answering'}
-              expectedLength={controller.currentPrompt.spec.expectedText.length}
-              onSubmit={(text, mode) => handleSubmitAnswer(text, mode)}
-            />
-          {/key}
-        {/if}
-      </div>
+      {/key}
+    {:else if controller.currentPrompt?.spec.kind === 'introduction' && !['abandoned', 'idle'].includes(controller.phase)}
+      <AudioPrompt
+        phase={controller.phase}
+        audioError={controller.state.audioError}
+        isIntro
+        introCharacter={controller.currentPrompt.spec.expectedText}
+        introPlayed={controller.state.answerReadyAtMs !== null}
+        onContinue={handleContinue}
+        onPlay={() => controller?.play()}
+        onReplay={() => controller?.replay()}
+      />
     {/if}
     {#if controller.feedbackAudioError}
       <p role="alert">{m.lesson_feedback_audio_error()}</p>
@@ -545,35 +535,41 @@
     height: 14rem;
   }
 
-  .prompt-stage {
+  .save-status {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    width: 100%;
+    justify-content: center;
+    gap: var(--space-2);
+    margin: 0;
   }
-
-  .intro-actions {
-    margin-top: var(--space-4);
+  .save-status :global(svg) {
+    color: var(--status-good);
   }
-
-  .intro-actions button {
-    min-height: var(--answer-target-min);
-  }
-
   .paused-banner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-8);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+    gap: var(--space-6);
+    width: 100%;
+    max-width: 30rem;
+    min-height: min(36rem, calc(100dvh - 8rem));
+    padding-block: var(--space-8);
   }
-
-  .paused-banner h2 {
+  .paused-banner h1 {
     margin: 0;
-    font-size: var(--text-xl);
-    color: var(--text-primary);
+    font-size: var(--text-2xl);
+  }
+  .paused-banner h1:focus {
+    outline: none;
+  }
+  .paused-banner p {
+    margin: 0;
+    max-width: 24rem;
+    color: var(--text-secondary);
+  }
+  .paused-banner button {
+    margin-top: auto;
+    min-height: 3.5rem;
+    width: 100%;
   }
 </style>

@@ -246,6 +246,9 @@ export function guidedSessionTransition(
     }
 
     case 'continue': {
+      if (state.phase === 'introducing' && state.answerReadyAtMs === null) {
+        return { ok: false, reason: 'Listen to the introduction before continuing', state };
+      }
       if (state.phase !== 'feedback' && state.phase !== 'introducing') {
         return {
           ok: false,

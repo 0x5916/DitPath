@@ -12,6 +12,8 @@
     totalPrompts: number;
     isPaused?: boolean;
     canPause?: boolean;
+    complete?: boolean;
+    busy?: boolean;
     onExit: () => void;
     onExitRequest?: () => void;
     onExitCancel?: () => void;
@@ -24,6 +26,8 @@
     totalPrompts = 1,
     isPaused = false,
     canPause = true,
+    complete = false,
+    busy = false,
     onExit = () => {},
     onExitRequest = () => {},
     onExitCancel = () => {},
@@ -36,7 +40,8 @@
   let returnFocusTo = $state<HTMLElement | null>(null);
 
   function handleExitClick() {
-    if (showExitConfirm) return;
+    if (showExitConfirm || busy) return;
+    if (complete) return onExit();
     returnFocusTo =
       browser && document.activeElement instanceof HTMLElement ? document.activeElement : null;
     onExitRequest();
@@ -67,9 +72,15 @@
     <button
       type="button"
       class="btn-icon"
-      aria-label={m.lesson_exit()}
-      title={m.lesson_exit()}
-      bind:this={exitButton}
+      aria-label={complete ? m.lesson_result_finish() : m.lesson_exit()}
+      title={complete ? m.lesson_result_finish() : m.lesson_exit()}
+      disabled={busy}
+      {@attach (button) => {
+        exitButton = button;
+        return () => {
+          exitButton = null;
+        };
+      }}
       onclick={handleExitClick}
     >
       <ArrowLeft size={18} />
@@ -120,6 +131,7 @@
 
 <style>
   .session-shell {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -188,6 +200,27 @@
       padding-right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
       padding-bottom: var(--space-2);
       padding-left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+    }
+  }
+
+  @container (width < 18rem) {
+    .session-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+    .session-header button {
+      justify-self: start;
+    }
+    .session-header button:last-child,
+    .header-spacer {
+      justify-self: end;
+    }
+    .session-progress-container {
+      grid-row: 2;
+      grid-column: 1 / -1;
+      max-width: none;
+      margin: 0;
     }
   }
 </style>

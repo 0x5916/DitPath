@@ -24,6 +24,17 @@ export function acceptsSessionShortcut(event: KeyboardEvent, allowButtonTarget =
   return !target?.closest?.(allowButtonTarget ? selector : `${selector}, button`);
 }
 
+/** The answer field reserves plain Space for replay, including partial groups. */
+export function acceptsAnswerReplay(event: KeyboardEvent): boolean {
+  const target = event.target as Element | null;
+  return (
+    event.code === 'Space' &&
+    !event.shiftKey &&
+    acceptsKeyEvent(event) &&
+    !target?.closest?.('dialog[open], [aria-modal="true"]')
+  );
+}
+
 /** Enter advances introductions and feedback, including sound comparison. */
 export function acceptsSessionContinue(event: KeyboardEvent, phase: GuidedSessionPhase): boolean {
   return (

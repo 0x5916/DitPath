@@ -76,12 +76,12 @@ export function scorePromptAttempt(input: ScorePromptInput): AttemptEvent {
 
   let classification: AttemptClassification;
 
-  if (isEmpty) {
+  if (!prompt.isScored) {
+    classification = 'unmeasured';
+  } else if (isEmpty) {
     classification = 'missing';
   } else if (!isCorrect) {
     classification = 'incorrect';
-  } else if (!prompt.isScored) {
-    classification = 'unmeasured';
   } else if (latencyMs <= policy.maxAutomaticLatencyMs) {
     classification = 'automatic';
   } else {
