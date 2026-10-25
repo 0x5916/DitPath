@@ -118,8 +118,13 @@
         </button>
         <div class="connector" aria-hidden="true"><ArrowRight size={24} /></div>
       {/if}
-      <div class="current-lesson">
-        {@render current()}
+      <div
+        class={[
+          'current-lesson',
+          (LESSONS[displayStep - 1] ?? '').length > 1 && 'has-multiple-characters'
+        ]}
+      >
+        <div class="current-content">{@render current()}</div>
         {#if requirements}{@render requirements()}{/if}
       </div>
     </div>
@@ -246,6 +251,16 @@
   }
 
   .current-lesson {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .current-lesson.has-multiple-characters {
+    --lesson-character-width: calc(var(--answer-target-min) + var(--space-4));
+  }
+
+  .current-content {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);

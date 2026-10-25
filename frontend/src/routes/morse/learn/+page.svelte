@@ -334,7 +334,9 @@
 
 <style>
   .unlock-checks.with-start-row {
-    margin-inline-start: calc(var(--answer-target-min) + var(--space-3));
+    margin-inline-start: calc(
+      var(--lesson-character-width, var(--answer-target-min)) + var(--space-3)
+    );
   }
 
   @media (max-width: 399px) {
@@ -358,12 +360,14 @@
   }
 
   .unlock-hint {
-    margin: var(--space-2) 0;
+    margin: 0 0 var(--space-4);
     font-size: var(--text-sm);
     color: var(--text-secondary);
   }
 
   .mastery-checks {
+    display: grid;
+    gap: var(--space-6);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -373,8 +377,6 @@
     display: grid;
     grid-template-columns: 2rem minmax(0, 1fr);
     gap: var(--space-3);
-    padding: var(--space-4) 0;
-    border-bottom: 1px solid var(--border);
   }
 
   .check-character {

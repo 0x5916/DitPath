@@ -163,6 +163,7 @@
 
 <style>
   .learn-hero-card {
+    --hero-character-width: var(--lesson-character-width, var(--answer-target-min));
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -197,9 +198,9 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: var(--answer-target-min);
+    width: var(--hero-character-width);
     height: var(--answer-target-min);
-    padding: 0;
+    padding: 0 var(--space-2);
     border-radius: var(--radius-sm);
     background: var(--bg-inset);
     color: var(--accent);
@@ -215,7 +216,7 @@
 
   .hero-start-row {
     display: grid;
-    grid-template-columns: var(--answer-target-min) minmax(0, 1fr) auto;
+    grid-template-columns: var(--hero-character-width) minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--space-3);
     width: 100%;
@@ -226,7 +227,7 @@
   }
 
   .hero-desc.compact-description {
-    margin-inline-start: calc(var(--answer-target-min) + var(--space-3));
+    margin-inline-start: calc(var(--hero-character-width) + var(--space-3));
   }
 
   .hero-heading-copy {
@@ -321,7 +322,7 @@
   }
   @media (max-width: 399px) {
     .hero-start-row {
-      grid-template-columns: var(--answer-target-min) minmax(0, 1fr);
+      grid-template-columns: var(--hero-character-width) minmax(0, 1fr);
     }
     .hero-start-row .compact-start {
       grid-column: 1 / -1;

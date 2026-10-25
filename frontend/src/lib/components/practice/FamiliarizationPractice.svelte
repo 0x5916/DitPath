@@ -109,6 +109,7 @@
       onEnded={() => (drillPlaying = false)}
       playTone={drillPlayed && !drillPlaying ? 'quiet' : 'primary'}
       playLabel={drillPlayed ? m.trainer_replay() : m.trainer_drill_play()}
+      reservePlayLabels={[m.trainer_drill_play(), m.player_pause(), m.trainer_replay()]}
       label={m.trainer_drill_audio()}
     />
   </div>
