@@ -16,7 +16,8 @@
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
 
-  let hydrated = $state(false);
+  // Keep the prerendered landing page until local history chooses a layout.
+  let dashboardVisible = $state(false);
   let loading = $state(true);
   let loadError = $state(false);
   let dashboard = $state.raw<Awaited<ReturnType<typeof loadHomeDashboard>> | null>(null);
@@ -61,9 +62,15 @@
       if (!current()) return;
       activeDb = db;
       const result = await loadHomeDashboard(db, owner, new Date().toISOString());
-      if (current()) dashboard = result;
+      if (current()) {
+        dashboard = result;
+        dashboardVisible = Boolean($user) || result.hasActivity;
+      }
     } catch {
-      if (current()) loadError = true;
+      if (current()) {
+        loadError = true;
+        dashboardVisible = true;
+      }
     } finally {
       if (db) closeTrainingDb(db);
       if (activeDb === db) activeDb = null;
@@ -72,7 +79,7 @@
   }
 
   onMount(() => {
-    hydrated = mounted = true;
+    mounted = true;
     let revision = '';
     const unsubscribe = subscribeTrainingSync(({ owner, version }) => {
       const next = `${owner}:${version}`;
@@ -89,7 +96,7 @@
   });
 </script>
 
-{#if !hydrated || (!loading && !loadError && !$user && !dashboard?.hasActivity)}
+{#if !dashboardVisible}
   <HomeLanding />
 {:else}
   <div class="page-narrow page-stack home-dashboard">

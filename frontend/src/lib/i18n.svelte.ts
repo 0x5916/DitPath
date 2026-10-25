@@ -1,4 +1,5 @@
 import { baseLocale, locales, overwriteGetLocale } from '#lib/paraglide/runtime.js';
+import { goto } from '$app/navigation';
 import { migrateLegacyPreferences } from '#lib/cookies.ts';
 import {
   LOCALE_PREFERENCE_STORAGE_KEY,
@@ -44,7 +45,7 @@ function applyPreference(preference: LocalePreference): void {
   applyDocumentLocale(lang.value);
 }
 
-function navigateToLocalizedPathIfNeeded(): void {
+async function navigateToLocalizedPathIfNeeded(replace = false): Promise<void> {
   if (typeof window === 'undefined') return;
 
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -54,7 +55,7 @@ function navigateToLocalizedPathIfNeeded(): void {
   const nextUrl = new URL(next, window.location.origin);
 
   if (currentUrl.href !== nextUrl.href) {
-    window.location.assign(nextUrl.href);
+    await goto(nextUrl, { replace });
   }
 }
 
@@ -87,42 +88,40 @@ function hasLocalePrefix(pathname: string): boolean {
 
 export function initLang(initialLocale: string, initialPreference: string = 'auto') {
   migrateLegacyPreferences();
-  const preference = resolveInitialPreference(initialPreference);
-  const initial = matchLocaleCandidate(initialLocale) ?? (baseLocale as Locale);
+  // The URL owns the displayed language. Keep the prerendered text through
+  // hydration even when this device's saved preference or browser differs.
+  langPreference.value = resolveInitialPreference(initialPreference);
+  lang.value = matchLocaleCandidate(initialLocale) ?? (baseLocale as Locale);
+  overwriteGetLocale(() => lang.value);
+  applyDocumentLocale(lang.value);
+}
 
-  if (preference === 'auto') {
-    if (typeof window === 'undefined') {
-      // Keep the prerendered locale for hydration consistency; browser detection is client-only.
-      langPreference.value = 'auto';
-      lang.value = initial;
-      overwriteGetLocale(() => lang.value);
-      applyDocumentLocale(lang.value);
-      return;
-    }
-
-    applyPreference('auto');
-    navigateToLocalizedPathIfNeeded();
+/** Follow URL changes and canonicalize bare URLs after the router has mounted. */
+export async function initializeBrowserLanguage(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (hasLocalePrefix(window.location.pathname)) {
+    lang.value = matchLocaleCandidate(window.location.pathname.split('/')[1])!;
+    overwriteGetLocale(() => lang.value);
+    applyDocumentLocale(lang.value);
     return;
   }
-
-  applyPreference(preference);
-
-  // Bare paths (e.g. `/about`, the legacy `/morse` target) only exist in the
-  // base locale; send the visitor to their preferred locale's URL instead.
-  if (typeof window !== 'undefined' && !hasLocalePrefix(window.location.pathname)) {
-    navigateToLocalizedPathIfNeeded();
-  }
+  applyPreference(langPreference.value);
+  await navigateToLocalizedPathIfNeeded(true);
 }
 
 export function setLangPreference(
   preference: LocalePreference,
   options: { navigate?: boolean } = {}
 ) {
-  applyPreference(preference);
+  langPreference.value = preference;
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, preference);
   }
-  if (options.navigate !== false) {
-    navigateToLocalizedPathIfNeeded();
-  }
+  // Passive account reconciliation saves the preference without replacing the
+  // language explicitly selected by the current URL.
+  if (options.navigate === false) return;
+  applyPreference(preference);
+  void navigateToLocalizedPathIfNeeded().catch(() => {
+    // Keep the current page usable if optional locale navigation fails.
+  });
 }

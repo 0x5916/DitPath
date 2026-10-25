@@ -35,6 +35,7 @@
     langPreference,
     setLangPreference,
     initLang,
+    initializeBrowserLanguage,
     localizedHref as href
   } from '#lib/i18n.svelte.ts';
   import { locales } from '#lib/paraglide/runtime.js';
@@ -110,9 +111,8 @@
     })
   );
 
-  // initLang receives the locale derived from the URL prefix so the prerendered
-  // HTML carries the right language; on the client it refines the preference
-  // from localStorage and redirects bare paths to the preferred locale.
+  // Preserve the URL's prerendered language through hydration. Device language
+  // preferences only canonicalize bare URLs once the client router has mounted.
   // svelte-ignore state_referenced_locally
   initLang(data.locale, data.localePreference);
 
@@ -233,6 +233,9 @@
   // The desktop theme button keeps a stored preference that other pages can
   // change (Settings, the More page), so refresh it on every navigation.
   afterNavigate(() => {
+    void initializeBrowserLanguage().catch(() => {
+      // A failed optional canonical navigation must not interrupt app startup.
+    });
     theme = readStoredTheme();
     void syncTrainingNow();
   });

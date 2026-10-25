@@ -18,6 +18,8 @@ import {
 import { notifyTrainingDataChange } from './training-data-events';
 import { hasPendingTrainingPersistence } from '../pending-training-persistence';
 
+export const TRAINING_DB_OPEN_TIMEOUT_MS = 10_000;
+
 export function isIndexedDbAvailable(customFactory?: IDBFactory): boolean {
   if (customFactory) return true;
   return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
@@ -40,15 +42,36 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
   return new Promise((resolve, reject) => {
     const request = factory.open(TRAINING_DB_NAME, TRAINING_DB_VERSION);
     let abandoned = false;
+    let timedOut = false;
+    const fail = (error: Error | DOMException) => {
+      clearTimeout(timeout);
+      abandoned = true;
+      reject(error);
+    };
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      fail(new Error('Opening DitPath training database timed out'));
+      try {
+        request.transaction?.abort();
+      } catch {
+        // The transaction may have settled before the deadline callback ran.
+      }
+    }, TRAINING_DB_OPEN_TIMEOUT_MS);
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = request.result;
+      if (timedOut) {
+        request.transaction?.abort();
+        db.close();
+        return;
+      }
       upgradeTrainingDatabase(db, event.oldVersion, request.transaction ?? undefined);
     };
 
     request.onsuccess = () => {
+      clearTimeout(timeout);
       const db = request.result;
-      // A blocked request cannot be cancelled and may still open after rejection.
+      // An abandoned request cannot be cancelled and may still open after rejection.
       if (abandoned) {
         db.close();
         return;
@@ -61,12 +84,11 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
     };
 
     request.onerror = () => {
-      reject(request.error ?? new Error('Failed to open DitPath training database'));
+      fail(request.error ?? new Error('Failed to open DitPath training database'));
     };
 
     request.onblocked = () => {
-      abandoned = true;
-      reject(new Error('IndexedDB database upgrade blocked by active connection'));
+      fail(new Error('IndexedDB database upgrade blocked by active connection'));
     };
   });
 }

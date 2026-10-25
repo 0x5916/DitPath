@@ -1,10 +1,11 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 import {
   closeTrainingDb,
   deleteTrainingDb,
   isIndexedDbAvailable,
   openTrainingDb,
+  TRAINING_DB_OPEN_TIMEOUT_MS,
   reqToPromise,
   withTransaction
 } from './training-db';
@@ -17,6 +18,91 @@ describe('IndexedDB Foundation (training-db)', () => {
     // Isolated factories prevent a failed cleanup from blocking another test.
     fakeIndexedDB = new IDBFactory();
   });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('rejects a stalled open at its deadline and allows a fresh retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    vi.spyOn(fakeIndexedDB, 'open').mockReturnValueOnce({} as IDBOpenDBRequest);
+    const rejected = expect(openTrainingDb(fakeIndexedDB)).rejects.toThrow('timed out');
+
+    await vi.advanceTimersByTimeAsync(TRAINING_DB_OPEN_TIMEOUT_MS - 1);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await rejected;
+    expect(vi.getTimerCount()).toBe(0);
+
+    const db = await openTrainingDb(fakeIndexedDB);
+    expect(vi.getTimerCount()).toBe(0);
+    closeTrainingDb(db);
+  });
+
+  it('closes a connection that opens after the deadline', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const close = vi.fn();
+    const request = { result: { close } } as unknown as IDBOpenDBRequest;
+    vi.spyOn(fakeIndexedDB, 'open').mockReturnValueOnce(request);
+    const rejected = expect(openTrainingDb(fakeIndexedDB)).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(TRAINING_DB_OPEN_TIMEOUT_MS);
+    await rejected;
+
+    request.onsuccess?.call(request, new Event('success'));
+    expect(close).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('aborts a late upgrade without running an abandoned migration', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const close = vi.fn();
+    const createObjectStore = vi.fn();
+    const abort = vi.fn();
+    const request = { result: { close, createObjectStore } } as unknown as IDBOpenDBRequest;
+    vi.spyOn(fakeIndexedDB, 'open').mockReturnValueOnce(request);
+    const rejected = expect(openTrainingDb(fakeIndexedDB)).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(TRAINING_DB_OPEN_TIMEOUT_MS);
+    await rejected;
+
+    Object.assign(request, { transaction: { abort } });
+    request.onupgradeneeded?.call(
+      request,
+      Object.assign(new Event('upgradeneeded'), { oldVersion: 0 }) as IDBVersionChangeEvent
+    );
+    expect(abort).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+    expect(createObjectStore).not.toHaveBeenCalled();
+  });
+
+  it('aborts a pending upgrade when its open deadline expires', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const abort = vi.fn();
+    const request = { transaction: { abort } } as unknown as IDBOpenDBRequest;
+    vi.spyOn(fakeIndexedDB, 'open').mockReturnValueOnce(request);
+    const rejected = expect(openTrainingDb(fakeIndexedDB)).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(TRAINING_DB_OPEN_TIMEOUT_MS);
+    await rejected;
+    expect(abort).toHaveBeenCalledOnce();
+  });
+
+  it.each(['success', 'error', 'blocked'] as const)(
+    'clears the open deadline on %s',
+    async (event) => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const db = { close: vi.fn() };
+      const request = { result: db } as unknown as IDBOpenDBRequest;
+      vi.spyOn(fakeIndexedDB, 'open').mockReturnValueOnce(request);
+      const opened = openTrainingDb(fakeIndexedDB);
+      const outcome =
+        event === 'success' ? expect(opened).resolves.toBe(db) : expect(opened).rejects.toThrow();
+      request[`on${event}`]?.call(
+        request,
+        Object.assign(new Event(event), { oldVersion: 1, newVersion: 2 }) as IDBVersionChangeEvent
+      );
+      await outcome;
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
 
   it('detects indexedDB availability safely', () => {
     expect(isIndexedDbAvailable(fakeIndexedDB)).toBe(true);
