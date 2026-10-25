@@ -34,15 +34,17 @@
   </div>
   <div class="ledger-metrics">
     <div class="metric-block session-metric">
-      <div class="metric-label">
-        <span>{m.progress_sessions()}</span>
-        <InfoTip
-          label={m.common_tip_label({ topic: m.progress_sessions() })}
-          text={m.progress_session_breakdown({
-            guided: guidedSessionCount,
-            practice: practiceSessionCount
-          })}
-        />
+      <div class="metric-label session-label">
+        <span class="session-label-text">{m.progress_sessions()}</span>
+        <span class="session-tip">
+          <InfoTip
+            label={m.common_tip_label({ topic: m.progress_sessions() })}
+            text={m.progress_session_breakdown({
+              guided: guidedSessionCount,
+              practice: practiceSessionCount
+            })}
+          />
+        </span>
       </div>
       <span class="metric-val">{sessionCount}</span>
     </div>
@@ -116,15 +118,17 @@
   .ledger-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
+    gap: 0.15rem var(--space-3);
     padding: var(--space-3) 0;
     border-top: 1px solid var(--border);
   }
 
   .metric-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    justify-items: center;
+    align-items: start;
     gap: 0.15rem;
     text-align: center;
   }
@@ -140,6 +144,24 @@
     font-weight: 500;
     letter-spacing: normal;
     text-transform: none;
+    align-self: stretch;
+  }
+
+  .session-label {
+    --tip-trigger-size: 44px;
+    display: grid;
+    grid-template-columns: var(--tip-trigger-size) minmax(0, 1fr) var(--tip-trigger-size);
+    width: 100%;
+  }
+
+  .session-label-text {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .session-tip {
+    display: inline-flex;
+    grid-column: 3;
   }
 
   .metric-val {
@@ -206,10 +228,13 @@
     }
     .metric-block {
       display: grid;
+      grid-row: auto;
+      grid-template-rows: auto;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: var(--space-2) var(--space-3);
       text-align: start;
       align-items: center;
+      justify-items: stretch;
     }
     .metric-val {
       text-align: end;
@@ -220,6 +245,9 @@
     }
     .metric-label {
       justify-content: flex-start;
+    }
+    .session-label {
+      display: flex;
     }
     .accuracy-measure {
       justify-self: end;
