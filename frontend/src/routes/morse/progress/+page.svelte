@@ -36,14 +36,19 @@
   );
   let mounted = false;
   let loadVersion = 0;
+  let loadedOwner: string | null = null;
   let activeDb: IDBDatabase | null = null;
 
   async function loadProgress() {
     const owner = getTrainingOwner();
     const version = ++loadVersion;
-    summary = null;
-    history = [];
-    loading = true;
+    // Background history updates replace the result only after they finish.
+    if (owner !== loadedOwner) {
+      loadedOwner = null;
+      summary = null;
+      history = [];
+      loading = true;
+    }
     loadError = false;
     let db: IDBDatabase | null = null;
     try {
@@ -64,6 +69,7 @@
       if (mounted && version === loadVersion && owner === getTrainingOwner()) {
         summary = summarizeProgress(attempts, sessions, nowIso);
         history = latestSessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
+        loadedOwner = owner;
       }
     } catch (error) {
       if (mounted && version === loadVersion && owner === getTrainingOwner()) {
