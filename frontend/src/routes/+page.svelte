@@ -23,6 +23,7 @@
   let dashboard = $state.raw<Awaited<ReturnType<typeof loadHomeDashboard>> | null>(null);
   let mounted = false;
   let loadVersion = 0;
+  let loadedOwner: string | null = null;
   let activeDb: IDBDatabase | null = null;
   let lessonLink = $derived.by(() => {
     const title = m.nav_learn();
@@ -50,8 +51,12 @@
   async function loadHome() {
     const owner = getTrainingOwner();
     const version = ++loadVersion;
-    dashboard = null;
-    loading = true;
+    // Keep this owner's last result visible while sync refreshes it.
+    if (owner !== loadedOwner) {
+      loadedOwner = null;
+      dashboard = null;
+      loading = true;
+    }
     loadError = false;
     if (activeDb) closeTrainingDb(activeDb);
     activeDb = null;
@@ -64,6 +69,7 @@
       const result = await loadHomeDashboard(db, owner, new Date().toISOString());
       if (current()) {
         dashboard = result;
+        loadedOwner = owner;
         dashboardVisible = Boolean($user) || result.hasActivity;
       }
     } catch {

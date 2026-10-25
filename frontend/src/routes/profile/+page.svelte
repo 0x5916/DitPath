@@ -42,6 +42,7 @@
   let memberCreatedAtMs = $state<number | null>(null);
   let records = $state<HistorySessionRecord[]>([]);
   let loadToken = 0;
+  let loadedOwner: string | null = null;
 
   let isGuest = $derived(!$user);
   const habitYear = new Date().getUTCFullYear();
@@ -70,17 +71,21 @@
     const active = loadScope.begin();
     const token = ++loadToken;
     const current = () => active() && token === loadToken && owner === getTrainingOwner();
-    loading = true;
+    // Preserve the profile during same-owner refreshes; never retain another account's data.
+    if (owner !== loadedOwner) {
+      loadedOwner = null;
+      loading = true;
+      records = [];
+      username = owner === 'unclaimed' ? m.nav_guest() : ($user?.username ?? '');
+      email = '';
+      callSign = null;
+      emailVerified = false;
+      accountInfoKnown = false;
+      memberSince = m.progress_unmeasured();
+      memberCreatedAtMs = null;
+      earliestHistoryMs = null;
+    }
     loadError = '';
-    records = [];
-    username = owner === 'unclaimed' ? m.nav_guest() : ($user?.username ?? '');
-    email = '';
-    callSign = null;
-    emailVerified = false;
-    accountInfoKnown = false;
-    memberSince = m.progress_unmeasured();
-    memberCreatedAtMs = null;
-    earliestHistoryMs = null;
     let db: IDBDatabase | null = null;
     try {
       db = await openTrainingDb();
@@ -88,6 +93,7 @@
       const history = await createSessionRepository(db, owner).getSessions();
       if (!current()) return;
       records = history.filter((record) => record.status !== 'in-progress');
+      loadedOwner = owner;
       const times = history
         .map((record) => Date.parse(historyDate(record)))
         .filter(Number.isFinite);
