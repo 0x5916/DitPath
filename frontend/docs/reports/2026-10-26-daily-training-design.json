@@ -66,5 +66,6 @@
   "designUrl": "https://design.penpot.app/#/workspace?team-id=5009c98b-0fb2-816e-8008-d82a38bab0df&file-id=41725af0-a889-809a-8008-d8302a5aefb6&page-id=d872815a-6d19-807b-8008-d863a4c86b59",
   "dataPolicy": "Activity and comparison frames use synthetic examples. Six neutral browser references are retained; detailed activity captures remain local.",
   "versionCreatedAt": "2026-10-26T07:37:38.365Z",
-  "fileRevision": 64
+  "fileRevision": 64,
+  "completeAppCoverage": "2026-10-26-complete-design.json"
 }
