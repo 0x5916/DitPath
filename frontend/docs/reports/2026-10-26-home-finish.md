@@ -51,11 +51,20 @@ documentation index; the reviewed retry was approved and passed.
 
 ## Handoff
 
-The final Penpot references and source revision are recorded in the accompanying
-manifest. Current Home frames are updated in place so incoming prototype links
+Implementation milestone: `d1ece07`. The final Penpot references and source
+revision are recorded in the [manifest](2026-10-26-home-finish.json). Current Home frames are updated in place so incoming prototype links
 remain valid; the previous named versions preserve the earlier design. The
 existing acceptance preview remains available. Final delivery records a clean
 `git status --short` after committing the evidence.
+
+Penpot's final named-version save failed twice: `Timed out waiting for changes to
+be saved` (`:persistence :save-timeout`). Readback found no **Daily journey
+finished · d1ece07** version, and the UI remained at Saving. The current canvas
+contains the updated frames, 18 references and 33 valid links; English and German
+exports were inspected. File validation, overlap and text-bound checks returned
+zero errors. Final server persistence is **unconfirmed**. The open design was
+preserved without reloading; seven synthetic capture datasets and browser PNGs
+are retained in this chat's local visualization artifacts for recovery.
 
 No further visual redesign is proposed by this packet. Native IME, the full
 screen-reader walkthrough and second-browser-profile acceptance remain explicitly

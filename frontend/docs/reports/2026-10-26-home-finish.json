@@ -1,0 +1,47 @@
+{
+  "fileId": "41725af0-a889-809a-8008-d8302a5aefb6",
+  "pageId": "21101970-335a-8004-8008-d92bcf7c19c3",
+  "implementationCommit": "d1ece07",
+  "previousManifest": "2026-10-26-focused-redesign.json",
+  "saveStatus": "blocked",
+  "version": [],
+  "saveError": "Timed out waiting for changes to be saved (:persistence :save-timeout); named version not present on readback.",
+  "updatedBoards": {
+    "home": "910435ec-86a9-80a6-8008-d9334320e788",
+    "home-method": "910435ec-86a9-80a6-8008-d9338849e977",
+    "home-desktop": "910435ec-86a9-80a6-8008-d933fb98ba0e"
+  },
+  "addedBoards": {
+    "home-dark": "910435ec-86a9-80a6-8008-d93a014f4fa8",
+    "home-german": "910435ec-86a9-80a6-8008-d93a050824f8",
+    "home-tablet": "910435ec-86a9-80a6-8008-d93a08fc3d4d",
+    "home-quiz": "910435ec-86a9-80a6-8008-d93a0d6ff99b"
+  },
+  "target": "910435ec-86a9-80a6-8008-d93824396632",
+  "acceptance": "910435ec-86a9-80a6-8008-d938246dfa1a",
+  "handoff": "910435ec-86a9-80a6-8008-d934a9d04230",
+  "referenceCount": 18,
+  "prototypeLinks": 33,
+  "validation": {
+    "fileErrors": 0,
+    "brokenLinks": 0,
+    "boardOverlaps": 0,
+    "textOverflow": 0
+  },
+  "browserChecks": {
+    "narrowWidth": 320,
+    "localeThemeCombinations": 10,
+    "minimumActionHeight": 48,
+    "tabletWidth": 768,
+    "desktopWidth": 1280,
+    "methodTopBefore": 664.265625,
+    "methodTopAfter": 593.8671875
+  },
+  "limitations": [
+    "Final Penpot persistence is unconfirmed; keep the design open until its save recovers.",
+    "Native IME, full screen-reader and second-browser-profile acceptance remain open.",
+    "Browser workflow checks are not an unguided first-time learner study.",
+    "Editable Roboto approximates the platform-dependent font stacks; browser captures remain canonical.",
+    "Audio, input, saves and departure confirmation are app-only behaviors."
+  ]
+}
