@@ -60,10 +60,17 @@ visible; tabbing to Finish scrolled the expanded result dialog to the action. Ca
 Control used scrcpy 5.0.1 and temporary USB HID keyboard input because the default
 SDK input was rejected with INJECT_EVENTS permission errors. No phone security
 setting was changed. This does not establish soft-keyboard, IME or touch acceptance.
-The user reported the phone was muted during K/M playback, so audible output remains
-unconfirmed. TalkBack was located via Settings search and its activation permission
-was reviewed with the user; the full spoken-label walkthrough and second-device
-account sync remain pending;
-an authorized USB connection is not an accessibility pass.
+The first K/M run was muted; the user confirmed clear tones in the subsequent
+[Firefox walkthrough without TalkBack](2026-10-26-android-firefox.md).
+TalkBack 17.1 was enabled after explicit approval, Android confirmed
+the running service, and the user confirmed audible speech. With its enhanced
+keymap, Action+Right focused the Progress heading, summary heading and completed-
+sessions help control; Action+Space opened and closed the explanation. Capture:
+`android-firefox-talkback.png`. This is a setup/basic-interaction check, not a full
+spoken-label or touch-gesture walkthrough. TalkBack was then disabled at the user's
+request and its service was verified off. The subsequent walkthrough records
+guided-lesson completion using native touch and the on-screen keyboard, alongside
+an unresolved mirrored-keyboard anomaly. Full TalkBack, Practice soft-keyboard,
+Japanese/Chinese composition and second-device account sync remain open.
 The implementation commit left `git status --short` empty. Capture it again after
 the final evidence/design synchronization commit.
