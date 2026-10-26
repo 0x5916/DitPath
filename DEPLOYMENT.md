@@ -197,6 +197,49 @@ If this first installation fails, use the matching checkpoint:
 | Backend keeps restarting                             | `docker compose logs --tail=100 backend` and the required values listed above.                                             |
 | Homepage loads but account/API requests fail         | Browser-reachable `PUBLIC_API_BASE`, matching `CORS_ORIGINS`, and access to port 8080; rebuild after changing the API URL. |
 
+## Isolated UI acceptance stack
+
+The owner-approved acceptance environment on `pve-104` uses application revision
+`ac25e57`, separate from `/opt/opencw`. Its configuration lives in
+[`scripts/acceptance-stack/`](scripts/acceptance-stack/compose.yaml). Keep its
+Compose file in `/opt/ditpath-ui-acceptance`, with the approved `git archive`
+extracted into `source/` and `source/REVISION` containing `ac25e57`. Verify the
+archive checksum before extracting; the revision marker alone is not integrity
+evidence. Do not run this Compose file inside the repository.
+
+Copy `prepare.py` and `compose.yaml` into that directory, then run:
+
+```sh
+cd /opt/ditpath-ui-acceptance
+python3 prepare.py /opt/ditpath-ui-acceptance
+docker compose -p ditpath-ui-acceptance --env-file runtime/stack.env config --quiet
+docker compose -p ditpath-ui-acceptance --env-file runtime/stack.env build
+docker compose -p ditpath-ui-acceptance --env-file runtime/stack.env up -d
+```
+
+Preparation creates new mode-600 secrets and a same-origin `/v1` proxy derived
+from the checked-in nginx configuration. PostgreSQL uses only `runtime/postgres`.
+The API, database and test runner share an internal network; only nginx joins an
+access bridge and publishes **loopback** ports 3001 and 8081. Docker does not
+publish ports on an internal-only network, so both published ports belong to
+nginx. External email delivery is blocked and Google sign-in is disabled. The
+existing stack, volumes, images and public access are not reconfigured.
+
+After the API has migrated the fresh database, the optional `checks` profile
+builds the existing Go builder target and runs database-backed tests. Its DSN
+points only to the acceptance database. Record actual pass/skip counts; use
+`go vet ./...` as an additional command in that test container.
+
+Forward 3001 and 8081 over SSH, then open `http://127.0.0.1:3001`. Both
+`127.0.0.1:3001` and `localhost:3001` are allowed test origins; they have separate
+browser storage, which can test restoration without claiming cross-browser
+compatibility. Run `python3 scripts/acceptance-stack/check-api.py --output-dir
+/private/tmp/ditpath-ui-acceptance-runtime` from the local checkout. This uses only
+the forwarded 8081 API and writes reusable disposable A/B credentials privately
+outside the repository, plus a separate assertion report. Never print or commit
+the credentials. Registration sends no email; verification/Forum tests are outside
+this setup. Cloudflare exposure and native-phone access are subsequent steps.
+
 ## Public access
 
 For Cloudflare Tunnel, configure `CLOUDFLARED_TUNNEL_TOKEN` and route public hostnames to `http://frontend:80`, `http://backend:8080`, and, if needed, `http://pgadmin:80` on the Compose network. Put a restrictive Cloudflare Access policy in front of pgAdmin. `CLOUDFLARED_PROTOCOL` selects the tunnel transport. The service always starts with the stack; an empty token causes restart loops. Stop it explicitly when using a different proxy.

@@ -81,6 +81,11 @@ For a missing upstream, configure branch tracking or pass `--ref`. After rollbac
 
 ## Regression checks
 
+The opt-in [UI acceptance stack](../DEPLOYMENT.md#isolated-ui-acceptance-stack)
+has a separate Compose project, source snapshot, disposable database and private
+runtime files. Its `check-api.py` exercises the actual V1 contracts through SSH
+forwarding. It never substitutes for native-browser or screen-reader acceptance.
+
 Run `python3 scripts/tests/test-operations.py` from the root. Fixtures copy scripts into temporary directories and stub Docker, Git network operations, and host utilities; they never use the live database or project `.env`. The runner prefers Bash 4 or newer. A macOS Bash 3 compatibility run removes only the version guard in copied scripts and reports the unavailable native Bash 4 gate. Run shell syntax checks separately and rehearse recovery on an isolated Linux stack before production use.
 
 Run `node --test scripts/validate-messages.test.mjs` from `frontend/` for nine catalogue-validation regression cases.
