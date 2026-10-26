@@ -1,0 +1,325 @@
+{
+  "fileId": "41725af0-a889-809a-8008-d8302a5aefb6",
+  "pageId": "21101970-335a-8004-8008-d92bcf7c19c3",
+  "sourceCommit": "67d5dcd",
+  "designCommit": "90eb94f",
+  "version": {
+    "label": "Focused daily journey · 67d5dcd · final audit",
+    "createdAt": "2026-10-26T10:31:48.745Z"
+  },
+  "handoff": "910435ec-86a9-80a6-8008-d934a9d04230",
+  "boards": {
+    "home": "910435ec-86a9-80a6-8008-d9334320e788",
+    "home-method": "910435ec-86a9-80a6-8008-d9338849e977",
+    "practice-ready": "910435ec-86a9-80a6-8008-d9338be0b346",
+    "practice-active": "910435ec-86a9-80a6-8008-d9339004dff9",
+    "progress": "910435ec-86a9-80a6-8008-d933b94c3a56",
+    "progress-history": "910435ec-86a9-80a6-8008-d933be2455d4",
+    "settings": "910435ec-86a9-80a6-8008-d933c6415908",
+    "result": "910435ec-86a9-80a6-8008-d933e897a549",
+    "result-details": "910435ec-86a9-80a6-8008-d933ed1dc562",
+    "settings-password": "910435ec-86a9-80a6-8008-d933f14ae421",
+    "practice-dark-de": "910435ec-86a9-80a6-8008-d933f7903098",
+    "home-desktop": "910435ec-86a9-80a6-8008-d933fb98ba0e",
+    "result-desktop": "910435ec-86a9-80a6-8008-d9340852e6c1",
+    "settings-tablet": "910435ec-86a9-80a6-8008-d9340c5b97ef"
+  },
+  "references": {
+    "home": {
+      "width": 390,
+      "height": 844,
+      "url": "/en",
+      "label": "Home · lesson entry"
+    },
+    "home-method": {
+      "width": 390,
+      "height": 1228,
+      "url": "/en",
+      "label": "Home · method expanded"
+    },
+    "practice-ready": {
+      "width": 390,
+      "height": 844,
+      "url": "/en/morse/practice",
+      "label": "Practice · ready"
+    },
+    "practice-active": {
+      "width": 390,
+      "height": 844,
+      "url": "/en/morse/practice",
+      "label": "Practice · listening and copying"
+    },
+    "progress": {
+      "width": 390,
+      "height": 947,
+      "url": "/en/morse/progress",
+      "label": "Progress · summary"
+    },
+    "progress-history": {
+      "width": 390,
+      "height": 1290,
+      "url": "/en/morse/progress",
+      "label": "Progress · recent sessions"
+    },
+    "settings": {
+      "width": 390,
+      "height": 1649,
+      "url": "/en/settings",
+      "label": "Settings · section links"
+    },
+    "result": {
+      "width": 390,
+      "height": 844,
+      "url": "/en/morse/learn/session",
+      "label": "Result · next action"
+    },
+    "result-details": {
+      "width": 390,
+      "height": 844,
+      "url": "/en/morse/learn/session",
+      "label": "Result · session details"
+    },
+    "settings-password": {
+      "width": 390,
+      "height": 1892,
+      "url": "/en/settings",
+      "label": "Settings · password expanded"
+    },
+    "practice-dark-de": {
+      "width": 320,
+      "height": 740,
+      "url": "/de/morse/practice",
+      "label": "Practice · German · dark · 320px"
+    },
+    "home-desktop": {
+      "width": 1280,
+      "height": 900,
+      "url": "/en",
+      "label": "Home · desktop"
+    },
+    "result-desktop": {
+      "width": 1280,
+      "height": 900,
+      "url": "/en/morse/learn/session",
+      "label": "Result · desktop"
+    },
+    "settings-tablet": {
+      "width": 768,
+      "height": 1571,
+      "url": "/en/settings",
+      "label": "Settings · tablet"
+    }
+  },
+  "prototypeLinks": [
+    {
+      "from": "home",
+      "label": "How lessons work",
+      "to": "home-method",
+      "shapeId": "910435ec-86a9-80a6-8008-d934731db821"
+    },
+    {
+      "from": "home-method",
+      "label": "How lessons work",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d934732e945e"
+    },
+    {
+      "from": "result",
+      "label": "Session details",
+      "to": "result-details",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347338cff1"
+    },
+    {
+      "from": "result-details",
+      "label": "Session details",
+      "to": "result",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347342b7bf"
+    },
+    {
+      "from": "progress",
+      "label": "Recent sessions",
+      "to": "progress-history",
+      "shapeId": "910435ec-86a9-80a6-8008-d934734b781f"
+    },
+    {
+      "from": "progress-history",
+      "label": "Recent sessions",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347353c0c1"
+    },
+    {
+      "from": "settings",
+      "label": "Password",
+      "to": "settings-password",
+      "shapeId": "910435ec-86a9-80a6-8008-d934735b6210"
+    },
+    {
+      "from": "settings-password",
+      "label": "Password",
+      "to": "settings",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347364251d"
+    },
+    {
+      "from": "home",
+      "label": "Already know Morse? Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d934736b5fa7"
+    },
+    {
+      "from": "practice-ready",
+      "label": "Start practice",
+      "to": "practice-active",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347372e772"
+    },
+    {
+      "from": "home",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d934737a65f7"
+    },
+    {
+      "from": "home",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473817cfd"
+    },
+    {
+      "from": "home-method",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347388ad0e"
+    },
+    {
+      "from": "home-method",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d934738feb5f"
+    },
+    {
+      "from": "home-method",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d9347396e365"
+    },
+    {
+      "from": "practice-ready",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d934739d8683"
+    },
+    {
+      "from": "practice-ready",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473a57430"
+    },
+    {
+      "from": "progress",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473c213ab"
+    },
+    {
+      "from": "progress",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473c91568"
+    },
+    {
+      "from": "progress-history",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473d0564f"
+    },
+    {
+      "from": "progress-history",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473d71375"
+    },
+    {
+      "from": "progress-history",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473dea60c"
+    },
+    {
+      "from": "settings",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473e5624e"
+    },
+    {
+      "from": "settings",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473eca172"
+    },
+    {
+      "from": "settings",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473f3e5bb"
+    },
+    {
+      "from": "settings-password",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d93473fb5185"
+    },
+    {
+      "from": "settings-password",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d93474022e6a"
+    },
+    {
+      "from": "settings-password",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d934740968db"
+    },
+    {
+      "from": "handoff",
+      "label": "Home",
+      "to": "home",
+      "shapeId": "910435ec-86a9-80a6-8008-d934aa07ac5e"
+    },
+    {
+      "from": "handoff",
+      "label": "Practice",
+      "to": "practice-ready",
+      "shapeId": "910435ec-86a9-80a6-8008-d934aa22276d"
+    },
+    {
+      "from": "handoff",
+      "label": "Results",
+      "to": "result",
+      "shapeId": "910435ec-86a9-80a6-8008-d934aa3d3117"
+    },
+    {
+      "from": "handoff",
+      "label": "Progress",
+      "to": "progress",
+      "shapeId": "910435ec-86a9-80a6-8008-d934aa57a8d7"
+    },
+    {
+      "from": "handoff",
+      "label": "Settings",
+      "to": "settings",
+      "shapeId": "910435ec-86a9-80a6-8008-d934aa728320"
+    }
+  ],
+  "validation": {
+    "errors": 0,
+    "brokenLinks": 0,
+    "boardOverlaps": 0,
+    "referenceTextOverflow": 0
+  },
+  "limitations": [
+    "Editable Roboto represents platform-dependent system/Avenir fonts. Browser screenshots are canonical.",
+    "Long-page references place fixed tabs at the frame bottom.",
+    "Audio, input, save/retry, anchor scrolling, account changes and departure confirmation run in the app; they are not simulated.",
+    "Native IME, full screen-reader and second-browser-profile acceptance remain open."
+  ]
+}

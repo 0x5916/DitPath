@@ -77,8 +77,26 @@ viewport checks are not new Android, IME or screen-reader evidence. Existing
 native and second-browser-profile limits remain in the
 [acceptance backlog](../ui-ux-audit.md).
 
-The pre-implementation Penpot targets are saved. Final rendered synchronization
-is pending restoration of the MCP connection; focusing and reloading the saved
-file did not restore its heartbeat. Captured implementation states are retained
-locally for that handoff. The existing current-state inventory remains a
-historical reference to its recorded revision.
+## Design synchronization and delivery
+
+The Penpot connection recovered and the final state is saved as **Focused daily
+journey · 67d5dcd · final audit**. The [manifest](2026-10-26-focused-redesign.json)
+records the implementation revision, 14 editable rendered references, seven
+preserved targets, a handoff board and 33 audited prototype links. Disclosure
+pairs, ready-to-copy and idle tab navigation are represented; active departure
+confirmation, audio, typing, saving, section scrolling and account forms remain
+app-only behaviors. No self-links or dangling destinations remain.
+
+Penpot file validation returned 0 errors; reference checks found 0 overlapping
+boards and 0 text layers outside their frames. Home, results, account Settings,
+German dark Practice and the handoff board were exported and visually inspected.
+Editable Roboto represents the platform-dependent system/Avenir font stacks;
+actual browser screenshots are the canonical rendering. Long-page references
+place the fixed tabs at the bottom of the full content frame. The earlier
+52-board inventory retains its historical source revision.
+
+Milestones: design targets `90eb94f`, implementation `67d5dcd`, then this design
+handoff/evidence commit. `git diff --check` and documentation formatting pass
+(exit 0). The implementation commit left `git status --short` empty; the final
+evidence commit is followed by the same clean-tree check. The temporary synthetic
+account preview is stopped; the existing acceptance preview remains available.
