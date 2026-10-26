@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
+import { RequestTimeoutError } from './request-timeout';
 
 const auth = vi.hoisted(() => ({
   id: '11111111-1111-4111-8111-111111111111' as string | null,
@@ -44,9 +45,24 @@ afterEach(() => {
   dispose?.();
   dispose = undefined;
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('training sync browser lifecycle', () => {
+  it('leaves timeout recovery visible and allows manual retry before automatic retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    auth.request.mockRejectedValueOnce(new RequestTimeoutError());
+    dispose = runtime.initializeTrainingSync();
+    await vi.waitFor(() => expect(runtime.trainingSyncState.error).toBe('TRAINING_SYNC_FAILED'));
+    expect(runtime.trainingSyncState.syncing).toBe(false);
+    await vi.advanceTimersByTimeAsync(14_000);
+    expect(auth.request).toHaveBeenCalledOnce();
+    await runtime.syncTrainingNow();
+    expect(runtime.trainingSyncState.synced).toBe(true);
+    expect(runtime.trainingSyncState.error).toBeNull();
+    await vi.advanceTimersByTimeAsync(16_000);
+    expect(auth.request).toHaveBeenCalledTimes(2);
+  });
   it('creates no network work before mount and disposes wake listeners', async () => {
     expect(auth.request).not.toHaveBeenCalled();
     dispose = runtime.initializeTrainingSync();

@@ -30,6 +30,9 @@ For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web clien
 
 ## Checks and builds
 
+For real-device validation, use the [Android Chrome / TalkBack walkthrough](docs/android-acceptance.md)
+with the private USB preview and disposable API.
+
 For repeatable synthetic UI states, run `npm run acceptance` and open
 `http://127.0.0.1:4174/__acceptance`. The chooser replaces only the dedicated
 `ditpath_ui_acceptance` database and test-origin auth/training preferences; close

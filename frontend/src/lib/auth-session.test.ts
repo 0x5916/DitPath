@@ -43,7 +43,92 @@ beforeEach(async () => {
   auth = await import('#lib/auth.ts');
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe('API request deadlines', () => {
+  it.each(['headers', 'body'])(
+    'releases deduplicated GETs stalled at %s so Retry can succeed',
+    async (stage) => {
+      vi.useFakeTimers();
+      setSession('alice');
+      const api = await import('#lib/api.ts');
+      const stalled = new Promise<never>(() => {});
+      fetchMock.mockImplementationOnce(() =>
+        stage === 'headers'
+          ? stalled
+          : Promise.resolve({
+              status: 200,
+              headers: new Headers(),
+              text: () => stalled
+            })
+      );
+      const first = api.getUserInfo();
+      const same = api.getUserInfo();
+      const rejected = Promise.all(
+        [first, same].map((p) => expect(p).rejects.toMatchObject({ code: 'REQUEST_TIMEOUT' }))
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      await rejected;
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+      expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe('refresh-alice');
+      fetchMock.mockResolvedValueOnce(Response.json({ username: 'alice' }));
+      await expect(api.getUserInfo()).resolves.toEqual({ username: 'alice' });
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
+  it('preserves credentials after a stalled refresh and ignores its late success', async () => {
+    vi.useFakeTimers();
+    setSession('alice', true);
+    const refresh = deferred<Response>();
+    fetchMock.mockReturnValueOnce(refresh.promise);
+    const rejected = expect(auth.apiFetch('/user/me')).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT'
+    });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await rejected;
+    expect(fetchMock).toHaveBeenCalledOnce();
+    refresh.resolve(credentials('alice'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe('refresh-alice');
+    fetchMock
+      .mockResolvedValueOnce(credentials('alice'))
+      .mockResolvedValueOnce(Response.json({ ok: true }));
+    await expect(auth.apiFetch('/user/me')).resolves.toMatchObject({ status: 200 });
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken)).toBe('renewed-alice');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('does not commit a late login after its deadline', async () => {
+    vi.useFakeTimers();
+    const pending = deferred<Response>();
+    fetchMock.mockReturnValueOnce(pending.promise);
+    const rejected = expect(auth.login('alice', 'secret')).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT'
+    });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await rejected;
+    pending.resolve(credentials('alice'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('finishes a stalled logout while keeping the local session cleared', async () => {
+    vi.useFakeTimers();
+    setSession('alice');
+    fetchMock.mockReturnValueOnce(new Promise(() => {}));
+    const pending = auth.logout();
+    expect(localStorage.getItem(AUTH_STORAGE_KEYS.accessToken)).toBeNull();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await pending;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
 
 describe('auth session transitions', () => {
   it('partitions by canonical immutable JWT subject rather than username', () => {

@@ -288,6 +288,7 @@
   "profile_heatmap_before_account": "アカウント作成前（{date}）",
   "profile_heatmap_day_one": "{date} に 1 セッション",
   "profile_heatmap_day_many": "{date} に {count} セッション",
+  "api_error_request_timeout": "サーバーからの応答が時間内に届きませんでした。もう一度お試しください。",
   "api_error_invalid_request_body": "リクエスト内容が正しくありません。",
   "api_error_internal_server_error": "サーバー内部エラーが発生しました。",
   "api_error_database_failure": "データベースエラーが発生しました。しばらくしてから再試行してください。",

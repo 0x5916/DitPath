@@ -288,6 +288,7 @@
   "profile_heatmap_before_account": "Before account creation ({date})",
   "profile_heatmap_day_one": "1 session on {date}",
   "profile_heatmap_day_many": "{count} sessions on {date}",
+  "api_error_request_timeout": "The server took too long to respond. Please try again.",
   "api_error_invalid_request_body": "Invalid request body.",
   "api_error_internal_server_error": "An internal server error occurred.",
   "api_error_database_failure": "Database error. Please try again later.",

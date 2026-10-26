@@ -288,6 +288,7 @@
   "profile_heatmap_before_account": "Vor der Kontoerstellung ({date})",
   "profile_heatmap_day_one": "1 Sitzung am {date}",
   "profile_heatmap_day_many": "{count} Sitzungen am {date}",
+  "api_error_request_timeout": "Der Server hat nicht rechtzeitig geantwortet. Bitte versuche es erneut.",
   "api_error_invalid_request_body": "Ungültiger Anfragetext.",
   "api_error_internal_server_error": "Interner Serverfehler.",
   "api_error_database_failure": "Datenbankfehler. Bitte versuche es später erneut.",

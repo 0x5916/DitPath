@@ -7,6 +7,7 @@ import {
   subscribeTrainingDataChanges
 } from './data/training-sync-repository';
 import { synchronizeTraining, TrainingSyncError } from './training-sync-engine';
+import { REQUEST_TIMEOUT_MS, RequestTimeoutError } from './request-timeout';
 
 export interface TrainingSyncSnapshot {
   owner: string;
@@ -86,6 +87,7 @@ function scheduleRetry(error: unknown) {
   clearTimeout(timer);
   if (!mounted || !getTrainingOwner().startsWith('account:')) return;
   const delay = Math.max(
+    error instanceof RequestTimeoutError ? REQUEST_TIMEOUT_MS : 0,
     error instanceof TrainingSyncError ? error.retryAfterMs : 0,
     Math.min(60_000, 1000 * 2 ** Math.min(failures++, 6))
   );
@@ -109,7 +111,7 @@ export async function syncTrainingNow(): Promise<void> {
   const entry = { generation: session.generation, promise: Promise.resolve() };
   entry.promise = (async () => {
     clearTimeout(timer);
-    publish({ syncing: true, error: null });
+    publish({ syncing: true });
     let failed = false;
     try {
       const run = async () => {

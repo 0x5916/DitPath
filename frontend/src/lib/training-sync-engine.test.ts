@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fetchApiResponse } from './request-timeout';
 import { IDBFactory } from 'fake-indexeddb';
 import { createAttemptRepository } from './data/attempt-repository';
 import { createSessionRepository } from './data/session-repository';
@@ -138,6 +139,8 @@ async function device(request: TrainingSyncPorts['request'], isCurrent = () => t
   };
 }
 afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
   databases.splice(0).forEach(closeTrainingDb);
 });
 async function saveGuided(db: IDBDatabase, id = 'guided', evidenceCount = 1) {
@@ -167,6 +170,34 @@ async function savePractice(db: IDBDatabase, id = 'practice') {
 }
 
 describe('V1 training synchronization', () => {
+  it('keeps a timed-out upload pending and retries its committed ID without duplicates', async () => {
+    const server = memoryServer();
+    const current = await device((path, init) => fetchApiResponse(path, init));
+    await savePractice(current.db);
+    const committed = new Promise<void>((resolve) => {
+      vi.stubGlobal('fetch', async (path: string, init: RequestInit) => {
+        await server.request(path, init);
+        resolve();
+        return new Promise<Response>(() => {});
+      });
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const rejected = expect(synchronizeTraining(current.ports)).rejects.toMatchObject({
+      code: 'REQUEST_TIMEOUT'
+    });
+    await committed;
+    await vi.advanceTimersByTimeAsync(15_000);
+    await rejected;
+    expect(await current.repository.countPending()).toBe(1);
+    expect(await current.repository.getFailures()).toEqual([]);
+    vi.stubGlobal('fetch', server.request);
+    await synchronizeTraining(current.ports);
+    expect(await current.repository.countPending()).toBe(0);
+    expect(server.sessions.size).toBe(1);
+    expect(await createSessionRepository(current.db, owner).getSessions()).toHaveLength(1);
+    expect(await createSessionRepository(current.db, 'account:other').getSessions()).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('restores both histories and guided mastery on a second independent device', async () => {
     const server = memoryServer();
     const first = await device(server.request);

@@ -2,6 +2,7 @@ import { PUBLIC_API_BASE } from '$app/env/public';
 import { writable } from 'svelte/store';
 import { extractErrorCodeFromBody } from '#lib/errorCode.ts';
 import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
+import { fetchApiResponse, RequestTimeoutError } from '#lib/request-timeout.ts';
 
 export interface AuthUser {
   username: string;
@@ -174,11 +175,14 @@ async function postCredentials(
   const signal = attempt.signal;
   const assertCurrentAttempt = attempt.assertCurrent;
   assertCurrentAttempt();
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetchApiResponse(`${API_BASE}${path}`, {
     signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...extraHeaders },
     body: JSON.stringify(payload)
+  }).catch((error) => {
+    assertCurrentAttempt();
+    throw error;
   });
 
   assertCurrentAttempt();
@@ -220,14 +224,16 @@ async function runTokenRefresh(session: AuthSession): Promise<boolean> {
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}/auth/refresh`, {
+    response = await fetchApiResponse(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       signal: sessionController.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refreshToken })
     });
-  } catch {
+  } catch (error) {
     assertAuthSessionCurrent(session);
+    // A deadline is not a server rejection: retain credentials and let the caller retry.
+    if (error instanceof RequestTimeoutError) throw error;
     // Network/transport failure: do not force logout.
     return false;
   }
@@ -308,7 +314,7 @@ export async function apiFetch(
     }
 
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    let response = await fetch(`${API_BASE}${input}`, {
+    let response = await fetchApiResponse(`${API_BASE}${input}`, {
       ...init,
       headers,
       signal: controller.signal
@@ -322,7 +328,7 @@ export async function apiFetch(
         const renewedToken = readAuth(AUTH_STORAGE_KEYS.accessToken);
         if (renewedToken) headers.set('Authorization', `Bearer ${renewedToken}`);
         else headers.delete('Authorization');
-        response = await fetch(`${API_BASE}${input}`, {
+        response = await fetchApiResponse(`${API_BASE}${input}`, {
           ...init,
           headers,
           signal: controller.signal
@@ -377,7 +383,7 @@ export async function logout(): Promise<void> {
 
   if (refreshToken) {
     try {
-      await fetch(`${API_BASE}/auth/logout`, {
+      await fetchApiResponse(`${API_BASE}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refreshToken })
@@ -433,7 +439,7 @@ async function resolveUsername(
   }
 
   try {
-    const meRes = await fetch(`${API_BASE}/user/me`, {
+    const meRes = await fetchApiResponse(`${API_BASE}/user/me`, {
       signal,
       headers: { Authorization: `Bearer ${accessToken}` }
     });

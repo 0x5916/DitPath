@@ -5,6 +5,8 @@ export function localizeApiError(error: unknown, fallback: () => string): string
   const code = extractErrorCode(error);
 
   switch (code) {
+    case 'REQUEST_TIMEOUT':
+      return m.api_error_request_timeout();
     case 'GOOGLE_SIGN_IN_DISABLED':
     case 'GOOGLE_SIGN_IN_UNAVAILABLE':
       return m.google_unavailable();

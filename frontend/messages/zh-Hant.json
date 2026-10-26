@@ -288,6 +288,7 @@
   "profile_heatmap_before_account": "帳號建立之前（{date}）",
   "profile_heatmap_day_one": "{date} 有 1 次訓練",
   "profile_heatmap_day_many": "{date} 有 {count} 次訓練",
+  "api_error_request_timeout": "伺服器回應逾時。請再試一次。",
   "api_error_invalid_request_body": "請求內容無效。",
   "api_error_internal_server_error": "伺服器內部錯誤。",
   "api_error_database_failure": "資料庫錯誤，請稍後再試。",
