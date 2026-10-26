@@ -332,7 +332,7 @@
   }
 
   .sample-status {
-    min-height: calc(2em * var(--leading-normal));
+    min-height: calc(1em * var(--leading-normal));
     margin: 0;
   }
 

@@ -18,7 +18,7 @@
     <p class="masthead-lede">{m.home_hero_subtitle()}</p>
     <div class="masthead-actions">
       <a href={href('/morse/learn/session?step=1')} class="btn-cta">{m.home_cta()}</a>
-      <a href={href('/morse/learn')} class="link practice-link">{m.home_all_lessons()}</a>
+      <a href={href('/morse/learn')} class="link all-lessons">{m.home_all_lessons()}</a>
       <a href={href('/morse/practice')} class="link practice-link">{m.home_hero_cta_secondary()}</a>
     </div>
     <p class="body-text reassurance">
@@ -80,20 +80,42 @@
 
   .masthead-actions {
     display: grid;
-    justify-items: start;
-    gap: var(--space-1);
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
   }
 
   .masthead-actions :global(a) {
     min-height: var(--answer-target-min);
   }
 
+  .all-lessons,
   .practice-link {
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     display: inline-flex;
     align-items: center;
     text-decoration: underline;
     text-underline-offset: var(--space-1);
+  }
+
+  .masthead-actions .btn-cta {
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .all-lessons {
+    padding-inline: var(--space-2);
+  }
+
+  .practice-link {
+    grid-column: 1 / -1;
+    justify-self: start;
+    color: var(--text-secondary);
+  }
+
+  .practice-link:hover {
+    color: var(--accent);
   }
 
   .reassurance {
@@ -141,14 +163,6 @@
       margin: var(--space-3) 0 var(--space-4);
       font-size: var(--text-base);
       line-height: var(--leading-normal);
-    }
-
-    .masthead-actions {
-      justify-items: stretch;
-    }
-
-    .practice-link {
-      justify-content: center;
     }
   }
 
