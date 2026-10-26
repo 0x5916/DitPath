@@ -42,13 +42,37 @@ upload with a lost response is covered separately by the idempotent-retry test.
 
 ## Design and native acceptance status
 
-Penpot synchronization is pending: its MCP repeatedly reports no connected instance.
-The existing file in desktop Firefox shows “Connection lost. Retrying to save your
-changes.” Reconnecting through both connection menus did not restore access. No new
-timeout frame or named design version is claimed. Preserve the existing Settings
-hierarchy, inline alert, retained-history notice, and separate Try again / Sync now
-actions. Add a timeout recovery frame and prototype retry to the normal Settings frame;
-label the 15-second deadline as a design note, not product copy.
+Penpot is synchronized with implementation `2c1e3c1` and the Firefox evidence in
+`7741030`. The [design manifest](2026-10-26-daily-training-design.json) identifies
+all frames and the saved version **Request timeout recovery · 2c1e3c1 · Firefox
+acceptance** (file revision 64, saved 26 October 2026 at 07:37 UTC).
+
+The design acceptance criteria are met: preserve the Settings hierarchy, shared
+light/dark tokens, exact inline error and retained-history copy, and separate
+**Try again** / **Sync now** recovery. Four light phone states model both failures,
+settings restored while history remains pending, history restored while settings
+still fail, and full recovery. Each action changes only its own recovery state.
+Dark phone and desktop timeout references use the same hierarchy; the 15-second
+deadline appears only in design notes. Original guest Settings frames are preserved,
+and every account example is synthetic.
+
+The acceptance and behavior boards now distinguish implemented recovery and observed
+Firefox results from open native checks. Prototype limits are explicit: successful
+request outcomes are modeled, while loading, repeated failure, live account editing,
+cache disclosures and lower account controls require the running app.
+
+Design verification: 71 navigation links, 0 broken destinations, 0 self-links, and
+4 intended independent-recovery transitions. Penpot file validation returned 0
+errors. All 132 text layers in the seven new frames/notes had measurable bounds and
+0 detected overflows; exported PNGs were visually reviewed. This is a graph and
+rendering audit, not a new prototype-viewer click-through. The exported timeout
+reference is `penpot-settings-timeout.png` in this chat's visualization directory.
+
+This design/documentation increment ran 0 new application tests; the 595 tests
+above remain the implementation baseline. Manifest JSON validation (27 boards,
+6 historical references, 3 report paths), Prettier on the four changed documentation
+files, and `git diff --check` each exited 0. Before commit, `git status --short`
+listed only those four documentation files.
 
 USB mapping `tcp:3001 → tcp:3001` is active, and the phone preview is
 `http://127.0.0.1:3001/en`. Firefox 159.0 on the real Android 16 phone passed
@@ -72,5 +96,6 @@ request and its service was verified off. The subsequent walkthrough records
 guided-lesson completion using native touch and the on-screen keyboard, alongside
 an unresolved mirrored-keyboard anomaly. Full TalkBack, Practice soft-keyboard,
 Japanese/Chinese composition and second-device account sync remain open.
-The implementation commit left `git status --short` empty. Capture it again after
-the final evidence/design synchronization commit.
+The implementation commit left `git status --short` empty. The design increment
+changes only the manifest, this report, the Firefox report and the audit guide;
+final formatting, diff and repository-status results accompany its commit.

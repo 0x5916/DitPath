@@ -1,14 +1,17 @@
 {
   "file": "41725af0-a889-809a-8008-d8302a5aefb6",
   "page": "d872815a-6d19-807b-8008-d863a4c86b59",
-  "codeCommit": "ac25e57",
+  "codeCommit": "2c1e3c1",
   "acceptanceFixtureCommit": "b814db9",
   "deploymentCommit": "1e4f355",
   "liveAcceptanceReport": "2026-10-26-live-sync-acceptance.md",
   "timeoutPacket": {
     "codeCommit": "2c1e3c1",
     "report": "2026-10-26-request-timeout.md",
-    "designSync": "pending-connection"
+    "designSync": "synchronized",
+    "flow": "Settings timeout · independent recovery",
+    "nativeAcceptanceCommit": "7741030",
+    "nativeAcceptanceReport": "2026-10-26-android-firefox.md"
   },
   "browserReferenceCodeCommit": "017656a",
   "boards": {
@@ -31,7 +34,14 @@
     "spec": "d872815a-6d19-807b-8008-d86452614b29",
     "acceptance": "07745482-6bd0-80c2-8008-d8cf31f1be9f",
     "practice-leave-copy": "07745482-6bd0-80c2-8008-d8d3244c9a55",
-    "practice-leave-unsaved": "07745482-6bd0-80c2-8008-d8d324621e9f"
+    "practice-leave-unsaved": "07745482-6bd0-80c2-8008-d8d324621e9f",
+    "settings-timeout-phone": "21101970-335a-8004-8008-d909487525e3",
+    "settings-restored-sync-pending": "21101970-335a-8004-8008-d90a63e55948",
+    "settings-timeout-sync-restored": "21101970-335a-8004-8008-d90a64be0e2e",
+    "settings-recovered-phone": "21101970-335a-8004-8008-d90a64e911a4",
+    "settings-timeout-dark": "21101970-335a-8004-8008-d90ad7dc734d",
+    "settings-timeout-desktop": "21101970-335a-8004-8008-d90ad8ea1b62",
+    "timeout-contract": "21101970-335a-8004-8008-d90ad9bb83a2"
   },
   "browserReferences": {
     "practice-ready": "d872815a-6d19-807b-8008-d86d57f9fbb7",
@@ -41,13 +51,20 @@
     "settings-phone": "d872815a-6d19-807b-8008-d86da304bf41",
     "settings-desktop": "d872815a-6d19-807b-8008-d86da8af2f3d"
   },
-  "version": "Isolated live-sync acceptance · ac25e57",
+  "version": "Request timeout recovery · 2c1e3c1 · Firefox acceptance",
   "prototypeAudit": {
-    "navigateLinks": 50,
+    "navigateLinks": 71,
     "selfLinks": 0,
     "brokenLinks": 0,
-    "limitations": "Phone flow models Home as the leave destination. Other leave destinations, result close/replay, audio, disclosures and desktop interactions require the running app; these limits are listed on the acceptance board."
+    "limitations": "Phone Practice flow models Home as the leave destination. The light phone timeout flow models successful independent settings/history recovery outcomes. Loading, repeated failure, cache disclosures, account editing, audio and other live controls require the app. Timeout desktop/dark frames are visual references; account controls below the represented viewport are omitted. Existing guest Settings frames and historical browser references are preserved.",
+    "timeoutRecoveryLinks": 4,
+    "fileValidationErrors": 0,
+    "newFrameTextLayersChecked": 132,
+    "newFrameTextOverflows": 0,
+    "method": "Penpot interaction graph and file validation; rendered PNG review. Prototype viewer click-through was not repeated."
   },
   "designUrl": "https://design.penpot.app/#/workspace?team-id=5009c98b-0fb2-816e-8008-d82a38bab0df&file-id=41725af0-a889-809a-8008-d8302a5aefb6&page-id=d872815a-6d19-807b-8008-d863a4c86b59",
-  "dataPolicy": "Activity and comparison frames use synthetic examples. Six neutral browser references are retained; detailed activity captures remain local."
+  "dataPolicy": "Activity and comparison frames use synthetic examples. Six neutral browser references are retained; detailed activity captures remain local.",
+  "versionCreatedAt": "2026-10-26T07:37:38.365Z",
+  "fileRevision": 64
 }

@@ -63,5 +63,8 @@ the audit guide. A final Android service check again confirmed TalkBack off, exi
 
 Still open: Practice with the native soft keyboard, Japanese/Chinese composition,
 rotation and native text scaling, full TalkBack coverage, native account/timeout
-and second-device sync, plus reproduction of the keyboard anomaly. The previously
-blocked Penpot timeout frame remains pending; this pass changed no product visuals.
+and second-device sync, plus reproduction of the keyboard anomaly. This pass
+changed no product visuals. The subsequent
+[design synchronization](2026-10-26-request-timeout.md#design-and-native-acceptance-status)
+adds the timeout/recovery frames and records this evidence in Penpot; the native
+acceptance gaps above remain open.
