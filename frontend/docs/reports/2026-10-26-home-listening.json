@@ -1,0 +1,43 @@
+{
+  "sourceCommit": "6d70771",
+  "scope": "First-time Home only; returning-user dashboard unchanged",
+  "fileId": "41725af0-a889-809a-8008-d8302a5aefb6",
+  "pageId": "910435ec-86a9-80a6-8008-d94209810cc2",
+  "pageName": "Home · listening-first",
+  "version": {
+    "label": "Home listening-first · 6d70771",
+    "createdAt": "2026-10-26T11:41:14.111Z",
+    "persistence": "confirmed by save result and version-history readback"
+  },
+  "proposal": "910435ec-86a9-80a6-8008-d94209f153d4",
+  "direction": "910435ec-86a9-80a6-8008-d9420a3a5bfe",
+  "handoff": "910435ec-86a9-80a6-8008-d944df560e14",
+  "boards": {
+    "phoneLight": "910435ec-86a9-80a6-8008-d9449e5939a9",
+    "phoneDark": "910435ec-86a9-80a6-8008-d9449ecb4344",
+    "desktopDark": "910435ec-86a9-80a6-8008-d944a23900cf",
+    "tabletLight": "910435ec-86a9-80a6-8008-d944a2b37bed",
+    "methodExpanded": "910435ec-86a9-80a6-8008-d944a60aff8a",
+    "quizFeedback": "910435ec-86a9-80a6-8008-d944a6c2bf36",
+    "german320": "910435ec-86a9-80a6-8008-d944ac221fc2"
+  },
+  "prototype": {
+    "links": 3,
+    "scope": "Light phone method open/close and quiz feedback back to samples",
+    "limitations": "Other frames are visual references. Test audio, randomized quiz, retry and routes in the app. Roboto substitutes platform fonts in Penpot."
+  },
+  "validation": {
+    "fileErrors": 0,
+    "referenceTextOutsideBoards": 0,
+    "exportInspected": "phoneLight",
+    "localeThemeChecksAt320": 10,
+    "minimumHomeActionHeight": 48,
+    "testsPassed": 596,
+    "testFilesPassed": 49,
+    "verifyExit": 0,
+    "lintExit": 0,
+    "buildExit": 0,
+    "svelteAnalyzerExit": 0,
+    "diffCheckExit": 0
+  }
+}

@@ -155,6 +155,13 @@ The [redesign report](reports/2026-10-26-focused-redesign.md) records original P
 
 The [Home finishing pass](reports/2026-10-26-home-finish.md) completes the identified visual polish in `d1ece07`: Start and browse share a row, experienced Practice has quieter emphasis, and listening status no longer reserves an extra blank line. All five locales fit 320px in both themes with targets at least 48px; the optional quiz and entry links were checked. The visual implementation is finished. Penpot canvas updates validate, but final server persistence is blocked by its save timeout and is recorded as unconfirmed. Remaining work below is acceptance evidence, not another planned visual redesign.
 
+The subsequent [listening-first Home redesign](reports/2026-10-26-home-listening.md)
+replaces the first-time introduction with a K/M listening panel before lesson
+entry on phones and a split composition on desktop. It leaves the returning-user
+dashboard unchanged. Commit `6d70771` passes 596 tests and all frontend gates;
+ten locale/theme combinations fit 320px. Penpot version **Home listening-first ·
+6d70771** is confirmed in version history, resolving the earlier file-save blocker.
+
 ## Final UI/UX acceptance pass — proposed 26 October 2026
 
 Design coverage is now complete for the existing app. The [complete-design report](reports/2026-10-26-complete-design.md) and [manifest](reports/2026-10-26-complete-design.json) record 49 current UI references, a screen index, shared states and recovery contracts in Penpot. These complete supporting pages and current guided prompt/results coverage while preserving the Daily training/timeout designs and their source revisions. The named version is **Complete app design coverage · 2c1e3c1 · final link audit**. Design completion does not close the native-device, screen-reader or second-browser-profile evidence gaps below.
