@@ -1,7 +1,9 @@
 {
   "file": "41725af0-a889-809a-8008-d8302a5aefb6",
   "page": "d872815a-6d19-807b-8008-d863a4c86b59",
-  "codeCommit": "017656a",
+  "codeCommit": "ac25e57",
+  "acceptanceFixtureCommit": "b814db9",
+  "browserReferenceCodeCommit": "017656a",
   "boards": {
     "home-phone": "d872815a-6d19-807b-8008-d864081c1f62",
     "practice-ready": "d872815a-6d19-807b-8008-d86408801200",
@@ -19,7 +21,10 @@
     "practice-recovery": "d872815a-6d19-807b-8008-d86417d1fd7a",
     "practice-discard": "d872815a-6d19-807b-8008-d86451dd56f0",
     "progress-empty": "d872815a-6d19-807b-8008-d86452295b03",
-    "spec": "d872815a-6d19-807b-8008-d86452614b29"
+    "spec": "d872815a-6d19-807b-8008-d86452614b29",
+    "acceptance": "07745482-6bd0-80c2-8008-d8cf31f1be9f",
+    "practice-leave-copy": "07745482-6bd0-80c2-8008-d8d3244c9a55",
+    "practice-leave-unsaved": "07745482-6bd0-80c2-8008-d8d324621e9f"
   },
   "browserReferences": {
     "practice-ready": "d872815a-6d19-807b-8008-d86d57f9fbb7",
@@ -29,7 +34,13 @@
     "settings-phone": "d872815a-6d19-807b-8008-d86da304bf41",
     "settings-desktop": "d872815a-6d19-807b-8008-d86da8af2f3d"
   },
-  "version": "Daily training final handoff · 017656a",
+  "version": "Acceptance fixtures and keyboard recovery · ac25e57",
+  "prototypeAudit": {
+    "navigateLinks": 50,
+    "selfLinks": 0,
+    "brokenLinks": 0,
+    "limitations": "Phone flow models Home as the leave destination. Other leave destinations, result close/replay, audio, disclosures and desktop interactions require the running app; these limits are listed on the acceptance board."
+  },
   "designUrl": "https://design.penpot.app/#/workspace?team-id=5009c98b-0fb2-816e-8008-d82a38bab0df&file-id=41725af0-a889-809a-8008-d8302a5aefb6&page-id=d872815a-6d19-807b-8008-d863a4c86b59",
   "dataPolicy": "Activity and comparison frames use synthetic examples. Six neutral browser references are retained; detailed activity captures remain local."
 }
