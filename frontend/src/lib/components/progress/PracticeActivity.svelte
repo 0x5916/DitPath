@@ -29,7 +29,7 @@
 
 <div class="activity-ledger-card" role="region" aria-label={m.progress_activity_label()}>
   <div class="ledger-head">
-    <h3 class="ledger-title">{m.progress_activity_title()}</h3>
+    <p class="ledger-title">{m.progress_activity_title()}</p>
     <span class="ledger-period">{m.progress_activity_period()}</span>
   </div>
   <div class="ledger-metrics">
@@ -87,10 +87,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    padding: var(--space-5);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+
     width: 100%;
     max-width: var(--max-width-narrow);
   }
@@ -119,8 +116,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.15rem var(--space-3);
-    padding: var(--space-3) 0;
-    border-top: 1px solid var(--border);
+    padding: 0;
   }
 
   .metric-block {

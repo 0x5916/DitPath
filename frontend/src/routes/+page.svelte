@@ -115,7 +115,7 @@
     <nav aria-label={m.home_go_title()}>
       <ul class="training-links">
         <li>
-          <a class="training-link" href={href(lessonLink.path)}>
+          <a class="training-link training-link--recommended" href={href(lessonLink.path)}>
             <Radio size={24} aria-hidden="true" />
             <span>
               <strong class="training-title">{lessonLink.title}</strong>
@@ -194,6 +194,18 @@
     padding: 0;
     list-style: none;
   }
+  .training-link.training-link--recommended {
+    background: var(--accent-cta);
+    border-color: var(--accent-cta);
+    color: var(--on-accent);
+  }
+  .training-link.training-link--recommended:hover {
+    background: var(--accent-cta-h);
+  }
+  .training-link.training-link--recommended :global(svg),
+  .training-link.training-link--recommended .lesson-hint {
+    color: var(--on-accent);
+  }
   .training-link,
   .reference-link {
     display: grid;
@@ -214,7 +226,6 @@
   .reference-link {
     padding: var(--space-4);
     margin-top: var(--space-2);
-    border-bottom: 1px solid var(--border);
   }
   .training-link:hover,
   .reference-link:hover {
@@ -261,7 +272,7 @@
   }
   @media (min-width: 600px) {
     .training-links {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
     }
   }
 </style>

@@ -24,6 +24,7 @@
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import * as m from '#lib/paraglide/messages.js';
 
+  let showHistory = $state(false);
   let loading = $state(true);
   let loadError = $state(false);
   let summary = $state.raw<ProgressSummary | null>(null);
@@ -47,6 +48,7 @@
       loadedOwner = null;
       summary = null;
       history = [];
+      showHistory = false;
       loading = true;
     }
     loadError = false;
@@ -141,6 +143,12 @@
           >
         </section>
       {:else}
+        {#if summary.confusionPairs.length > 0 || summary.slowChars.length > 0}
+          <section class="progress-section" aria-label={m.progress_attention()}>
+            <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
+          </section>
+        {/if}
+
         <PracticeActivity
           sessionCount={summary.sessionCount}
           guidedSessionCount={summary.guidedSessionCount}
@@ -150,15 +158,6 @@
           timedSessionCount={summary.timedSessionCount}
           accuracyPercent={summary.accuracyPercent}
         />
-
-        {#if summary.confusionPairs.length > 0 || summary.slowChars.length > 0}
-          <section class="progress-section" aria-labelledby="diagnostics-heading">
-            <h2 id="diagnostics-heading" class="section-title">
-              {m.progress_diagnostics_heading()}
-            </h2>
-            <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
-          </section>
-        {/if}
 
         <section class="progress-section" aria-labelledby="mastery-heading">
           <h2 id="mastery-heading" class="section-title">{m.progress_mastery_heading()}</h2>
@@ -175,7 +174,7 @@
               />
             </div>
             <ol class="history-list" role="list">
-              {#each history as session (session.id)}
+              {#each showHistory ? history : history.slice(0, 5) as session (session.id)}
                 {@const introduced = LESSONS[session.step - 1]?.split('').join(', ')}
                 <li class="history-row">
                   <div class="session-summary">
@@ -235,6 +234,15 @@
                 </li>
               {/each}
             </ol>
+            {#if history.length > 5}
+              <button
+                type="button"
+                class="btn-ghost history-toggle"
+                aria-expanded={showHistory}
+                onclick={() => (showHistory = !showHistory)}
+                >{showHistory ? m.common_show_less() : m.progress_show_history()}</button
+              >
+            {/if}
           </section>
         {/if}
       {/if}
@@ -243,6 +251,10 @@
 </div>
 
 <style>
+  .history-toggle {
+    align-self: flex-start;
+    min-height: var(--answer-target-min);
+  }
   .history-list {
     margin: 0;
     padding: 0;

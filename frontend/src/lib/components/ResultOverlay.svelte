@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X, Check, Minus, Plus, CircleAlert } from '@lucide/svelte';
   import { dialogFocusables, dialogFocusTarget } from './dialog-focus';
+  import { LESSONS } from '#lib/training/sequence.ts';
   import { scoreGrade, type DiffToken } from '#lib/score.ts';
   import { percentage } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
@@ -13,14 +14,9 @@
     lessonNum: number;
     /** The passage that was sent — the reference for the diff and the copy. */
     sourceText: string;
-    hasNextLesson: boolean;
-    hasPrevLesson: boolean;
-    nextLessonNum: number;
-    prevLessonNum: number;
     onClose: () => void;
-    onNext: () => void;
-    onPrev: () => void;
     onRegenerate: () => void;
+    onFinish: () => void;
     persistenceStatus?: 'saving' | 'saved' | 'failed' | null;
     onRetrySave?: () => void;
   }
@@ -30,14 +26,9 @@
     diffTokens,
     lessonNum,
     sourceText,
-    hasNextLesson,
-    hasPrevLesson,
-    nextLessonNum,
-    prevLessonNum,
     onClose,
-    onNext,
-    onPrev,
     onRegenerate,
+    onFinish,
     persistenceStatus = null,
     onRetrySave
   }: Props = $props();
@@ -135,14 +126,19 @@
       <p class="overlay-pct">{pct}</p>
       <div class="overlay-score-body">
         <p class="overlay-grade">{scoreText}</p>
-        <p class="overlay-rule">{m.practice_result_lesson({ lesson: String(lessonNum) })}</p>
+        <p class="overlay-rule">
+          {m.home_lesson_title({
+            step: lessonNum,
+            characters: (LESSONS[lessonNum - 1] ?? '').split('').join(', ')
+          })}
+        </p>
       </div>
     </div>
 
-    <section class="overlay-source">
-      <p class="panel-label">{m.trainer_source_label()}</p>
+    <details class="overlay-source">
+      <summary>{m.trainer_source_label()}</summary>
       <p class="quote-text">{sourceText}</p>
-    </section>
+    </details>
 
     <section class="overlay-diff-section">
       <div class="overlay-diff-header">
@@ -221,24 +217,32 @@
     {/if}
 
     <footer class="overlay-actions">
-      {#if hasNextLesson}
-        <button type="button" class="btn-primary" onclick={onNext} disabled={savePending}>
-          {m.trainer_next_lesson({ lesson: String(nextLessonNum) })}
-        </button>
-      {/if}
-      <button type="button" class="btn-ghost" onclick={onRegenerate} disabled={savePending}
-        >{m.trainer_try_again()}</button
+      <button
+        type="button"
+        class={savePending ? 'btn-ghost' : 'btn-primary'}
+        onclick={onRegenerate}
+        disabled={savePending}>{m.trainer_try_again()}</button
       >
-      {#if hasPrevLesson}
-        <button type="button" class="btn-ghost" onclick={onPrev} disabled={savePending}>
-          {m.trainer_prev_lesson({ lesson: String(prevLessonNum) })}
-        </button>
-      {/if}
+      <button
+        type="button"
+        class="btn-ghost"
+        onclick={onFinish}
+        disabled={persistenceStatus === 'saving'}
+        >{persistenceStatus === 'failed'
+          ? m.lesson_leave_unsaved()
+          : m.lesson_result_finish()}</button
+      >
     </footer>
   </div>
 </div>
 
 <style>
+  .overlay-source summary {
+    cursor: pointer;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-3);
+    font-size: var(--text-sm);
+  }
   /* A compact panel, not a takeover: the practice surface stays visible around
      it and the scrim is flat (no blur, no glow). */
   .overlay-backdrop {
@@ -262,6 +266,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    overflow-wrap: anywhere;
     box-shadow: var(--shadow-overlay);
   }
 
@@ -271,6 +276,7 @@
 
   .overlay-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
@@ -279,17 +285,18 @@
   }
 
   .overlay-title {
+    flex: 1 1 12rem;
+    min-width: 0;
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-lg);
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-primary);
   }
 
   /* Score strip: a readout, not a hero. */
   .overlay-score {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4) var(--space-5);
@@ -330,6 +337,7 @@
 
   .overlay-score-body {
     display: flex;
+    flex: 1 1 12rem;
     flex-direction: column;
     gap: 0.15rem;
     min-width: 0;
@@ -383,6 +391,9 @@
 
   .diff-token {
     display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+    white-space: normal;
     align-items: center;
     gap: var(--space-1);
   }
@@ -391,6 +402,15 @@
   .overlay-close {
     min-width: var(--answer-target-min);
     min-height: var(--answer-target-min);
+  }
+
+  .overlay-actions button {
+    white-space: normal;
+  }
+
+  .overlay-close {
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   @media (max-width: 640px) {

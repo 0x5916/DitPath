@@ -374,7 +374,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.2rem;
-  height: 3.25rem;
+  min-height: 3.25rem;
   padding: 0.3rem 0.15rem;
   font-size: var(--text-xs);
   line-height: 1;
@@ -414,9 +414,8 @@
 }
 
 .bottom-nav-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
   width: 100%;
   min-width: 0;
   text-align: center;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { CircleAlert } from '@lucide/svelte';
   interface Props {
     message: string;
   }
@@ -7,7 +8,7 @@
 </script>
 
 <div class="error-alert" role="alert">
-  <span class="alert-mark" aria-hidden="true"></span>
+  <CircleAlert size={18} class="alert-mark" aria-hidden="true" />
   <p class="error-message">{message}</p>
 </div>
 
@@ -27,13 +28,10 @@
     border-color: color-mix(in srgb, var(--status-bad) 30%, transparent);
   }
 
-  .alert-mark {
+  .error-alert :global(.alert-mark) {
     flex-shrink: 0;
-    width: 6px;
-    height: 6px;
-    margin-top: 0.42rem;
-    border-radius: 50%;
-    background: var(--alert-color);
+    margin-top: 0.1rem;
+    color: var(--status-bad);
   }
 
   .error-message {

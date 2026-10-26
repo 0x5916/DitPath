@@ -148,10 +148,7 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-5);
-    padding: var(--space-6);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+
     width: 100%;
     max-width: var(--max-width-narrow);
   }

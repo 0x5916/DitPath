@@ -7,7 +7,7 @@
   import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
   import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.svelte.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
-  import { reconcileSettingsWithServer, applyPageLanguagePreference } from '#lib/cwSync.ts';
+  import { reconcileSettingsWithServer } from '#lib/cwSync.ts';
   import { GITHUB_URL } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
@@ -15,20 +15,12 @@
     Dumbbell,
     Ellipsis,
     House,
-    Info,
-    Languages,
     LayoutDashboard,
     LogIn,
     LogOut,
-    MessageSquare,
-    Monitor,
-    Moon,
-    Radio,
     Settings,
-    Sun,
     User,
-    UserPlus,
-    Wrench
+    UserPlus
   } from '@lucide/svelte';
   import {
     lang,
@@ -38,68 +30,29 @@
     initializeBrowserLanguage,
     localizedHref as href
   } from '#lib/i18n.svelte.ts';
-  import { locales } from '#lib/paraglide/runtime.js';
   import Dropdown from '#lib/components/Dropdown.svelte';
-  import { getLocaleLongLabel, getLocaleShortLabel } from '#lib/locale.ts';
-  import { THEME_CYCLE, applyTheme, readStoredTheme, setTheme } from '#lib/theme.ts';
+  import { applyTheme, readStoredTheme } from '#lib/theme.ts';
+  import { navigationDestination } from '#lib/navigation.ts';
   import * as m from '#lib/paraglide/messages.js';
-  import type { Locale } from '#lib/i18n.svelte.ts';
-  import type { Theme } from '#lib/theme.ts';
 
   let { children, data } = $props();
 
-  /** Desktop link cluster. Home is the brand logo, so it is not repeated here. */
   const PRIMARY_NAV = [
-    { path: '/morse/learn', label: m.nav_learn, icon: Radio },
-    { path: '/morse/practice', label: m.nav_practice, icon: Dumbbell },
-    { path: '/morse', label: m.morse_title, icon: Wrench },
-    { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
-    { path: '/forum', label: m.nav_forum, icon: MessageSquare },
-    { path: '/about', label: m.nav_about, icon: Info }
+    { path: '/morse/learn', label: m.nav_learn },
+    { path: '/morse/practice', label: m.nav_practice },
+    { path: '/morse/progress', label: m.nav_progress },
+    { path: '/more', label: m.nav_more }
   ];
-
-  /** Pinned phone tab bar. All four slots are real destinations. */
   const TAB_NAV = [
-    {
-      path: '/',
-      label: m.nav_home,
-      icon: House,
-      routes: ['/', '/morse/learn', '/morse/practice', '/morse']
-    },
-    {
-      path: '/morse/progress',
-      label: m.nav_progress,
-      icon: LayoutDashboard,
-      routes: ['/morse/progress']
-    },
-    {
-      path: '/forum',
-      label: m.nav_forum,
-      icon: MessageSquare,
-      routes: ['/forum', '/forum/[id]']
-    },
-    {
-      path: '/more',
-      label: m.nav_more,
-      icon: Ellipsis,
-      routes: ['/more', '/about', '/settings', '/profile', '/login', '/register']
-    }
+    { path: '/', label: m.nav_home, icon: House },
+    { path: '/morse/practice', label: m.nav_practice, icon: Dumbbell },
+    { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
+    { path: '/more', label: m.nav_more, icon: Ellipsis }
   ];
-
-  // Route IDs have no locale prefix. Mobile sections include their secondary
-  // pages without changing the desktop links or the brand's exact Home match.
-  let mobileSection = $derived(
-    TAB_NAV.find((item) => item.routes.includes(page.route.id ?? ''))?.path
-  );
+  let mobileSection = $derived(navigationDestination(page.route.id, true));
+  let desktopSection = $derived(navigationDestination(page.route.id));
   let isTrainingSession = $derived(page.url.pathname.includes('/morse/learn/session'));
 
-  let theme = $state<Theme>('auto');
-  let ThemeIcon = $derived(themeIconFor(theme));
-  // The visible label and the accessible name must match (WCAG 2.5.3), so the
-  // button announces the same word it shows.
-  let themeLabel = $derived(
-    theme === 'auto' ? m.theme_auto() : theme === 'light' ? m.theme_light() : m.theme_dark()
-  );
   const scope = createSessionScope();
   onDestroy(scope.dispose);
   let reconciledSettingsForSession = $state<number | null>(null);
@@ -117,8 +70,7 @@
   initLang(data.locale, data.localePreference);
 
   $effect(() => {
-    theme = readStoredTheme();
-    applyTheme(theme);
+    applyTheme(readStoredTheme());
     initAuth();
   });
 
@@ -149,24 +101,6 @@
   onMount(() => {
     return initializeTrainingSync();
   });
-
-  function langLabel(locale: Locale): string {
-    return getLocaleShortLabel(locale);
-  }
-
-  function setLanguage(locale: Locale): void {
-    applyPageLanguagePreference(locale, setLangPreference);
-  }
-
-  // Theme is a device-local preference: changing it must not mark the synced page
-  // settings (language, lesson) as locally newer than the server's copy.
-  function changeTheme(nextTheme: Theme) {
-    theme = setTheme(nextTheme);
-  }
-
-  function cycleTheme() {
-    changeTheme(THEME_CYCLE[theme]);
-  }
 
   async function handleLogout() {
     const pending = logout();
@@ -202,12 +136,6 @@
     return current === target || current.startsWith(`${target}/`);
   }
 
-  function themeIconFor(currentTheme: Theme) {
-    if (currentTheme === 'light') return Sun;
-    if (currentTheme === 'dark') return Moon;
-    return Monitor;
-  }
-
   // Only text-entry controls open a soft keyboard; sliders and pickers leave
   // the phone navigation available.
   function usesTextKeyboard(target: EventTarget | null): boolean {
@@ -230,13 +158,10 @@
     }
   }
 
-  // The desktop theme button keeps a stored preference that other pages can
-  // change (Settings, the More page), so refresh it on every navigation.
   afterNavigate(() => {
     void initializeBrowserLanguage().catch(() => {
       // A failed optional canonical navigation must not interrupt app startup.
     });
-    theme = readStoredTheme();
     void syncTrainingNow();
   });
 
@@ -305,8 +230,12 @@
             <a
               href={href(item.path)}
               class="navbar-link"
-              class:active={isActive(item.path)}
-              aria-current={isActive(item.path) ? 'page' : undefined}>{item.label()}</a
+              class:active={desktopSection === item.path}
+              aria-current={desktopSection === item.path
+                ? page.route.id === item.path
+                  ? 'page'
+                  : 'location'
+                : undefined}>{item.label()}</a
             >
           {/each}
           <div class="navbar-divider"></div>
@@ -353,39 +282,6 @@
               {/snippet}
             </Dropdown>
           {/if}
-          <button
-            type="button"
-            onclick={cycleTheme}
-            class="theme-icon-btn"
-            title={m.nav_theme_cycle()}
-            aria-label={m.nav_theme_current({ theme: themeLabel })}
-          >
-            <span class="nav-label-icon">
-              <ThemeIcon class="nav-icon" aria-hidden="true" />
-              <span class="nav-theme-label">{themeLabel}</span>
-            </span>
-          </button>
-          <Dropdown
-            id="lang-menu"
-            label={`${m.settings_language_label()}: ${langLabel(lang.value)}`}
-          >
-            {#snippet trigger()}
-              <Languages class="nav-icon" aria-hidden="true" />
-              {langLabel(lang.value)}
-            {/snippet}
-            {#snippet menu()}
-              {#each locales as locale (locale)}
-                <button
-                  type="button"
-                  class="user-dropdown-item"
-                  role="menuitem"
-                  onclick={() => setLanguage(locale as Locale)}
-                >
-                  {getLocaleLongLabel(locale as Locale)}
-                </button>
-              {/each}
-            {/snippet}
-          </Dropdown>
         </div>
       </div>
     </nav>

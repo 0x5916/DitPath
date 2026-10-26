@@ -25,22 +25,39 @@
   );
 </script>
 
+{#snippet cells(characters: string[])}
+  <div class="cells-row">
+    {#each characters as character (character)}<CharacterMasteryCell
+        {character}
+        mastery={masteryMap.get(character)}
+      />{/each}
+  </div>
+{/snippet}
+
 <div class="mastery-grid-card" role="region" aria-label={m.progress_mastery_label()}>
   {#each groups as group (group.status)}
     {#if group.characters.length > 0}
-      <div class="grid-section">
-        <div class="section-title-row">
-          <span class="status-dot dot-{group.status}" aria-hidden="true"></span>
-          <h3 class="group-title">
-            {m.progress_group_count({ status: group.label, count: group.characters.length })}
-          </h3>
+      {#if group.status === 'new'}
+        <details class="unmeasured">
+          <summary
+            >{m.progress_group_count({
+              status: group.label,
+              count: group.characters.length
+            })}</summary
+          >
+          {@render cells(group.characters)}
+        </details>
+      {:else}
+        <div class="grid-section">
+          <div class="section-title-row">
+            <span class="status-dot dot-{group.status}" aria-hidden="true"></span>
+            <h3 class="group-title">
+              {m.progress_group_count({ status: group.label, count: group.characters.length })}
+            </h3>
+          </div>
+          {@render cells(group.characters)}
         </div>
-        <div class="cells-row">
-          {#each group.characters as character (character)}
-            <CharacterMasteryCell {character} mastery={masteryMap.get(character)} />
-          {/each}
-        </div>
-      </div>
+      {/if}
     {/if}
   {/each}
 </div>
@@ -50,10 +67,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-    padding: var(--space-6);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+
     width: 100%;
     max-width: var(--max-width-narrow);
   }
@@ -88,8 +102,12 @@
     background-color: var(--learning-review);
   }
 
-  .dot-new {
-    background-color: var(--text-muted);
+  .unmeasured summary {
+    cursor: pointer;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: 600;
   }
 
   .group-title {

@@ -673,7 +673,7 @@ body {
 .select,
 .textarea {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: var(--answer-target-min);
   padding: var(--space-2) 0.7rem;
   font-size: var(--text-sm);
   line-height: 1.35rem;

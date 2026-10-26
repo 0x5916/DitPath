@@ -23,11 +23,7 @@
   } from '#lib/api.ts';
   import { langPreference, setLangPreference } from '#lib/i18n.svelte.ts';
   import { locales } from '#lib/paraglide/runtime.js';
-  import {
-    getLocaleLongLabel,
-    normalizeLocalePreference,
-    type LocalePreference
-  } from '#lib/locale.ts';
+  import { getLocaleLongLabel, type LocalePreference } from '#lib/locale.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import {
     applyClientPageSettings,
@@ -48,8 +44,14 @@
   import SaveButton from '#lib/components/SaveButton.svelte';
   import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
   import SettingsData from '#lib/components/settings/SettingsData.svelte';
+  import { readStoredTheme, setTheme, type Theme } from '#lib/theme.ts';
   import { Volume2 } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
+
+  let theme = $state<Theme>('auto');
+  onMount(() => {
+    theme = readStoredTheme();
+  });
 
   // Account section
   let username = $state('');
@@ -74,7 +76,6 @@
   let verificationSuccess = $state(false);
 
   // Page settings section
-  let pageLanguage = $state<LocalePreference>(langPreference.value);
   let pageLesson = $state(1);
   let initialPageLesson = $state(1);
   let pageSaving = $state(false);
@@ -245,7 +246,6 @@
   }
 
   function applyPageState(page: PageSettings) {
-    pageLanguage = normalizeLocalePreference(page.language);
     pageLesson = normalizeLesson(page.cur_lesson, LESSONS.length);
     initialPageLesson = pageLesson;
   }
@@ -344,11 +344,9 @@
     }
   }
 
-  // Language applies immediately (the top bar's language menu and the phone More
-  // hub work the same way): commit it and stamp the synced page-settings
-  // timestamp through the shared helper. Save then covers the lesson only.
+  // Language applies immediately through the shared synchronization helper.
+  // Saving advanced preferences covers the stored lesson only.
   function applyLanguageChange(next: LocalePreference) {
-    pageLanguage = next;
     applyPageLanguagePreference(next, setLangPreference);
   }
 
@@ -506,7 +504,7 @@
 
     try {
       const pagePayload: PageSettings = {
-        language: pageLanguage,
+        language: langPreference.value,
         cur_lesson: pageLesson
       };
 
@@ -532,11 +530,92 @@
   }
 </script>
 
-<div class="page-narrow">
-  <header class="settings-heading">
-    <h1 class="page-title">{m.settings_title()}</h1>
-  </header>
-
+<div class="page-narrow settings-page">
+  <header class="settings-heading"><h1 class="page-title">{m.settings_title()}</h1></header>
+  <section class="panel panel--ledger" id="preferences" aria-labelledby="preferences-title">
+    <h2 class="card-title" id="preferences-title">{m.settings_appearance_title()}</h2>
+    <div class="settings-form">
+      <label class="field">
+        <span class="label-text">{m.settings_theme_label()}</span>
+        <select
+          class="select"
+          value={theme}
+          onchange={(event) => {
+            theme = setTheme(event.currentTarget.value as Theme);
+          }}
+        >
+          <option value="auto">{m.theme_auto()}</option>
+          <option value="light">{m.theme_light()}</option>
+          <option value="dark">{m.theme_dark()}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="label-text">{m.settings_language_label()}</span>
+        <select
+          class="select"
+          value={langPreference.value}
+          onchange={(e) => applyLanguageChange(e.currentTarget.value as LocalePreference)}
+        >
+          <option value="auto">{m.theme_auto()}</option>
+          {#each locales as locale (locale)}
+            <option value={locale}>{getLocaleLongLabel(locale)}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
+  </section>
+  {#if !loading && !loadError}
+    <!-- CW Settings -->
+    <section class="panel panel--ledger" id="sound-defaults">
+      <h2 class="card-title">{m.settings_sound_defaults()}</h2>
+      <form onsubmit={saveCW} class="settings-form">
+        <label class="field">
+          <span class="label-text">{m.trainer_label_char_wpm()}</span>
+          <input type="number" bind:value={charWpm} min="5" max="50" class="input" />
+        </label>
+        <label class="field">
+          <span class="label-text">{m.trainer_label_eff_wpm()}</span>
+          <input type="number" bind:value={effWpm} min="5" max="50" class="input" />
+        </label>
+        <div class="field">
+          <label class="label-text" for="settings-frequency">{m.trainer_label_freq()}</label>
+          <div class="settings-tone-action">
+            <input
+              id="settings-frequency"
+              type="number"
+              bind:value={freq}
+              min="300"
+              max="2000"
+              class="input"
+            />
+            <button
+              type="button"
+              class="btn-ghost"
+              onclick={playTestTone}
+              disabled={!canTestTone}
+              title={m.settings_test_tone_label()}
+              aria-label={m.settings_test_tone_label()}
+            >
+              <Volume2 size={16} aria-hidden="true" />
+              <span>{m.settings_test_tone()}</span>
+            </button>
+          </div>
+        </div>
+        <label class="field">
+          <span class="label-text">{m.trainer_label_start_delay()}</span>
+          <input type="number" bind:value={startDelay} min="0" max="10" step="0.5" class="input" />
+        </label>
+        {#if cwError}
+          <ErrorAlert message={cwError} />
+        {/if}
+        {#if cwDirty || cwSaving || cwSaved}
+          <div class="settings-action-row">
+            <SaveButton saving={cwSaving} saved={cwSaved} />
+          </div>
+        {/if}
+      </form>
+    </section>
+  {/if}
   {#key trainingSyncState.owner}
     <SettingsData
       owner={trainingSyncState.owner}
@@ -560,15 +639,13 @@
       >{m.common_retry()}</button
     >
   {:else}
-    {#if !$user}
-      <div class="notice">
+    {#if !$user}<section class="panel panel--ledger" id="account">
+        <h2 class="card-title">{m.settings_account_section()}</h2>
         <GuestNotice class="body-text" />
-      </div>
-    {/if}
-
+      </section>{/if}
     {#if $user}
       <!-- Account -->
-      <section class="panel panel--ledger">
+      <section class="panel panel--ledger" id="account">
         <h2 class="card-title">{m.settings_account_section()}</h2>
         <form onsubmit={saveCallSign} class="settings-form">
           <label class="field">
@@ -689,23 +766,10 @@
       {/if}
     {/if}
 
-    <!-- Preferences -->
-    <section class="panel panel--ledger">
-      <h2 class="card-title">{m.settings_page_section()}</h2>
+    <details class="settings-advanced">
+      <summary>{m.settings_advanced()}</summary>
       <form onsubmit={savePage} class="settings-form">
-        <label class="field">
-          <span class="label-text">{m.settings_language_label()}</span>
-          <select
-            class="select"
-            value={pageLanguage}
-            onchange={(e) => applyLanguageChange(e.currentTarget.value as LocalePreference)}
-          >
-            <option value="auto">{m.theme_auto()}</option>
-            {#each locales as locale (locale)}
-              <option value={locale}>{getLocaleLongLabel(locale)}</option>
-            {/each}
-          </select>
-        </label>
+        <p class="body-text">{m.settings_lesson_preference_hint()}</p>
         <label class="field">
           <span class="label-text">{m.settings_current_lesson_label()}</span>
           <input type="number" bind:value={pageLesson} min="1" max={LESSONS.length} class="input" />
@@ -719,64 +783,30 @@
           </div>
         {/if}
       </form>
-    </section>
-
-    <!-- CW Settings -->
-    <section class="panel panel--ledger">
-      <h2 class="card-title">{m.settings_cw_section()}</h2>
-      <form onsubmit={saveCW} class="settings-form">
-        <label class="field">
-          <span class="label-text">{m.trainer_label_char_wpm()}</span>
-          <input type="number" bind:value={charWpm} min="5" max="50" class="input" />
-        </label>
-        <label class="field">
-          <span class="label-text">{m.trainer_label_eff_wpm()}</span>
-          <input type="number" bind:value={effWpm} min="5" max="50" class="input" />
-        </label>
-        <div class="field">
-          <label class="label-text" for="settings-frequency">{m.trainer_label_freq()}</label>
-          <div class="settings-tone-action">
-            <input
-              id="settings-frequency"
-              type="number"
-              bind:value={freq}
-              min="300"
-              max="2000"
-              class="input"
-            />
-            <button
-              type="button"
-              class="btn-ghost"
-              onclick={playTestTone}
-              disabled={!canTestTone}
-              title={m.settings_test_tone_label()}
-              aria-label={m.settings_test_tone_label()}
-            >
-              <Volume2 size={16} aria-hidden="true" />
-              <span>{m.settings_test_tone()}</span>
-            </button>
-          </div>
-        </div>
-        <label class="field">
-          <span class="label-text">{m.trainer_label_start_delay()}</span>
-          <input type="number" bind:value={startDelay} min="0" max="10" step="0.5" class="input" />
-        </label>
-        {#if cwError}
-          <ErrorAlert message={cwError} />
-        {/if}
-        {#if cwDirty || cwSaving || cwSaved}
-          <div class="settings-action-row">
-            <SaveButton saving={cwSaving} saved={cwSaved} />
-          </div>
-        {/if}
-      </form>
-    </section>
+    </details>
   {/if}
 </div>
 
 <style>
+  .settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--section-gap);
+  }
+  .settings-page :global(.panel--ledger) {
+    margin: 0;
+  }
+  .settings-advanced summary {
+    cursor: pointer;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-3);
+  }
+  .settings-page :global(section[id]) {
+    scroll-margin-top: 5rem;
+  }
+
   .settings-heading {
-    margin-bottom: var(--block-gap);
+    margin-bottom: 0;
   }
   .settings-form {
     display: flex;

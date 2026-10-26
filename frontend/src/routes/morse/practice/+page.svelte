@@ -1,9 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
-  import { beforeNavigate, goto } from '$app/navigation';
+  import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
   import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { createPracticeDeparture } from '#lib/practice/departure.ts';
+  import ExitSessionDialog from '#lib/components/learning/ExitSessionDialog.svelte';
+  import { readClientCwSettings, readStoredLesson } from '#lib/cwSync.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
   import InfoTip from '#lib/components/InfoTip.svelte';
   import ContinuousCopyPractice from '#lib/components/practice/ContinuousCopyPractice.svelte';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
@@ -17,6 +21,32 @@
     trainingSyncState,
     subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
+
+  let practice = $state<{
+    hasUnfinishedCopy: () => boolean;
+    prepareToLeave: () => void;
+    focusCopy: () => void;
+  } | null>(null);
+  let departure = $state.raw<ReturnType<typeof createPracticeDeparture> | null>(null);
+  let returnFocus = $state<HTMLElement | null>(null);
+  let navigationError = $state(false);
+  let confirming = false;
+  let bypassDestination: string | null = null;
+  let allowUnload = false;
+  let destroyed = false;
+  let cancelHistoryRestore: (() => void) | null = null;
+
+  let defaults = $state({ lesson: 1, charWpm: 20, effWpm: 12, freq: 600, startDelay: 0.5 });
+  function loadDefaults() {
+    const cw = readClientCwSettings();
+    defaults = {
+      lesson: readStoredLesson(LESSONS.length),
+      charWpm: cw.char_wpm,
+      effWpm: cw.eff_wpm,
+      freq: cw.freq,
+      startDelay: cw.start_delay
+    };
+  }
 
   let persistenceStatus = $state<'saving' | 'saved' | 'failed' | null>(null);
   let pendingRecord: TrainingSessionRecord | null = null;
@@ -57,13 +87,96 @@
     }
   }
 
+  function hasWorkAtRisk() {
+    return unsavedRecords.size > 0 || Boolean(practice?.hasUnfinishedCopy());
+  }
+
+  function waitForHistoryRestore(source: string): Promise<void> {
+    if (window.location.href === source) return Promise.resolve();
+    return new Promise((resolve) => {
+      const finish = () => {
+        window.removeEventListener('popstate', onPop);
+        cancelHistoryRestore = null;
+        resolve();
+      };
+      const onPop = () => {
+        if (window.location.href === source) finish();
+      };
+      cancelHistoryRestore = finish;
+      window.addEventListener('popstate', onPop);
+    });
+  }
+
   beforeNavigate((navigation) => {
-    if (unsavedRecords.size === 0) return;
-    if (navigation.willUnload || !window.confirm(m.lesson_save_discard_hint())) navigation.cancel();
+    if (allowUnload || navigation.to?.url.href === bypassDestination) {
+      bypassDestination = null;
+      return;
+    }
+    if (!hasWorkAtRisk()) return;
+    if (!navigation.to) {
+      navigation.cancel();
+      return;
+    }
+    const source = navigation.from?.url ?? page.url;
+    const target = navigation.to.url;
+    if (source.pathname === target.pathname && source.search === target.search) return;
+    navigation.cancel();
+    if (departure) return;
+    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    practice?.prepareToLeave();
+    const owner = getTrainingOwner();
+    const delta = navigation.type === 'popstate' ? navigation.delta : null;
+    navigationError = false;
+    departure = createPracticeDeparture(
+      delta === null ? Promise.resolve() : waitForHistoryRestore(source.href),
+      () => {
+        bypassDestination = target.href;
+        if (delta !== null) window.history.go(delta);
+        else if (navigation.willUnload) {
+          allowUnload = true;
+          window.location.assign(target.href);
+        } else return goto(target.href);
+      },
+      () => !destroyed && owner === getTrainingOwner()
+    );
+  });
+
+  async function cancelDeparture() {
+    departure?.cancel();
+    departure = null;
+    cancelHistoryRestore?.();
+    navigationError = false;
+    await tick();
+    if (!returnFocus?.isConnected) practice?.focusCopy();
+  }
+
+  async function confirmDeparture() {
+    if (!departure || confirming) return;
+    confirming = true;
+    navigationError = false;
+    try {
+      if (await departure.confirm()) departure = null;
+    } catch {
+      bypassDestination = null;
+      allowUnload = false;
+      navigationError = true;
+    } finally {
+      confirming = false;
+    }
+  }
+
+  afterNavigate(() => {
+    bypassDestination = null;
+    allowUnload = false;
+  });
+  onDestroy(() => {
+    destroyed = true;
+    departure?.cancel();
+    cancelHistoryRestore?.();
   });
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
-    if (unsavedRecords.size > 0) {
+    if (!allowUnload && hasWorkAtRisk()) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -71,10 +184,13 @@
 
   // Keep existing character-explorer bookmarks useful after giving the tool its own page.
   onMount(() => {
+    loadDefaults();
     const unsubscribe = subscribeTrainingSync(() => {
       const owner = getTrainingOwner();
       if (practiceOwner === owner) return;
+      void cancelDeparture();
       practiceOwner = owner;
+      loadDefaults();
       attemptOwner = null;
       recordOwner = owner;
       pendingRecord = unsavedRecords.get(owner) ?? null;
@@ -111,6 +227,9 @@
   />
   {#key practiceOwner}
     <ContinuousCopyPractice
+      bind:this={practice}
+      {...defaults}
+      onFinish={() => void goto(localizedHref('/'))}
       onStart={() => {
         attemptOwner ??= getTrainingOwner();
       }}
@@ -121,10 +240,26 @@
   {/key}
 </div>
 
+<ExitSessionDialog
+  isOpen={departure !== null}
+  title={m.practice_leave_title()}
+  description={navigationError
+    ? m.practice_navigation_error()
+    : unsavedRecords.size > 0
+      ? m.lesson_save_discard_hint()
+      : m.practice_leave_description()}
+  confirmLabel={unsavedRecords.size > 0 ? m.lesson_leave_unsaved() : m.practice_discard_leave()}
+  cancelLabel={unsavedRecords.size > 0 ? m.practice_keep_result() : m.practice_keep_copy()}
+  returnFocusTo={returnFocus}
+  onCancel={() => void cancelDeparture()}
+  onConfirm={() => void confirmDeparture()}
+/>
+
 <style>
   .practice-header {
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    margin-bottom: var(--block-gap);
   }
 </style>

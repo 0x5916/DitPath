@@ -22,15 +22,17 @@
     }[status]
   );
   let accessibleLabel = $derived(
-    m.progress_character_label({
-      character,
-      status: statusLabel,
-      accuracy:
-        mastery && mastery.totalAttempts > 0
-          ? m.progress_accuracy_value({ percent: Math.round(mastery.rollingAccuracy * 100) })
-          : m.progress_unmeasured(),
-      count: mastery?.totalAttempts ?? 0
-    })
+    !mastery || mastery.totalAttempts === 0
+      ? m.progress_character_unmeasured({ character })
+      : m.progress_character_label({
+          character,
+          status: statusLabel,
+          accuracy:
+            mastery && mastery.totalAttempts > 0
+              ? m.progress_accuracy_value({ percent: Math.round(mastery.rollingAccuracy * 100) })
+              : m.progress_unmeasured(),
+          count: mastery?.totalAttempts ?? 0
+        })
   );
 </script>
 

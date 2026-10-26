@@ -40,6 +40,7 @@
        uses it to unlock the answer box or mask the drill character. */
     onStart?: () => void;
     onEnded?: () => void;
+    onPausedChange?: (paused: boolean) => void;
     /* Test seam: replace the browser engine (e.g. with a fake) without
        touching the transport UI. */
     createEngine?: () => AudioEngine;
@@ -62,10 +63,10 @@
     onSettingsInput = () => {},
     onStart = () => {},
     onEnded = () => {},
+    onPausedChange = () => {},
     createEngine = (): AudioEngine => createWebAudioEngine()
   }: Props = $props();
 
-  let effectivePlayLabel = $derived(playLabel || m.player_play());
   let reservedPlayLabels = $derived([...new Set(reservePlayLabels)]);
 
   /* Playback is delegated to an audio engine; this component keeps only the
@@ -74,15 +75,26 @@
      is created once for the component's lifetime. */
   const engine = untrack(() => createEngine());
   let playback = $state.raw(idlePlayback());
+  let effectivePlayLabel = $derived(
+    playback.started && playback.paused ? m.player_resume() : playLabel || m.player_play()
+  );
+
   let started = $derived(playback.started);
   let paused = $derived(playback.paused);
   let progress = $derived(playback.progress);
   let timer = $derived(playback.timer);
   let rafId = 0;
+  let lastPaused = false;
   const transport = createPlaybackController({
     engine,
     getSettings: () => ({ charWpm, effWpm, freq, volume, startDelay }),
-    onChange: (state) => (playback = state),
+    onChange: (state) => {
+      playback = state;
+      if (state.paused !== lastPaused) {
+        lastPaused = state.paused;
+        onPausedChange(state.paused);
+      }
+    },
     onStart: (settings) => {
       applySettings(settings);
       onStart();

@@ -11,6 +11,7 @@
     confusionPairs: ConfusionPair[];
     slowChars: string[];
   } = $props();
+  let showAll = $state(false);
   let hasItems = $derived(confusionPairs.length > 0 || slowChars.length > 0);
 </script>
 
@@ -18,7 +19,7 @@
   <div class="card-head">
     <div class="head-title-row">
       <span class="text-ok"><AlertTriangle size={18} aria-hidden="true" /></span>
-      <h3 class="card-title">{m.progress_attention()}</h3>
+      <h2 class="card-title">{m.progress_attention()}</h2>
     </div>
     <p class="card-desc">{m.progress_diagnostics_description()}</p>
   </div>
@@ -31,7 +32,7 @@
         <div class="sub-list">
           <span class="sub-list-title">{m.progress_confusions()}</span>
           <div class="pair-rows">
-            {#each confusionPairs as pair (`${pair.expected}-${pair.actual}`)}
+            {#each showAll ? confusionPairs : confusionPairs.slice(0, 3) as pair (`${pair.expected}-${pair.actual}`)}
               <div class="pair-row">
                 <span class="pair-symbols">{pair.expected} → {pair.actual}</span>
                 <span class="pair-count"
@@ -42,18 +43,28 @@
           </div>
         </div>
       {/if}
-      {#if slowChars.length > 0}
+      {#if slowChars.length > 0 && (showAll || confusionPairs.length < 3)}
         <div class="sub-list">
           <span class="sub-list-title">{m.progress_slow()}</span>
           <div class="slow-chips">
-            {#each slowChars as character (character)}<span class="slow-chip">{character}</span
+            {#each showAll ? slowChars : slowChars.slice(0, Math.max(0, 3 - confusionPairs.length)) as character (character)}<span
+                class="slow-chip">{character}</span
               >{/each}
           </div>
         </div>
       {/if}
     </div>
+    {#if confusionPairs.length + slowChars.length > 3}
+      <button
+        type="button"
+        class="details-toggle"
+        aria-expanded={showAll}
+        onclick={() => (showAll = !showAll)}
+        >{showAll ? m.common_show_less() : m.progress_show_findings()}</button
+      >
+    {/if}
     <div class="card-action">
-      <a class="btn-primary review-btn" href={localizedHref('/morse/practice')}>
+      <a class="link review-btn" href={localizedHref('/morse/practice')}>
         <ArrowRight size={16} aria-hidden="true" />
         <span>{m.progress_open_practice()}</span>
       </a>
@@ -62,14 +73,21 @@
 </div>
 
 <style>
+  .details-toggle {
+    align-self: flex-start;
+    min-height: var(--answer-target-min);
+    border: 0;
+    padding: 0;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+  }
   .confusion-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    padding: var(--space-5);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+
     width: 100%;
     max-width: var(--max-width-narrow);
   }
@@ -92,8 +110,8 @@
 
   .card-title {
     margin: 0;
-    font-size: var(--text-base);
-    font-weight: 700;
+    font-size: var(--text-lg);
+    font-weight: 600;
     color: var(--text-primary);
   }
 
@@ -179,6 +197,7 @@
   }
 
   .review-btn {
+    min-height: var(--answer-target-min);
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);

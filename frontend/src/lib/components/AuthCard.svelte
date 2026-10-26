@@ -12,7 +12,7 @@
 </script>
 
 <div class="page-narrow">
-  <div class="card auth-card">
+  <div class="auth-card">
     <h1 class="page-title auth-title">{title}</h1>
     <p class="body-text auth-subtitle">{subtitle}</p>
 
@@ -27,7 +27,7 @@
     max-width: 26rem;
     margin-left: auto;
     margin-right: auto;
-    padding: var(--space-6);
+    padding: 0;
   }
 
   /* `.page-title` already carries the h1 scale; the card only owns the gap.
@@ -48,7 +48,7 @@
 
   @media (max-width: 639px) {
     .auth-card {
-      padding: var(--space-4);
+      padding: 0;
     }
   }
 </style>

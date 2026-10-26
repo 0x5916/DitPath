@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { getLessonChars, LESSONS } from '../../training/sequence';
   import { canCheck } from '../../training/session';
   import {
@@ -13,11 +13,10 @@
   } from '../../practice/copy-attempt';
   import { normalizePlaybackSettings } from '../../practice/playback';
   import { practiceKeyIntent } from '../../practice/keyboard';
-  import { formatClock, percentage } from '../../format';
+  import { percentage } from '../../format';
   import MorsePlayer from '../MorsePlayer.svelte';
   import ResultOverlay from '../ResultOverlay.svelte';
   import ExitSessionDialog from '../learning/ExitSessionDialog.svelte';
-  import { ChevronLeft, ChevronRight } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
@@ -29,6 +28,7 @@
     startDelay?: number;
     onStart?: () => void;
     onReview?: (attempt: CopyAttempt) => void;
+    onFinish?: () => void;
     persistenceStatus?: 'saving' | 'saved' | 'failed' | null;
     onRetrySave?: () => void;
   }
@@ -42,6 +42,7 @@
     startDelay = 0.5,
     onStart,
     onReview,
+    onFinish,
     persistenceStatus = null,
     onRetrySave
   }: Props = $props();
@@ -56,8 +57,7 @@
   let result = $derived(attempt.review?.result.accuracy ?? -1);
   let showOverlay = $state(false);
   let diffTokens = $derived(attempt.review?.diffTokens ?? []);
-  let newExerciseArmed = $state(false);
-  let newExerciseTimer: ReturnType<typeof setTimeout> | null = null;
+  let playbackPaused = $state(false);
   let focusTimer: ReturnType<typeof setTimeout> | null = null;
   let answerEl = $state<HTMLTextAreaElement | null>(null);
   let discardOpen = $state(false);
@@ -83,58 +83,27 @@
 
   let currentLessonChars = $derived(getLessonChars(activeLesson).split('').filter(Boolean));
 
-  let sendSeconds = $derived(Math.floor(attempt.duration));
   let transportLive = $derived(session.status === 'playing' || session.status === 'paused');
   let sessionStarted = $derived(session.status !== 'ready' && session.status !== 'disposed');
   let checkEnabled = $derived(canCheck(session) && inputText.trim() !== '');
   let unfinished = $derived(result < 0 && (inputText.trim() !== '' || session.status !== 'ready'));
 
-  let flowSteps = $derived([
-    { index: 0, label: m.trainer_flow_start },
-    { index: 1, label: m.trainer_flow_listen },
-    { index: 2, label: m.trainer_flow_type },
-    { index: 3, label: m.trainer_flow_check },
-    { index: 4, label: m.trainer_flow_review }
-  ]);
-  let flowIndex = $derived(
-    session.status === 'ready'
-      ? 0
-      : transportLive
-        ? 1
-        : session.status === 'reviewed'
-          ? 4
-          : inputText.trim() === ''
-            ? 2
-            : 3
-  );
-
   let sessionStateText = $derived(
     session.status === 'reviewed'
       ? m.trainer_state_checked()
-      : transportLive
-        ? m.trainer_state_listening()
-        : session.status === 'ready'
-          ? m.trainer_state_ready()
-          : inputText.trim() !== ''
-            ? m.trainer_state_ready_check()
-            : m.trainer_state_idle()
+      : playbackPaused
+        ? m.practice_paused()
+        : transportLive
+          ? m.trainer_state_listening()
+          : session.status === 'ready'
+            ? m.trainer_state_ready()
+            : inputText.trim() !== ''
+              ? m.trainer_state_ready_check()
+              : m.trainer_state_idle()
   );
-
-  let newExerciseLabel = $derived(
-    newExerciseArmed ? m.trainer_new_exercise_confirm() : m.trainer_try_again()
-  );
-
-  function clearNewExerciseArm() {
-    newExerciseArmed = false;
-    if (newExerciseTimer) {
-      clearTimeout(newExerciseTimer);
-      newExerciseTimer = null;
-    }
-  }
 
   function regenerate(nextLesson = activeLesson) {
     if (savePending) return;
-    clearNewExerciseArm();
     if (focusTimer) clearTimeout(focusTimer);
     void player?.stopNow();
     attempt = createCopyAttempt(nextLesson, settings, attempt);
@@ -148,6 +117,7 @@
     const exercise = attempt.exercise;
     discardReturnFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    void player?.stopNow();
     discardOpen = true;
     const confirmed = await new Promise<boolean>((resolve) => (resolveDiscard = resolve));
     return confirmed && !destroyed && !savePending && attempt.exercise === exercise;
@@ -160,21 +130,32 @@
     resolve?.(confirmed);
   }
 
-  function requestNewExercise() {
-    if (newExerciseTimer) clearTimeout(newExerciseTimer);
+  async function requestNewExercise() {
+    if (await confirmReplaceExercise()) regenerate();
+  }
 
-    if (!newExerciseArmed && !unfinished) {
-      regenerate();
-      return;
-    }
+  async function selectLesson(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    const nextLesson = Number(select.value);
+    select.value = String(activeLesson);
+    if (nextLesson !== activeLesson && (await confirmReplaceExercise())) regenerate(nextLesson);
+  }
 
-    if (newExerciseArmed) {
-      regenerate();
-      return;
-    }
-
-    newExerciseArmed = true;
-    newExerciseTimer = setTimeout(clearNewExerciseArm, 4000);
+  export function focusCopy() {
+    answerEl?.focus();
+  }
+  export function hasUnfinishedCopy() {
+    return unfinished;
+  }
+  export function prepareToLeave() {
+    void player?.stopNow();
+    showOverlay = false;
+    finishDiscardDecision(false);
+  }
+  async function finishPractice() {
+    prepareToLeave();
+    await tick();
+    onFinish?.();
   }
 
   function handleStart() {
@@ -199,18 +180,6 @@
     showOverlay = true;
   }
 
-  async function handleNextLesson() {
-    if (activeLesson < LESSONS.length && (await confirmReplaceExercise())) {
-      regenerate(activeLesson + 1);
-    }
-  }
-
-  async function handlePrevLesson() {
-    if (activeLesson > 1 && (await confirmReplaceExercise())) {
-      regenerate(activeLesson - 1);
-    }
-  }
-
   function onPracticeKeydown(event: KeyboardEvent) {
     if (showOverlay || discardOpen) return;
     const intent = practiceKeyIntent(event);
@@ -229,7 +198,6 @@
   onDestroy(() => {
     destroyed = true;
     finishDiscardDecision(false);
-    if (newExerciseTimer) clearTimeout(newExerciseTimer);
     if (focusTimer) clearTimeout(focusTimer);
   });
 </script>
@@ -238,61 +206,29 @@
 
 <div class="continuous-copy-practice" role="region" aria-label={m.practice_copy_region()}>
   <div class="console-head">
-    <div class="lesson-nav-row">
-      <div class="lesson-picker" role="group" aria-label={m.trainer_current_lesson()}>
-        <button
-          type="button"
-          class="btn-icon"
-          onclick={handlePrevLesson}
-          disabled={savePending || activeLesson <= 1}
-          aria-label={m.trainer_lesson_prev()}
-          title={m.trainer_lesson_prev()}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <span class="lesson-label">{m.trainer_label_lesson()} {activeLesson}</span>
-        <button
-          type="button"
-          class="btn-icon"
-          onclick={handleNextLesson}
-          disabled={savePending || activeLesson >= LESSONS.length}
-          aria-label={m.trainer_lesson_next()}
-          title={m.trainer_lesson_next()}
-        >
-          <ChevronRight size={16} />
-        </button>
-      </div>
-
-      <p class="console-title">
-        {m.trainer_practice_characters({ characters: currentLessonChars.join(' ') })}
-      </p>
-    </div>
-
+    <label class="field">
+      <span class="label-text">{m.trainer_current_lesson()}</span>
+      <select class="select" value={activeLesson} onchange={selectLesson} disabled={savePending}>
+        {#each LESSONS as characters, index (index)}
+          <option value={index + 1}
+            >{m.home_lesson_title({
+              step: index + 1,
+              characters: characters.split('').join(', ')
+            })}</option
+          >
+        {/each}
+      </select>
+    </label>
     <p class="console-meta">
-      {m.trainer_summary_meta({
-        count: String(currentLessonChars.length),
-        speed: `${settings.charWpm}/${settings.effWpm}`,
-        hz: String(settings.freq),
-        time: formatClock(sendSeconds)
-      })}
+      {m.practice_speed_summary({ character: settings.charWpm, effective: settings.effWpm })}
     </p>
+    <details class="character-details">
+      <summary>{m.practice_character_count({ count: currentLessonChars.length })}</summary>
+      <p>{currentLessonChars.join(' ')}</p>
+    </details>
   </div>
 
-  <ol class="flow" aria-label={m.trainer_flow_legend()}>
-    {#each flowSteps as step, index (step.index)}
-      <li
-        class="flow-step"
-        class:is-current={index === flowIndex}
-        class:is-done={index < flowIndex}
-        aria-current={index === flowIndex ? 'step' : undefined}
-      >
-        <span class="sr-only">{m.trainer_flow_step({ step: String(index + 1) })}:</span>
-        <span class="flow-dot" aria-hidden="true"></span>
-        <span>{step.label()}</span>
-      </li>
-    {/each}
-  </ol>
-
+  <p class="session-state" aria-live="polite">{sessionStateText}</p>
   <div class="player-wrapper">
     <MorsePlayer
       bind:this={player}
@@ -305,12 +241,12 @@
       onBeforeSettingsInput={confirmReplaceExercise}
       onSettingsInput={() => regenerate()}
       showSettings
-      playTone={sessionStarted && !transportLive ? 'quiet' : 'primary'}
+      playTone={sessionStarted ? 'quiet' : 'primary'}
       showTransportExtras={transportLive}
       onStart={handleStart}
       onEnded={handleEnded}
-      playLabel={sessionStarted ? m.trainer_replay() : m.player_play()}
-      label={m.player_label()}
+      playLabel={sessionStarted ? m.trainer_replay() : m.practice_start()}
+      onPausedChange={(paused) => (playbackPaused = paused)}
     />
   </div>
 
@@ -323,13 +259,12 @@
         class="textarea copy-textarea"
         placeholder={m.trainer_answer_placeholder()}
         disabled={!sessionStarted}
+        readonly={result >= 0}
         maxlength={copyInputLimit(lessonText)}
         autocapitalize="characters"
         autocomplete="off"
         spellcheck="false"></textarea>
     </label>
-
-    <p class="session-state" aria-live="polite">{sessionStateText}</p>
 
     {#if !showOverlay && result >= 0}
       <p class="result-line" aria-live="polite">
@@ -346,24 +281,26 @@
       {:else if !transportLive}
         <span class="key-hint"><kbd>Space</kbd> {m.trainer_hint_play()}</span>
       {/if}
-      <span class="key-hint"><kbd>Enter</kbd> {m.trainer_hint_check()}</span>
-      <span class="key-hint"><kbd>Esc</kbd> {m.trainer_hint_stop()}</span>
+      {#if sessionStarted && result < 0}<span class="key-hint"
+          ><kbd>Enter</kbd> {m.trainer_hint_check()}</span
+        >{/if}
+      {#if transportLive}<span class="key-hint"><kbd>Esc</kbd> {m.trainer_hint_stop()}</span>{/if}
     </p>
 
     <div class="action-row">
-      <button type="button" class="btn-primary" onclick={handleCheck} disabled={!checkEnabled}>
-        {m.trainer_check()}
-      </button>
-
-      <button
-        type="button"
-        class="btn-ghost"
-        class:is-armed={newExerciseArmed}
-        onclick={requestNewExercise}
-        disabled={savePending}
+      {#if sessionStarted && result < 0}
+        <button type="button" class="btn-primary" onclick={handleCheck} disabled={!checkEnabled}
+          >{m.trainer_check()}</button
+        >
+      {/if}
+      <button type="button" class="btn-ghost" onclick={requestNewExercise} disabled={savePending}
+        >{m.trainer_try_again()}</button
       >
-        {newExerciseLabel}
-      </button>
+      {#if persistenceStatus === 'failed'}<button
+          type="button"
+          class="btn-ghost"
+          onclick={() => (showOverlay = true)}>{m.lesson_retry_save()}</button
+        >{/if}
     </div>
   </div>
 
@@ -373,13 +310,8 @@
       {diffTokens}
       lessonNum={activeLesson}
       sourceText={lessonText}
-      hasNextLesson={activeLesson < LESSONS.length}
-      hasPrevLesson={activeLesson > 1}
-      nextLessonNum={activeLesson + 1}
-      prevLessonNum={activeLesson - 1}
       onClose={() => (showOverlay = false)}
-      onNext={handleNextLesson}
-      onPrev={handlePrevLesson}
+      onFinish={() => void finishPractice()}
       onRegenerate={() => regenerate()}
       {persistenceStatus}
       {onRetrySave}
@@ -389,10 +321,10 @@
 
 <ExitSessionDialog
   isOpen={discardOpen}
-  title={m.trainer_new_exercise_confirm()}
+  title={m.practice_replace_title()}
   description={m.trainer_discard_description()}
   confirmLabel={m.trainer_discard_action()}
-  cancelLabel={m.forum_cancel()}
+  cancelLabel={m.practice_keep_copy()}
   returnFocusTo={discardReturnFocus}
   fallbackFocus={answerEl}
   onConfirm={() => finishDiscardDecision(true)}
@@ -403,152 +335,74 @@
   .continuous-copy-practice {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    padding: var(--space-6);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    gap: var(--space-6);
     width: 100%;
-    max-width: var(--max-width-narrow);
   }
-
   .console-head {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .lesson-nav-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2) var(--space-4);
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-2);
   }
-
-  .lesson-picker {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
+  .console-head .field {
+    grid-column: 1 / -1;
   }
-
-  .lesson-picker button,
-  .action-row button {
-    min-width: var(--answer-target-min);
-    min-height: var(--answer-target-min);
-  }
-
-  .lesson-label {
-    font-size: var(--text-sm);
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .console-title {
-    margin: 0;
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--text-secondary);
-    overflow-wrap: anywhere;
-  }
-
   .console-meta {
     margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+  .character-details {
+    font-size: var(--text-sm);
+  }
+  .character-details summary {
+    cursor: pointer;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-3);
+  }
+  .character-details p {
+    max-width: 24rem;
+    overflow-wrap: anywhere;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    margin: 0 0 var(--space-2);
   }
-
-  .flow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem var(--space-3);
+  .session-state {
     margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-  }
-
-  .flow-step {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .flow-step.is-done {
+    font-size: var(--text-base);
     color: var(--text-secondary);
   }
-
-  .flow-step.is-current {
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  .flow-dot {
-    width: 6px;
-    height: 6px;
-    border: 1px solid var(--border-control);
-    border-radius: 50%;
-  }
-
-  .flow-step.is-done .flow-dot {
-    background: var(--text-muted);
-    border-color: var(--text-muted);
-  }
-
-  .flow-step.is-current .flow-dot {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
   .player-wrapper {
     display: flex;
-    justify-content: center;
-    padding: var(--space-2) 0;
+    justify-content: flex-start;
   }
-
   .answer-section {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
   }
-
   .copy-textarea {
     width: 100%;
-    min-height: 8rem;
+    min-height: 9rem;
     font-family: var(--font-mono);
-    font-size: var(--text-base);
+    font-size: var(--text-lg);
     text-transform: uppercase;
   }
-
-  .session-state {
-    margin: 0;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-  }
-
   .result-line {
     margin: 0;
-    font-size: var(--text-sm);
-    color: var(--text-primary);
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-2);
+    font-size: var(--text-sm);
   }
-
   .quiet-btn {
     background: none;
     border: none;
-    padding: 0;
     color: var(--accent);
-    text-decoration: underline;
     cursor: pointer;
-    font-size: var(--text-xs);
+    font: inherit;
+    min-height: var(--answer-target-min);
   }
-
   .key-hints {
     display: flex;
     flex-wrap: wrap;
@@ -557,35 +411,23 @@
     color: var(--text-muted);
     margin: 0;
   }
-
   .key-hint {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: var(--space-1);
   }
-
   .key-hint kbd {
     font-family: var(--font-mono);
-    padding: 0.05rem 0.3rem;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
   }
-
   .action-row {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
     gap: var(--space-3);
-    margin-top: var(--space-2);
   }
-
-  .btn-ghost.is-armed {
-    border-color: var(--status-bad);
-    color: var(--status-bad);
+  .action-row button {
+    min-height: var(--answer-target-min);
   }
-
-  @media (max-width: 479px) {
+  @media (max-width: 480px) {
     .action-row {
       flex-direction: column;
     }
