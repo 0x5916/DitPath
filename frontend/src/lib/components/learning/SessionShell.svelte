@@ -67,7 +67,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="session-shell">
+<div class={['session-shell', complete && 'session-shell--complete']}>
   <header class="session-header">
     <button
       type="button"
@@ -192,6 +192,14 @@
     align-items: center;
     text-align: center;
     margin: auto 0;
+  }
+
+  .session-shell--complete .session-stage {
+    align-items: flex-start;
+    padding-top: var(--space-8);
+  }
+  .session-shell--complete .session-content {
+    margin: 0;
   }
 
   @media (max-width: 480px) {

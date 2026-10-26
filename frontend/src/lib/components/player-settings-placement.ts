@@ -77,7 +77,9 @@ export function computeSettingsPlacement(input: SettingsPlacementInput): Setting
   const wholePanel = (side: (typeof sides)[number]) =>
     widthOf(side) >= narrowWidth && heightOf(side) >= contentHeight;
   const fitting = sides.filter(wholePanel);
-  const pool = fitting.length > 0 ? fitting : sides;
+  // Preserve readable form width when no side fits the full height. Shrinking
+  // horizontally reflows labels after measurement and can push controls offscreen.
+  const pool = fitting.length > 0 ? fitting : sides.filter((side) => widthOf(side) >= narrowWidth);
 
   // Largest usable area wins; the order above breaks ties, so this
   // right-aligned trigger opens to its left whenever that side has the room.

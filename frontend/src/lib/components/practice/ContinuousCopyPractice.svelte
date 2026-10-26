@@ -69,6 +69,7 @@
     playNow: () => Promise<void>;
     stopNow: () => Promise<void>;
     isStarted: () => boolean;
+    focusPlay: () => void;
   } | null>(null);
   let savePending = $derived(persistenceStatus === 'saving' || persistenceStatus === 'failed');
 
@@ -131,7 +132,14 @@
   }
 
   async function requestNewExercise() {
-    if (await confirmReplaceExercise()) regenerate();
+    if (await confirmReplaceExercise()) await startNewExercise();
+  }
+
+  async function startNewExercise() {
+    if (savePending) return;
+    regenerate();
+    await tick();
+    if (!destroyed) player?.focusPlay();
   }
 
   async function selectLesson(event: Event) {
@@ -251,20 +259,21 @@
   </div>
 
   <div class="answer-section">
-    <label class="field">
-      <span class="label-text">{m.trainer_answer_label()}</span>
-      <textarea
-        bind:this={answerEl}
-        bind:value={() => inputText, (value) => (inputText = boundCopyInput(lessonText, value))}
-        class="textarea copy-textarea"
-        placeholder={m.trainer_answer_placeholder()}
-        disabled={!sessionStarted}
-        readonly={result >= 0}
-        maxlength={copyInputLimit(lessonText)}
-        autocapitalize="characters"
-        autocomplete="off"
-        spellcheck="false"></textarea>
-    </label>
+    {#if sessionStarted}
+      <label class="field">
+        <span class="label-text">{m.trainer_answer_label()}</span>
+        <textarea
+          bind:this={answerEl}
+          bind:value={() => inputText, (value) => (inputText = boundCopyInput(lessonText, value))}
+          class="textarea copy-textarea"
+          placeholder={m.trainer_answer_placeholder()}
+          readonly={result >= 0}
+          maxlength={copyInputLimit(lessonText)}
+          autocapitalize="characters"
+          autocomplete="off"
+          spellcheck="false"></textarea>
+      </label>
+    {/if}
 
     {#if !showOverlay && result >= 0}
       <p class="result-line" aria-live="polite">
@@ -293,9 +302,11 @@
           >{m.trainer_check()}</button
         >
       {/if}
-      <button type="button" class="btn-ghost" onclick={requestNewExercise} disabled={savePending}
-        >{m.trainer_try_again()}</button
-      >
+      {#if sessionStarted}
+        <button type="button" class="btn-ghost" onclick={requestNewExercise} disabled={savePending}
+          >{m.trainer_try_again()}</button
+        >
+      {/if}
       {#if persistenceStatus === 'failed'}<button
           type="button"
           class="btn-ghost"
@@ -312,7 +323,7 @@
       sourceText={lessonText}
       onClose={() => (showOverlay = false)}
       onFinish={() => void finishPractice()}
-      onRegenerate={() => regenerate()}
+      onRegenerate={() => void startNewExercise()}
       {persistenceStatus}
       {onRetrySave}
     />

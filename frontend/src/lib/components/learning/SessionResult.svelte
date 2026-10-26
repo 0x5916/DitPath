@@ -62,7 +62,9 @@
     </h1>
   </header>
 
-  <dl class="metrics">
+  <p class="recommendation">{recommendation}</p>
+
+  <dl class="metrics accuracy-summary">
     <div>
       <dt>{m.lesson_result_accuracy()}</dt>
       <dd class="value" class:unmeasured={view.accuracyPercent === null}>
@@ -77,31 +79,8 @@
           })}
         </dd>{/if}
     </div>
-    <div>
-      <dt>
-        {m.lesson_result_latency()}<InfoTip
-          label={m.lesson_result_latency()}
-          text={m.lesson_result_latency_hint()}
-        />
-      </dt>
-      <dd class="value" class:unmeasured={view.latencySeconds === null}>
-        {view.latencySeconds === null
-          ? m.lesson_result_insufficient()
-          : m.lesson_result_seconds({ seconds: view.latencySeconds })}
-      </dd>
-    </div>
-    <div class="replays">
-      <dt>
-        {m.lesson_result_replays()}<InfoTip
-          label={m.lesson_result_replays()}
-          text={m.lesson_result_replays_hint()}
-        />
-      </dt>
-      <dd>{summary.totalReplays}</dd>
-    </div>
   </dl>
 
-  <p class="recommendation">{recommendation}</p>
   <div class="storage">{@render storageStatus?.()}</div>
 
   <footer>
@@ -130,10 +109,39 @@
       {view.action === 'finish' ? m.lesson_result_repeat() : m.lesson_result_finish()}
     </button>
   </footer>
+
+  <details class="result-details ui-disclosure">
+    <summary>{m.lesson_result_details()}</summary>
+    <dl class="metrics">
+      <div>
+        <dt>
+          {m.lesson_result_latency()}<InfoTip
+            label={m.lesson_result_latency()}
+            text={m.lesson_result_latency_hint()}
+          />
+        </dt>
+        <dd class="value" class:unmeasured={view.latencySeconds === null}>
+          {view.latencySeconds === null
+            ? m.lesson_result_insufficient()
+            : m.lesson_result_seconds({ seconds: view.latencySeconds })}
+        </dd>
+      </div>
+      <div class="replays">
+        <dt>
+          {m.lesson_result_replays()}<InfoTip
+            label={m.lesson_result_replays()}
+            text={m.lesson_result_replays_hint()}
+          />
+        </dt>
+        <dd>{summary.totalReplays}</dd>
+      </div>
+    </dl>
+  </details>
 </section>
 
 <style>
   .lesson-label {
+    text-align: start;
     margin: 0 0 var(--space-4);
     font-size: var(--text-sm);
     color: var(--text-secondary);
@@ -141,7 +149,6 @@
   .result {
     width: 100%;
     max-width: 30rem;
-    min-height: min(36rem, calc(100dvh - 8rem));
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
@@ -150,7 +157,7 @@
   h1 {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: var(--space-3);
     margin: 0;
     font-size: var(--text-2xl);
@@ -215,12 +222,27 @@
   }
   .recommendation {
     margin: 0;
-    padding: var(--space-4);
-    background: var(--bg-surface);
-    border-radius: var(--radius-sm);
+    font-size: var(--text-lg);
+    font-weight: 500;
     text-align: start;
     color: var(--text-secondary);
     line-height: var(--leading-normal);
+  }
+  .accuracy-summary > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .accuracy-summary .value {
+    text-align: end;
+  }
+  .accuracy-summary .detail {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .result-details {
+    text-align: start;
   }
   .storage {
     font-size: var(--text-sm);
@@ -230,7 +252,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    margin-top: auto;
   }
   footer button {
     width: 100%;

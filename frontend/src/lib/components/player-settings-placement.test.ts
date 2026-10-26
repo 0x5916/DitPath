@@ -17,6 +17,25 @@ function input(overrides: Partial<SettingsPlacementInput> = {}): SettingsPlaceme
 }
 
 describe('computeSettingsPlacement', () => {
+  it('keeps translated controls readable when no side fits the whole panel', () => {
+    const placement = computeSettingsPlacement(
+      input({
+        viewport: { top: 0, bottom: 740, left: 0, right: 320 },
+        trigger: { top: 322, bottom: 370, left: 170, right: 304 },
+        chrome: { topBar: 0, nav: 52 },
+        contentHeight: 488
+      })
+    );
+    // Use the 224px CSS width and scroll inside the available vertical space,
+    // rather than narrowing to 146px and overflowing after text reflows.
+    expect(placement).toEqual({
+      top: '16px',
+      left: '80px',
+      width: null,
+      maxHeight: '298px'
+    });
+  });
+
   it('opens a right-aligned trigger to the left when that side fits the panel', () => {
     expect(computeSettingsPlacement(input())).toEqual({
       top: '16px',

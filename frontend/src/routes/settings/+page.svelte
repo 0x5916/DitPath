@@ -532,6 +532,16 @@
 
 <div class="page-narrow settings-page">
   <header class="settings-heading"><h1 class="page-title">{m.settings_title()}</h1></header>
+  <nav class="settings-sections" aria-label={m.settings_title()}>
+    <a href="#preferences">{m.settings_appearance_title()}</a>
+    {#if !loading && !loadError}
+      <a href="#sound-defaults">{m.settings_sound_defaults()}</a>
+    {/if}
+    <a href="#sync-storage">{m.settings_sync_storage_title()}</a>
+    {#if !loading && !loadError}
+      <a href="#account">{m.settings_account_section()}</a>
+    {/if}
+  </nav>
   <section class="panel panel--ledger" id="preferences" aria-labelledby="preferences-title">
     <h2 class="card-title" id="preferences-title">{m.settings_appearance_title()}</h2>
     <div class="settings-form">
@@ -803,6 +813,26 @@
   }
   .settings-page :global(section[id]) {
     scroll-margin-top: 5rem;
+  }
+
+  .settings-page > .settings-sections {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .settings-sections a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--bg-inset);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+  }
+  .settings-sections a:hover {
+    color: var(--accent);
   }
 
   .settings-heading {

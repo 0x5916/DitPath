@@ -1175,3 +1175,19 @@ summary:focus-visible,
     height: 2.75rem;
   }
 }
+
+/* Optional information uses the same native keyboard/touch disclosure. */
+.ui-disclosure > summary {
+  min-height: var(--answer-target-min);
+  padding-block: var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.ui-disclosure > summary::marker {
+  color: var(--accent);
+}
+.ui-disclosure[open] > summary {
+  margin-bottom: var(--space-3);
+}

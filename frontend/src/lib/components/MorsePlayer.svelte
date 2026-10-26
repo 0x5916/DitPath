@@ -102,6 +102,7 @@
     onEnded: () => onEnded()
   });
   let settingsOpen = $state(false);
+  let playButton: HTMLButtonElement | null = null;
   let settingsDecisionPending = false;
   let disposed = false;
   let settingsEl = $state<HTMLDetailsElement | null>(null);
@@ -315,6 +316,10 @@
     return started;
   }
 
+  export function focusPlay() {
+    playButton?.focus();
+  }
+
   onDestroy(() => {
     disposed = true;
     // `onDestroy` also runs during SSR teardown, where there is no rAF API.
@@ -364,6 +369,12 @@
               ? 'btn-ghost player-play-btn'
               : 'btn-primary player-play-btn'}
           onclick={() => transport.toggle(text)}
+          {@attach (button) => {
+            playButton = button;
+            return () => {
+              playButton = null;
+            };
+          }}
           disabled={playback.busy}
           aria-label={started && !paused ? m.player_pause() : effectivePlayLabel}
         >
@@ -401,7 +412,8 @@
             aria-label={m.trainer_label_settings()}
             title={m.trainer_label_settings()}
           >
-            <SlidersHorizontal size={14} />
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            <span>{m.trainer_label_settings()}</span>
           </summary>
           <div
             class="player-settings-popover card-sm"
@@ -630,7 +642,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--player-control-height);
+    min-width: var(--player-control-height);
+    padding-inline: var(--space-3);
+    gap: var(--space-2);
+    font-size: var(--text-sm);
     height: var(--player-control-height);
     line-height: 1;
     border: 1px solid var(--border);

@@ -111,6 +111,7 @@
   <div class="progress-container">
     <header class="progress-header">
       <h1 class="page-title">{m.nav_progress()}</h1>
+      <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.nav_learn()}</a>
     </header>
 
     <TrainingSyncStatus
@@ -165,9 +166,9 @@
         </section>
 
         {#if history.length > 0}
-          <section class="progress-section" aria-labelledby="history-heading">
+          <details class="progress-section ui-disclosure">
+            <summary>{m.progress_history_heading()}</summary>
             <div class="history-heading">
-              <h2 id="history-heading" class="section-title">{m.progress_history_heading()}</h2>
               <InfoTip
                 label={m.common_tip_label({ topic: m.progress_history_heading() })}
                 text={m.history_unknown_hint()}
@@ -243,7 +244,7 @@
                 >{showHistory ? m.common_show_less() : m.progress_show_history()}</button
               >
             {/if}
-          </section>
+          </details>
         {/if}
       {/if}
     {/if}
@@ -345,6 +346,11 @@
   }
 
   .progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
     width: 100%;
     text-align: start;
   }
@@ -370,6 +376,10 @@
     font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
+  }
+
+  details.progress-section {
+    display: block;
   }
 
   .history-heading {

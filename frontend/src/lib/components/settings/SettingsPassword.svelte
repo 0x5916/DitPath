@@ -72,10 +72,8 @@
   }
 </script>
 
-<!-- Password gets its own surface: every panel is then headed by an
-     `h2.card-title`, and the account panel stays about identity. -->
-<section class="panel panel--ledger">
-  <h2 class="card-title">{m.settings_password_section()}</h2>
+<details class="panel panel--ledger ui-disclosure">
+  <summary>{m.settings_password_section()}</summary>
   <form onsubmit={savePassword} class="settings-form">
     <label class="field">
       <span class="label-text">{m.settings_current_password_label()}</span>
@@ -122,7 +120,7 @@
       </div>
     {/if}
   </form>
-</section>
+</details>
 
 <style>
   .settings-form {
