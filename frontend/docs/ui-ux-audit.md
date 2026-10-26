@@ -1,6 +1,6 @@
 # Frontend UI/UX backlog
 
-Reviewed against the current source on 26 October 2026. The baseline describes implemented behavior; the next-pass plan identifies proposed changes and acceptance still required. Browser evidence is limited to the flows explicitly named below. This is a frontend design/correctness backlog, not a security audit.
+Reviewed against the current source on 26 October 2026. The baseline and daily-training packet describe implemented behavior; acceptance limits and separate future features remain explicit. Browser evidence is limited to the flows explicitly named below. This is a frontend design/correctness backlog, not a security audit.
 
 ## Implemented baseline
 
@@ -71,15 +71,15 @@ This is one coherent completion packet, with targeted internal checks before the
 - Native mobile keyboard/IME, iOS first-tap audio, and screen-reader behavior require real-device/assistive-technology evidence. A resized desktop viewport does not establish those results. Complete available checks and explicitly list any device checks that remain unverified.
 - Deliver one reviewable implementation, a working local preview, representative result/recovery screenshots, and a concise evidence summary. This plan does not authorize publishing or deployment.
 
-## Next pass: complete the daily training experience
+## Daily training experience — 26 October 2026
 
-**Status: proposed implementation plan, 26 October 2026.** This section consolidates the remaining UI/UX work into one coherent frontend delivery with one combined review. It is not an implementation-complete claim. The guided lesson packet above is the baseline to preserve. Internal stages keep changes reviewable; the user should not need to approve each screen separately.
+**Status: implemented, with native-device acceptance still open.** The approved daily-training plan below is retained as the acceptance contract. Current behavior is documented in [learning.md](learning.md); commands, browser/fixture evidence, Penpot synchronization, and verification limits are recorded in the [delivery report](reports/2026-10-26-daily-training-ui.md). The guided lesson packet remains the baseline.
 
-### What remains in the current app
+### Findings that motivated this packet
 
-This planning review inspected Home, Lessons, Practice, Progress, and guest Settings in the local desktop browser, and their supporting source. Account, Forum, reference, and mobile-navigation findings below are source findings; their full interactive acceptance remains part of implementation.
+These were the pre-implementation findings, retained to explain the accepted scope. They do not describe the current interface:
 
-- The desktop header exposes six destinations plus account, theme, and language controls. Mobile gives Forum a primary tab while Practice is grouped under Home. [More](../src/routes/more/+page.svelte) redirects to Settings on desktop, so there is no consistent secondary destination across sizes.
+- The previous desktop header exposed six destinations plus account, theme, and language controls. Mobile gave Forum a primary tab while Practice is grouped under Home. [More](../src/routes/more/+page.svelte) redirected to Settings on desktop, so there was no consistent secondary destination across sizes.
 - Beginner K/M listening, the optional quiz, returning-user lesson actions, the [curriculum roadmap](../src/lib/components/learning/CoursePath.svelte), and character/heatmap details already exist. Their remaining work is consistency and acceptance, not replacement.
 - [Practice](../src/lib/components/practice/ContinuousCopyPractice.svelte) shows a five-step strip, a separate state sentence, repeated metadata, and a disabled check action before starting. It uses a timed second click for a new passage, an accessible dialog for lesson/settings replacement, and a native confirmation for unsaved-history navigation. The route protects pending records but does not currently protect an unchecked copy on internal navigation.
 - [Progress](../src/routes/morse/progress/+page.svelte) puts aggregate activity before actionable findings, repeats Diagnostics / Needs attention headings, exposes every unmeasured character, and renders up to 20 history rows immediately.

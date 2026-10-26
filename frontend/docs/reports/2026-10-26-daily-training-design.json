@@ -1,0 +1,35 @@
+{
+  "file": "41725af0-a889-809a-8008-d8302a5aefb6",
+  "page": "d872815a-6d19-807b-8008-d863a4c86b59",
+  "codeCommit": "017656a",
+  "boards": {
+    "home-phone": "d872815a-6d19-807b-8008-d864081c1f62",
+    "practice-ready": "d872815a-6d19-807b-8008-d86408801200",
+    "practice-copy": "d872815a-6d19-807b-8008-d86408e4b205",
+    "practice-dark": "d872815a-6d19-807b-8008-d864096c608b",
+    "progress-phone": "d872815a-6d19-807b-8008-d8640a11ecc1",
+    "home-desktop": "d872815a-6d19-807b-8008-d8640b46a82c",
+    "practice-desktop": "d872815a-6d19-807b-8008-d8640c329377",
+    "progress-desktop": "d872815a-6d19-807b-8008-d8640d2261b4",
+    "lessons-phone": "d872815a-6d19-807b-8008-d8640ed5f24f",
+    "more-phone": "d872815a-6d19-807b-8008-d8640fc9f646",
+    "settings-phone": "d872815a-6d19-807b-8008-d864113e331b",
+    "settings-desktop": "d872815a-6d19-807b-8008-d864139024e2",
+    "practice-review": "d872815a-6d19-807b-8008-d86415f7b4c0",
+    "practice-recovery": "d872815a-6d19-807b-8008-d86417d1fd7a",
+    "practice-discard": "d872815a-6d19-807b-8008-d86451dd56f0",
+    "progress-empty": "d872815a-6d19-807b-8008-d86452295b03",
+    "spec": "d872815a-6d19-807b-8008-d86452614b29"
+  },
+  "browserReferences": {
+    "practice-ready": "d872815a-6d19-807b-8008-d86d57f9fbb7",
+    "practice-dark": "d872815a-6d19-807b-8008-d86d6f4c159f",
+    "practice-desktop": "d872815a-6d19-807b-8008-d86d8379aba5",
+    "more-phone": "d872815a-6d19-807b-8008-d86d9ff1a4c7",
+    "settings-phone": "d872815a-6d19-807b-8008-d86da304bf41",
+    "settings-desktop": "d872815a-6d19-807b-8008-d86da8af2f3d"
+  },
+  "version": "Daily training final handoff · 017656a",
+  "designUrl": "https://design.penpot.app/#/workspace?team-id=5009c98b-0fb2-816e-8008-d82a38bab0df&file-id=41725af0-a889-809a-8008-d8302a5aefb6&page-id=d872815a-6d19-807b-8008-d863a4c86b59",
+  "dataPolicy": "Activity and comparison frames use synthetic examples. Six neutral browser references are retained; detailed activity captures remain local."
+}
