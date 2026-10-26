@@ -1,7 +1,8 @@
-# Android Chrome and TalkBack acceptance
+# Android browser and TalkBack acceptance
 
 Use a real phone with disposable data. Record the phone model, Android version,
-Chrome version, TalkBack version, keyboard/language, tested Git revision and date.
+browser/version, TalkBack version, keyboard/language, tested Git revision and date.
+The current phone run uses Firefox at the user's request; Chrome coverage stays separate.
 Keep actual outcomes separate from this checklist; desktop viewport simulation
 does not count as a native pass.
 
@@ -22,7 +23,7 @@ is needed. Build from `frontend/` with Node 26: `PUBLIC_API_BASE=/v1 npm run bui
    Port 3001 must be free; do not overwrite an existing listener.
 5. Run `adb -s SERIAL reverse tcp:3001 tcp:3001`, replacing `SERIAL` with the
    selected device. Verify with `adb -s SERIAL reverse --list`, then open
-   `http://127.0.0.1:3001/en` in **Chrome on the phone**.
+   `http://127.0.0.1:3001/en` in **Firefox on the phone** (or Chrome for a separately recorded run).
 6. Use guest mode for audio/typing checks. For sync, sign into an existing
    disposable account privately; never paste passwords into the report.
 
@@ -32,12 +33,25 @@ USB forwarding carries the phone's loopback traffic to this Mac. See Google's
 After testing, remove only this mapping with `adb -s SERIAL reverse --remove tcp:3001`;
 stop the preview/SSH sessions and turn off USB debugging if no longer needed.
 
+For optional mirroring, `brew install scrcpy` provides a native desktop window.
+Some Xiaomi phones reject default injected input. A temporary USB HID keyboard
+works with `scrcpy --keyboard=uhid --mouse=uhid --shortcut-mod=rctrl --no-audio`;
+reserving right Ctrl for scrcpy leaves TalkBack's Alt/Command shortcuts available.
+HID keyboard testing is not a soft-keyboard or touch-gesture pass. Keep the phone
+unlocked in the test browser and avoid simultaneous use. See the official
+[scrcpy input modes](https://github.com/Genymobile/scrcpy/blob/master/doc/mouse.md).
+
 ## Walkthrough and result log
 
 For TalkBack, enable **Settings → Accessibility → TalkBack → Use TalkBack** and
-configure its shortcut so you can turn it off. Swipe right/left to move focus,
+configure its shortcut so you can turn it off. Xiaomi documents **Settings →
+Additional settings → Accessibility → Vision → TalkBack**; some versions expose
+Accessibility directly. See [Xiaomi's instructions](https://www.mi.com/sg/support/article/KA-11578/). Swipe right/left to move focus,
 double-tap to activate, and use two fingers to scroll. Device-specific shortcut
 details are in [Google's TalkBack guide](https://support.google.com/accessibility/android/answer/6007100).
+For a physical keyboard, follow the active [TalkBack keymap](https://support.google.com/accessibility/android/answer/6110948);
+confirm spoken labels and focus before logging a pass. Enabling its shortcut alone
+does not turn on the service.
 
 | Check                                                                           | Expected result                                                                                                         | Actual result |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------- |

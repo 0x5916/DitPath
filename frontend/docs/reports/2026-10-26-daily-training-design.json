@@ -5,6 +5,11 @@
   "acceptanceFixtureCommit": "b814db9",
   "deploymentCommit": "1e4f355",
   "liveAcceptanceReport": "2026-10-26-live-sync-acceptance.md",
+  "timeoutPacket": {
+    "codeCommit": "2c1e3c1",
+    "report": "2026-10-26-request-timeout.md",
+    "designSync": "pending-connection"
+  },
   "browserReferenceCodeCommit": "017656a",
   "boards": {
     "home-phone": "d872815a-6d19-807b-8008-d864081c1f62",
