@@ -30,6 +30,22 @@ For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web clien
 
 ## Checks and builds
 
+For repeatable synthetic UI states, run `npm run acceptance` and open
+`http://127.0.0.1:4174/__acceptance`. The chooser replaces only the dedicated
+`ditpath_ui_acceptance` database and test-origin auth/training preferences; close
+other acceptance tabs first. It covers empty/returning/interrupted/completed
+learning, ten-second loading, a Practice save that fails once, unavailable account
+settings, and pending uploads. Finish and check a Practice passage to trigger the
+save failure, then use **Retry save**. Return to the chooser to reset a scenario.
+
+The launcher forces a local mock API (every request returns 503), disables Google
+sign-in, and binds only to loopback. Never enter real credentials here. These
+fixtures verify presentation and recovery, not successful server synchronization.
+The separate [acceptance config](scripts/acceptance/config.ts) refuses builds;
+normal builds do not import its fixtures or fault hooks. The
+[fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
+guidance outcomes and fail when a source injection seam changes.
+
 [package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally.
 
 `npm run check` compiles Paraglide before Svelte checking and runs `check:worker` against the separate [service-worker TypeScript config](src/service-worker/tsconfig.json); `npm run build` compiles Paraglide through the Vite plugin. Tests run in Node via [vitest.config.ts](vitest.config.ts), including domain, controller, audio, sync, and repository tests. IndexedDB tests use the `fake-indexeddb` development dependency declared in [package.json](package.json).

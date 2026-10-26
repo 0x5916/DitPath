@@ -8,6 +8,7 @@
     "#lib/*": "./src/lib/*"
   },
   "scripts": {
+    "acceptance": "node scripts/acceptance/launch.mjs",
     "dev": "vite dev",
     "build": "vite build",
     "start": "vite preview",

@@ -8,6 +8,6 @@ export default defineConfig({
   plugins: [sveltekit(kitOptions)],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts']
+    include: ['src/**/*.test.ts', 'scripts/acceptance/**/*.test.ts']
   }
 });
