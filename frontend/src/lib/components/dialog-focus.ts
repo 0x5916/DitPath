@@ -18,7 +18,7 @@ export function dialogFocusTarget<T>(
 export function dialogFocusables(panel: HTMLElement): HTMLElement[] {
   return Array.from(
     panel.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex], [contenteditable]'
+      'button, [href], input, select, textarea, summary, [tabindex], [contenteditable]'
     )
   ).filter(
     (element) =>
