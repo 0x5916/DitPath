@@ -151,7 +151,7 @@ These are outside this presentation/workflow pass and must not be silently bundl
 
 ## Final UI/UX acceptance pass — proposed 26 October 2026
 
-Incremental delivery started: [acceptance fixtures and keyboard recovery](reports/2026-10-26-ui-acceptance.md) records the eight reproducible scenarios, fixed Practice Tab loop, synchronized Penpot prototype and passing 588-test baseline. Native-device, actual screen-reader and live-sync gates remain open; the supplied test host needs a current isolated stack before sync verification.
+Incremental delivery: [acceptance fixtures and keyboard recovery](reports/2026-10-26-ui-acceptance.md) records eight reproducible scenarios and the fixed Practice Tab loop. [Isolated live-sync acceptance](reports/2026-10-26-live-sync-acceptance.md) verifies real account isolation, browser save/retry, import/cache recovery and separate-origin restoration on `pve-104`, with Penpot synchronized. Remaining work is a bounded-request recovery fix, actual native-device/screen-reader checks and a genuine second browser profile; separate-origin testing does not close that last gate.
 
 The next delivery closes the remaining acceptance gaps from the [daily-training report](reports/2026-10-26-daily-training-ui.md). The existing interface and learning rules are the baseline. Work should finish as one coordinated frontend packet: prepare test conditions, reproduce remaining problems, fix them, synchronize Penpot, then run one combined review. Passing automated checks alone does not close native-device or real-service acceptance.
 

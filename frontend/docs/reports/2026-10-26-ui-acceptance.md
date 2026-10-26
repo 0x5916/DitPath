@@ -28,6 +28,8 @@ Keyboard evidence is saved locally as `acceptance-result-keyboard.jpg` in this c
 
 ## Next environment increment — approval required
 
+Subsequently approved and completed: see [isolated live-sync acceptance](2026-10-26-live-sync-acceptance.md). The proposal below records the original approval scope.
+
 Read-only SSH inspection of user-provided `pve-104` succeeded (exit 0). `/opt/opencw` is revision `e7e3194`, an October 9 snapshot; its frontend responds HTTP 200, but `/v1/training/changes` responds HTTP 404. The running stack mounts `/data/postgres`. `/opt/opencw-validation` contains earlier validation artifacts, not a running current-version API. One SSH attempt timed out; the retry succeeded. No remote service, database or configuration was changed.
 
 Proposed reviewable scope for the next increment:
