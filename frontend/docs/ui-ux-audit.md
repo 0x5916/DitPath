@@ -1,6 +1,12 @@
 # Frontend UI/UX backlog
 
-Reviewed against the current source on 26 October 2026. The baseline and daily-training packet describe implemented behavior; acceptance limits and separate future features remain explicit. Browser evidence is limited to the flows explicitly named below. This is a frontend design/correctness backlog, not a security audit.
+Updated against the current source on 27 October 2026. The baseline and daily-training packet describe implemented behavior; acceptance limits and separate future features remain explicit. Browser evidence is limited to the flows explicitly named below. This is a frontend design/correctness backlog, not a security audit.
+
+## Learning pilot increment — 27 October 2026
+
+The [learning pilot report](reports/2026-10-27-learning-pilot.md) records the completed local targeted-review/return flows, policy foundation, approved additive ledger and verification. Penpot was refined first. Reproduced setup gutters, hidden unfinished local records and contradictory empty-history copy were corrected; local review changes no longer invalidate old cloud-sync status. All five locales and both themes were checked in Safari, including save failure/retry and unchanged legacy counts.
+
+P0 native keyboard/IME, complete assistive-technology journeys, rotation/native text scaling, physical-keyboard Firefox focus reproduction and a genuine second-profile/device sync check remain open. Safari's minimum observed width was 336px, so exact 320px acceptance remains open. The new policy remains dormant for certification until full prospective exposure/response capture, mixed-check UI, server parity and late-data corrections are implemented. Local coaching and screening cannot award milestones or extend intervals. P2 exact continuation and contextual practice retain their existing scope.
 
 ## Implemented baseline
 
@@ -10,7 +16,7 @@ Home welcomes beginners with a direct Lesson 1 action and a curriculum-derived K
 
 Progress and progression share batch mastery indexing; Learn preserves incremental reduction and its early exit. Learn now explains unmet character requirements, and session unlocks enforce the same introduced-character speed threshold. Only the latest unfinished session offers an explicitly labeled restart; restart and dismissal persist abandonment without removing saved answers. Exact saved-session restoration remains pending. Guided history synchronization is implemented; [learning.md](learning.md#domain-audio-and-persistence) describes ownership, recovery, and its server contract.
 
-[Progress summaries](../src/lib/training/v2/progress-summary.ts) use the complete indexed seven-day session selection and recorded elapsed time instead of a session-count estimate. Missing scored accuracy or timing remains unmeasured. Mastery cells reveal measurements through pointer, keyboard, and touch interactions, and the diagnostics link opens practice without promising to train selected symbols. Directional confusion counting excludes warm-up and group answers.
+[Progress summaries](../src/lib/training/v2/progress-summary.ts) use the complete indexed seven-day session selection and recorded elapsed time instead of a session-count estimate. Missing scored accuracy or timing remains unmeasured. Mastery cells reveal measurements through pointer, keyboard, and touch interactions, and valid recorded confusion pairs now open bounded local coaching; slower-response findings retain the general Practice link. Directional confusion counting excludes warm-up and group answers.
 
 Guided initialization, audio, and persistence failures have separate recovery UI. The [controller](../src/lib/training/v2/session-controller.svelte.ts) retains failed writes and retries without changing their IDs; result feedback distinguishes saving, committed device storage, and failure. Exit and [navigation recovery](../src/routes/morse/learn/session/navigation.ts) keep unsaved work available for retry or an explicit leave-unsaved decision. Browser fault injection verified database-open retry, truthful failure after a late transaction abort, duplicate-free retry, exit recovery, and internal Back retry with the original Forward history preserved. On 16 October, a complete 15-prompt lesson with a failed final write recovered into the unlocked next lesson; IndexedDB contained exactly 13 answer records and the completed session. See the [remediation report](reports/2026-10-16-frontend-remediation.md) for commands, browser evidence, and verification limits.
 

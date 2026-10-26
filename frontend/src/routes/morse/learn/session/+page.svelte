@@ -14,6 +14,18 @@
   import AudioPrompt from '#lib/components/learning/AudioPrompt.svelte';
   import RecognitionPrompt from '#lib/components/learning/RecognitionPrompt.svelte';
   import SessionResult from '#lib/components/learning/SessionResult.svelte';
+  import ReviewPanel from '#lib/components/learning/ReviewPanel.svelte';
+  import {
+    buildReviewPlan,
+    parseReviewRequest,
+    recordedCharacters,
+    type ReviewPlan
+  } from '#lib/training/targeted-review.ts';
+  import {
+    openLearningPilotDb,
+    createLearningPilotRepositories
+  } from '#lib/data/learning-pilot.ts';
+  import { readClientCwSettings } from '#lib/cwSync.ts';
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { LESSONS } from '#lib/training/sequence.ts';
@@ -41,7 +53,12 @@
   let onVisibility: (() => void) | null = null;
   let initialization = 0;
   let destroyed = false;
-  let sessionStep: number | null = null;
+  let sessionKey: string | null = null;
+  let reviewPlan = $state.raw<ReviewPlan | null>(null);
+  let reviewStarted = $state(false);
+  let reviewUnavailable = $state(false);
+  let reviewRound = $state(0);
+  const reviewValue = $derived(browser ? page.url.searchParams.get('review') : null);
   let resumeAfterExit = $state(false);
   let sessionOwner: string | null = null;
   const controllerOwners = new WeakMap<GuidedSessionController, string>();
@@ -53,6 +70,8 @@
     const parsed = s ? parseInt(s, 10) : 1;
     return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, LESSONS.length) : 1;
   });
+
+  const routeKey = $derived(`${step}:${reviewValue ?? ''}`);
 
   async function releaseSession(
     ctrl: GuidedSessionController | null,
@@ -81,12 +100,17 @@
       });
   }
 
-  async function startSession(requestedStep: number) {
+  async function startSession(requestedStep: number, beginReview = false) {
+    const requestedReview = reviewValue;
+    const reviewRequest = parseReviewRequest(requestedReview);
+    reviewPlan = null;
+    reviewUnavailable = requestedReview !== null && !reviewRequest;
+    reviewStarted = beginReview;
     answerDraft = '';
     const owner = getTrainingOwner();
     sessionOwner = owner;
     const generation = ++initialization;
-    sessionStep = requestedStep;
+    sessionKey = routeKey;
     discardPersistence = false;
     const previousController = controller;
     const previousDb = db;
@@ -100,13 +124,14 @@
     try {
       await releaseSession(previousController, previousDb);
       if (destroyed || generation !== initialization || owner !== getTrainingOwner()) return;
+      if (reviewUnavailable) return;
       database = await openTrainingDb();
       if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
         database.close();
         return;
       }
-      const attemptRepo = createAttemptRepository(database, owner);
-      const sessionRepo = createSessionRepository(database, owner);
+      let attemptRepo = createAttemptRepository(database, owner);
+      let sessionRepo = createSessionRepository(database, owner);
       const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
         new Date(Date.now() - 30 * 86400000).toISOString(),
         new Date().toISOString()
@@ -115,8 +140,42 @@
         database.close();
         return;
       }
+      if (reviewRequest) {
+        const history = await attemptRepo.getAttemptsByTimeRange(
+          '0001-01-01T00:00:00.000Z',
+          new Date().toISOString()
+        );
+        if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+          database.close();
+          return;
+        }
+        const known = recordedCharacters(history);
+        if (!known.length || reviewRequest.targets.some((ch) => !known.includes(ch))) {
+          reviewUnavailable = true;
+          database.close();
+          return;
+        }
+        const sound = readClientCwSettings();
+        reviewPlan = buildReviewPlan(reviewRequest, known, {
+          charWpm: sound.char_wpm,
+          effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
+          freqHz: sound.freq
+        });
+        database.close();
+        database = null;
+        if (!beginReview) return;
+        database = await openLearningPilotDb();
+        if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+          database.close();
+          return;
+        }
+        const local = createLearningPilotRepositories(database, owner, reviewPlan);
+        attemptRepo = local.attemptRepo;
+        sessionRepo = local.sessionRepo;
+      }
       const ctrl = new GuidedSessionController({
         step: requestedStep,
+        ...(reviewPlan ? { prompts: reviewPlan.prompts, allowProgression: false } : {}),
         audioEngine: createWebAudioEngine(),
         attemptRepo,
         sessionRepo,
@@ -164,7 +223,10 @@
   afterNavigate(() => {
     bypassDestination = null;
     allowUnload = false;
-    if (sessionStep !== null && sessionStep !== step) void startSession(step);
+    if (sessionKey !== null && sessionKey !== routeKey) {
+      reviewRound = 0;
+      void startSession(step);
+    }
   });
 
   onDestroy(() => {
@@ -269,10 +331,16 @@
       if (destroyed || owner !== getTrainingOwner() || ctrl !== controller) return;
       db = null;
       controller = null;
-      if (action === 'repeat') await startSession(step);
-      else {
+      if (action === 'repeat') {
+        if (reviewPlan) reviewRound += 1;
+        await startSession(step, Boolean(reviewPlan));
+      } else {
         const destination = localizedHref(
-          action === 'next' ? `/morse/learn/session?step=${nextStep}` : '/morse/learn'
+          action === 'next'
+            ? `/morse/learn/session?step=${nextStep}`
+            : reviewPlan
+              ? '/morse/progress'
+              : '/morse/learn'
         );
         bypassDestination = new URL(destination, page.url.href).href;
         await goto(destination);
@@ -358,10 +426,18 @@
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
 <svelte:head>
-  <title>{m.lesson_page_title({ step })}</title>
+  <title>{reviewValue !== null ? m.review_history_heading() : m.lesson_page_title({ step })}</title>
 </svelte:head>
 
-{#if initializationError}
+{#if reviewUnavailable}
+  <main class="loading-stage">
+    <div class="recovery-panel">
+      <h1>{m.review_history_heading()}</h1>
+      <p>{m.review_unavailable()}</p>
+      <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
+    </div>
+  </main>
+{:else if initializationError}
   <main class="loading-stage">
     <div class="recovery-panel" role="alert">
       <AlertCircle size={24} aria-hidden="true" />
@@ -370,6 +446,15 @@
         >{m.lesson_retry_start()}</button
       >
     </div>
+  </main>
+{:else if reviewPlan && !reviewStarted && !initializing}
+  <main class="loading-stage review-setup">
+    <ReviewPanel
+      plan={reviewPlan}
+      onStart={() => startSession(step, true)}
+      onRepeat={handleRepeatLesson}
+      onFinish={handleExit}
+    />
   </main>
 {:else if !browser || initializing || !controller}
   <div class="loading-stage" role="status" aria-label={m.lesson_loading()}>
@@ -406,17 +491,18 @@
           <Check size={18} aria-hidden="true" />{m.lesson_saved()}
         </p>
       {/if}
-      <TrainingSyncStatus
-        owner={trainingSyncState.owner}
-        pending={trainingSyncState.pending}
-        error={trainingSyncState.error}
-        syncing={trainingSyncState.syncing}
-        synced={trainingSyncState.synced && ['complete', 'abandoned'].includes(controller.phase)}
-      />
+      {#if !reviewPlan}<TrainingSyncStatus
+          owner={trainingSyncState.owner}
+          pending={trainingSyncState.pending}
+          error={trainingSyncState.error}
+          syncing={trainingSyncState.syncing}
+          synced={trainingSyncState.synced && ['complete', 'abandoned'].includes(controller.phase)}
+        />{/if}
     {/if}
   {/snippet}
 
   <SessionShell
+    review={Boolean(reviewPlan)}
     currentPromptIndex={controller.currentPromptIndex}
     totalPrompts={controller.totalPrompts}
     isPaused={controller.phase === 'paused'}
@@ -447,23 +533,36 @@
         </button>
       </div>
     {:else if controller.phase === 'complete' && controller.summary}
-      <SessionResult
-        summary={controller.summary}
-        persistenceStatus={controller.persistenceStatus}
-        busy={leaving}
-        {storageStatus}
-        onNextLesson={handleNextLesson}
-        onRepeatLesson={handleRepeatLesson}
-        onFinish={handleExit}
-      />
+      {#if reviewPlan}<ReviewPanel
+          plan={reviewPlan}
+          attempts={controller.attempts}
+          status={controller.persistenceStatus}
+          busy={leaving}
+          round={reviewRound}
+          {storageStatus}
+          onStart={() => {}}
+          onRepeat={handleRepeatLesson}
+          onFinish={handleExit}
+        />
+      {:else}<SessionResult
+          summary={controller.summary}
+          persistenceStatus={controller.persistenceStatus}
+          busy={leaving}
+          {storageStatus}
+          onNextLesson={handleNextLesson}
+          onRepeatLesson={handleRepeatLesson}
+          onFinish={handleExit}
+        />{/if}
     {:else if controller.currentPrompt && ['unscored-match', 'contrast', 'recall', 'short-group'].includes(controller.currentPrompt.spec.kind) && ['ready', 'playing', 'answering', 'feedback', 'paused'].includes(controller.phase)}
       {#key controller.currentPrompt.id}
         <RecognitionPrompt
           phase={controller.phase}
           typed={['recall', 'short-group'].includes(controller.currentPrompt.spec.kind)}
           scored={controller.currentPrompt.isScored}
-          firstRecall={controller.currentPromptIndex ===
-            controller.state.prompts.findIndex((prompt) => prompt.spec.kind === 'recall')}
+          coaching={Boolean(reviewPlan)}
+          firstRecall={!reviewPlan &&
+            controller.currentPromptIndex ===
+              controller.state.prompts.findIndex((prompt) => prompt.spec.kind === 'recall')}
           bind:draft={answerDraft}
           classification={controller.lastAttempt?.classification}
           options={controller.currentPrompt.spec.options ?? []}
@@ -506,6 +605,11 @@
     align-items: center;
     justify-content: center;
     background-color: var(--bg-base);
+  }
+
+  .review-setup {
+    padding: var(--space-8) max(var(--space-4), env(safe-area-inset-right, 0px)) var(--space-8)
+      max(var(--space-4), env(safe-area-inset-left, 0px));
   }
 
   .recovery-panel {

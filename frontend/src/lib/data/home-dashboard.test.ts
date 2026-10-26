@@ -69,6 +69,29 @@ describe('Home dashboard data', () => {
     expect(result.guidance.masteryMap.get('K')?.totalAttempts).toBe(0);
   });
 
+  it('invites a return round from old recorded sounds without claiming current mastery', async () => {
+    const repository = createSessionRepository(db);
+    await repository.saveSession({
+      ...session,
+      startedAt: '2026-01-01T00:00:00.000Z',
+      status: 'completed',
+      completedAt: '2026-01-01T00:01:00.000Z',
+      completedPromptCount: 12
+    });
+    await createAttemptRepository(db).saveAttempt({
+      ...attempt,
+      createdAt: '2026-01-01T00:00:30.000Z'
+    });
+    const result = await loadHomeDashboard(db, 'unclaimed', now);
+    expect(result.returning).toBe(true);
+    expect(result.knownCharacters).toEqual(['K']);
+    expect(result.guidance.masteryMap.get('K')?.totalAttempts).toBe(0);
+    expect(result.summary.accuracyPercent).toBeNull();
+    const other = await loadHomeDashboard(db, account, now);
+    expect(other.returning).toBe(false);
+    expect(other.knownCharacters).toEqual([]);
+  });
+
   it('loads recent guided evidence into both guidance and activity', async () => {
     await createAttemptRepository(db).saveAttempt(attempt);
     const result = await loadHomeDashboard(db, 'unclaimed', now);

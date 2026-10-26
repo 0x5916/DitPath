@@ -128,3 +128,16 @@ func TestTrainingRoutesShareStoredData(t *testing.T) {
 		previous = string(body)
 	}
 }
+
+func TestLearningEvidenceRoutesRequireAuthentication(t *testing.T) {
+	engine := authHTTPRouter(t, nil, authHTTPWork(t, nil, nil), authHTTPPolicy(), time.Now)
+	for _, route := range []struct{ method, path string }{{"POST", "/training/learning-evidence/batch"}, {"GET", "/training/learning-evidence/changes"}} {
+		for _, token := range []string{"", "invalid"} {
+			code := common.ErrorCodeAuthHeaderRequired
+			if token != "" {
+				code = common.ErrorCodeInvalidToken
+			}
+			authHTTPError(t, authHTTPSend(engine, authHTTPRequest{method: route.method, path: "/v1" + route.path, body: "{", token: token}), 401, code)
+		}
+	}
+}

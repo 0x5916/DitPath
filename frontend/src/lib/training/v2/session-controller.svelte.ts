@@ -44,6 +44,7 @@ export interface SessionControllerDependencies {
   audioEngine: AudioEngine;
   attemptRepo: AttemptRepository;
   sessionRepo: SessionRepository;
+  allowProgression?: boolean;
   masteryPolicy?: MasteryPolicy;
   allHistoricalAttempts?: AttemptEvent[];
   volume?: number;
@@ -60,6 +61,7 @@ export class GuidedSessionController {
   #audioEngine: AudioEngine;
   #attemptRepo: AttemptRepository;
   #sessionRepo: SessionRepository;
+  #allowProgression: boolean;
   #masteryPolicy?: MasteryPolicy;
   #allHistoricalAttempts: AttemptEvent[];
   #volume: number;
@@ -99,6 +101,7 @@ export class GuidedSessionController {
     this.#audioEngine = deps.audioEngine;
     this.#attemptRepo = deps.attemptRepo;
     this.#sessionRepo = deps.sessionRepo;
+    this.#allowProgression = deps.allowProgression ?? true;
     this.#masteryPolicy = deps.masteryPolicy;
     this.#allHistoricalAttempts = deps.allHistoricalAttempts ?? [];
     this.#volume = deps.volume ?? 1.0;
@@ -169,7 +172,8 @@ export class GuidedSessionController {
       this.state,
       event,
       this.#allHistoricalAttempts,
-      this.#nowIso()
+      this.#nowIso(),
+      this.#allowProgression
     );
 
     if (!transitionResult.ok) {

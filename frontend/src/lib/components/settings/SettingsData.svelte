@@ -97,6 +97,7 @@
     {unclaimedCount}
     {importing}
   />
+  <p class="field-hint">{m.review_local_only()}</p>
   <details class="cache-options">
     <summary>{m.settings_data_title()}</summary>
     <p class="field-hint">{m.settings_data_description()}</p>

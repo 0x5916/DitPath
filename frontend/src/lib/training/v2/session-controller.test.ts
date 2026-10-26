@@ -661,3 +661,62 @@ describe('guided persistence commit ordering and recovery', () => {
     expect(await controller.retryPersistence()).toBe(false);
   });
 });
+
+describe('coached review integration', () => {
+  it('explicitly excludes progression and retries the same terminal record', async () => {
+    const audio = createFakeAudioEngine();
+    const attempts = createFakeAttemptRepo();
+    const sessions = createFakeSessionRepo();
+    let fail = true;
+    const update = sessions.updateSessionProgress;
+    sessions.updateSessionProgress = vi.fn(
+      async (...args: Parameters<SessionRepository['updateSessionProgress']>) => {
+        if (args[2] === 'completed' && fail) {
+          fail = false;
+          throw new Error('terminal unavailable');
+        }
+        await update(...args);
+      }
+    );
+    const prompts = ['K', 'R'].map((character, i) => ({
+      ...createMockPrompt(`review-${i}`, character),
+      isScored: false,
+      ordinal: i + 1
+    }));
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts,
+      allowProgression: false,
+      audioEngine: audio,
+      attemptRepo: attempts,
+      sessionRepo: sessions
+    });
+    await controller.start();
+    for (const prompt of prompts) {
+      controller.play();
+      audio.finish();
+      if (prompt.ordinal === 2) {
+        controller.replay();
+        audio.finish();
+      }
+      expect(controller.submitAnswer(prompt.spec.expectedText, 'keyboard')).toBe(true);
+      expect(controller.submitAnswer(prompt.spec.expectedText, 'keyboard')).toBe(false);
+      controller.continue();
+    }
+    expect(controller.summary?.unlockedNextStep).toBe(false);
+    expect(controller.summary?.progressionReasonCode).toBe('free_practice_excluded');
+    expect(await controller.flushPersistence()).toBe(false);
+    const identity = controller.state.sessionId;
+    expect(await controller.retryPersistence()).toBe(true);
+    expect(attempts.saved).toHaveLength(2);
+    expect(attempts.saved.every((a) => a.classification === 'unmeasured')).toBe(true);
+    expect(attempts.saved[1].replayCount).toBe(1);
+    expect(sessions.sessions).toHaveLength(1);
+    expect(sessions.sessions[0]).toMatchObject({
+      id: identity,
+      status: 'completed',
+      completedPromptCount: 2
+    });
+    await controller.dispose();
+  });
+});

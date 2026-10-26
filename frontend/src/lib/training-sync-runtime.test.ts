@@ -109,6 +109,20 @@ describe('training sync browser lifecycle', () => {
     }
   });
 
+  it('refreshes local review views without invalidating or triggering legacy synchronization', async () => {
+    dispose = runtime.initializeTrainingSync();
+    await vi.waitFor(() => expect(runtime.trainingSyncState.synced).toBe(true));
+    const before = runtime.trainingSyncState.version;
+    const calls = auth.request.mock.calls.length;
+    const { notifyTrainingDataChange } = await import('./data/training-data-events');
+    notifyTrainingDataChange(runtime.getTrainingOwner(), false, 'learning-pilot');
+    expect(runtime.trainingSyncState.version).toBe(before + 1);
+    expect(runtime.trainingSyncState.synced).toBe(true);
+    expect(auth.request).toHaveBeenCalledTimes(calls);
+    notifyTrainingDataChange('unclaimed', false, 'learning-pilot');
+    expect(runtime.trainingSyncState.version).toBe(before + 1);
+  });
+
   it('uses reconnect to upload a durable practice record saved while offline', async () => {
     vi.stubGlobal('navigator', { onLine: false });
     dispose = runtime.initializeTrainingSync();

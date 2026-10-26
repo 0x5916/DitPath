@@ -1,4 +1,5 @@
 export const FIXTURE_DB = 'ditpath_ui_acceptance';
+export const FIXTURE_LEARNING_PILOT_DB = 'ditpath_ui_acceptance_learning_pilot';
 
 /** Fail loudly if a production seam moves instead of silently dropping fault coverage. */
 function replaceOnce(source: string, needle: string, replacement: string): string {
@@ -8,6 +9,8 @@ function replaceOnce(source: string, needle: string, replacement: string): strin
 
 export function acceptanceTransform(source: string, id: string): string | undefined {
   const path = id.split('?')[0];
+  if (path.endsWith('/src/lib/data/learning-pilot.ts'))
+    return replaceOnce(source, "'opencw_learning_pilot_v1'", `'${FIXTURE_LEARNING_PILOT_DB}'`);
   if (path.endsWith('/src/lib/data/training-schema.ts'))
     return replaceOnce(source, "'morsestep_training_v1'", `'${FIXTURE_DB}'`);
   if (path.endsWith('/src/lib/data/training-db.ts')) {
@@ -47,4 +50,17 @@ export function acceptanceSave(mode?: string, status?: string): void {
   if (sessionStorage.getItem('acceptance.failSave') !== 'once') return;
   sessionStorage.removeItem('acceptance.failSave');
   throw new Error('Synthetic local save failure; retry is available');
+}
+
+/** Deliberately accepts no database name: the chooser may delete only its fixture. */
+export function resetLearningPilotFixture(
+  factory: IDBFactory,
+  onBlocked?: () => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = factory.deleteDatabase(FIXTURE_LEARNING_PILOT_DB);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error('Cannot reset learning fixture'));
+    request.onblocked = () => onBlocked?.();
+  });
 }

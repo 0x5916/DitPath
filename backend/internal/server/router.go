@@ -82,6 +82,8 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	protected.POST("/training/sessions/batch", historyHandler.PostSessionsBatch)
 	protected.GET("/training/sessions", historyHandler.GetSessions)
 	protected.GET("/training/changes", historyHandler.GetChanges)
+	protected.POST("/training/learning-evidence/batch", historyHandler.PostLearningEvidence)
+	protected.GET("/training/learning-evidence/changes", historyHandler.GetLearningEvidenceChanges)
 
 	forumHandler := handlers.ForumHandler{DB: db}
 	forumCreateRateLimit := middlewares.ForumCreateRateLimit()

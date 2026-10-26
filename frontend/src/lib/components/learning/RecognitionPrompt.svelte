@@ -11,6 +11,7 @@
     phase: GuidedSessionPhase;
     typed?: boolean;
     scored: boolean;
+    coaching?: boolean;
     firstRecall?: boolean;
     draft?: string;
     classification?: AttemptClassification;
@@ -32,6 +33,7 @@
     phase,
     typed = false,
     scored,
+    coaching = false,
     firstRecall = false,
     draft = $bindable(''),
     classification,
@@ -111,7 +113,7 @@
       {/each}
     </div>
     {#if !scored || isCorrect}<p class="reassurance">
-        {#if !scored}{m.lesson_warmup_unscored()}
+        {#if !scored}{coaching ? m.review_unmeasured() : m.lesson_warmup_unscored()}
         {:else if isCorrect && classification === 'automatic'}{m.lesson_feedback_automatic()}
         {:else}{m.lesson_feedback_developing()}{/if}
       </p>{/if}
@@ -153,7 +155,7 @@
     {/if}
     {#if audioError}<p class="notice" role="alert">{m.lesson_feedback_audio_error()}</p>{/if}
     <p class="reassurance" role="status">
-      {playing ? m.lesson_listening() : scored ? '' : m.lesson_warmup_hint()}
+      {playing ? m.lesson_listening() : scored || coaching ? '' : m.lesson_warmup_hint()}
     </p>
     <footer><p>{phase === 'answering' ? m.lesson_hint_replay() : m.lesson_hint_play()}</p></footer>
   {/if}

@@ -78,7 +78,7 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 	for _, model := range probe.models {
 		models = append(models, reflect.TypeOf(model).Elem().Name())
 	}
-	want := []string{"User", "UserIdentity", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange"}
+	want := []string{"User", "UserIdentity", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange", "LearningEvidenceRecord", "LearningEvidenceSyncState", "LearningEvidenceChange"}
 	if !reflect.DeepEqual(models, want) {
 		t.Fatalf("models = %v, want %v", models, want)
 	}
@@ -100,7 +100,7 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 }
 
 func TestTrainingHistoryOwnershipConstraints(t *testing.T) {
-	for _, model := range []interface{}{&models.TrainingSession{}, &models.TrainingSyncState{}, &models.TrainingChange{}} {
+	for _, model := range []interface{}{&models.TrainingSession{}, &models.TrainingSyncState{}, &models.TrainingChange{}, &models.LearningEvidenceRecord{}, &models.LearningEvidenceSyncState{}, &models.LearningEvidenceChange{}} {
 		t.Run(reflect.TypeOf(model).Elem().Name(), func(t *testing.T) {
 			parsed, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
 			if err != nil {

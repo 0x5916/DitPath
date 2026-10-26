@@ -70,6 +70,9 @@ func migrate(db schemaDatabase) error {
 		&models.TrainingSession{},
 		&models.TrainingSyncState{},
 		&models.TrainingChange{},
+		&models.LearningEvidenceRecord{},
+		&models.LearningEvidenceSyncState{},
+		&models.LearningEvidenceChange{},
 	); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}

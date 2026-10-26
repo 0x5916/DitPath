@@ -3,13 +3,16 @@
   import { ArrowRight, AlertTriangle } from '@lucide/svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { parseReviewRequest, reviewHref } from '../../training/targeted-review';
 
   let {
     confusionPairs,
-    slowChars
+    slowChars,
+    knownCharacters = []
   }: {
     confusionPairs: ConfusionPair[];
     slowChars: string[];
+    knownCharacters?: string[];
   } = $props();
   let showAll = $state(false);
   let hasItems = $derived(confusionPairs.length > 0 || slowChars.length > 0);
@@ -38,6 +41,16 @@
                 <span class="pair-count"
                   >{m.progress_confusion_count({ count: pair.confusionCount })}</span
                 >
+                {#if parseReviewRequest(pair.expected + pair.actual) && [pair.expected, pair.actual].every( (ch) => knownCharacters.includes(ch) )}
+                  <a
+                    class="review-btn link"
+                    href={localizedHref(reviewHref([pair.expected, pair.actual]))}
+                    >{m.review_title({ characters: `${pair.expected}, ${pair.actual}` })}<ArrowRight
+                      size={16}
+                      aria-hidden="true"
+                    /></a
+                  >
+                {/if}
               </div>
             {/each}
           </div>
@@ -154,6 +167,8 @@
 
   .pair-row {
     display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
     align-items: center;
     justify-content: space-between;
     padding: var(--space-2) var(--space-3);

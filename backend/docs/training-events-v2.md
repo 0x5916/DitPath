@@ -4,6 +4,8 @@ The canonical `/v1/training` API synchronizes guided attempts, terminal guided/p
 
 Payload schema 1 retains first-write-wins behavior; new clients use strict event schema 2. [Session storage and history](../API.md#training-synchronization) finalize guided/practice records, enforce manifests, and mirror legacy progress. Signed change downloads restore both modes and raw guided evidence through the [frontend synchronization engine](../../frontend/src/lib/training-sync-engine.ts). The [approved specification](training-history-v1-spec.md) records the complete contract and the remaining V2 retirement gate.
 
+The separately approved [learning-evidence protocol](learning-evidence-v1-rfc.md) adds purpose-aware prospective records and its own feed. Its current ledger phase does not change this contract, the snapshot policy, or existing history totals; mixed assessments and synchronized milestones remain gated.
+
 ## Batch ingestion
 
 `POST /v1/training/events/batch` (temporary alias: `POST /v2/training/events/batch`) accepts this envelope:
@@ -55,13 +57,13 @@ A valid batch returns 200 with `acknowledged_ids` and `rejected_events`. Each re
 
 Per-event codes are `MISSING_FIELD`, `INVALID_FIELD`, `INVALID_TIMING`, `INVALID_CLASSIFICATION`, `INVALID_PROMPT_KIND`, `INVALID_INPUT_MODE`, `ID_CONFLICT`, and `SESSION_EVENT_SET_CONFLICT`. Batch errors use the standard `code`/`error` body:
 
-| Status | Code                                  | Condition                      |
-| ------ | ------------------------------------- | ------------------------------ |
+| Status | Code                                  | Condition                                             |
+| ------ | ------------------------------------- | ----------------------------------------------------- |
 | 400    | `INVALID_REQUEST_BODY`                | Malformed JSON, empty events, invalid strict envelope |
-| 400    | `TRAINING_UNSUPPORTED_SCHEMA_VERSION` | Schema version other than 1 or 2 |
-| 400    | `TRAINING_BATCH_TOO_LARGE`            | More than 100 events           |
-| 413    | `TRAINING_PAYLOAD_TOO_LARGE`          | Body exceeds 256 KiB           |
-| 500    | `TRAINING_INGEST_FAILED`              | Event storage failure          |
+| 400    | `TRAINING_UNSUPPORTED_SCHEMA_VERSION` | Schema version other than 1 or 2                      |
+| 400    | `TRAINING_BATCH_TOO_LARGE`            | More than 100 events                                  |
+| 413    | `TRAINING_PAYLOAD_TOO_LARGE`          | Body exceeds 256 KiB                                  |
+| 500    | `TRAINING_INGEST_FAILED`              | Event storage failure                                 |
 
 ## Change downloads
 

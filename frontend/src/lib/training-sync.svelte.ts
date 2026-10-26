@@ -233,21 +233,23 @@ export function initializeTrainingSync(): () => void {
     const unsubscribeUser = user.subscribe(authChanged);
     const channel =
       typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('ditpath:training');
-    const changed = (owner: string) => {
+    const changed = (owner: string, pilot = false) => {
       if (owner !== getTrainingOwner()) return;
-      publish({ version: trainingSyncState.version + 1, synced: false });
-      void refreshStatus(owner, getAuthSession().generation).catch(() => {});
+      publish({ version: trainingSyncState.version + 1, ...(pilot ? {} : { synced: false }) });
+      if (!pilot) void refreshStatus(owner, getAuthSession().generation).catch(() => {});
     };
-    const unsubscribeData = subscribeTrainingDataChanges(({ ownerKey, local }) => {
-      changed(ownerKey);
-      channel?.postMessage({ owner: ownerKey, local });
-      if (local && ownerKey === getTrainingOwner()) void syncTrainingNow();
+    const unsubscribeData = subscribeTrainingDataChanges(({ ownerKey, local, scope }) => {
+      const pilot = scope === 'learning-pilot';
+      changed(ownerKey, pilot);
+      channel?.postMessage({ owner: ownerKey, local, scope });
+      if (!pilot && local && ownerKey === getTrainingOwner()) void syncTrainingNow();
     });
     if (channel)
       channel.onmessage = (event) => {
         if (event.data?.owner !== getTrainingOwner()) return;
-        changed(event.data.owner);
-        if (event.data.local) void syncTrainingNow();
+        const pilot = event.data.scope === 'learning-pilot';
+        changed(event.data.owner, pilot);
+        if (!pilot && event.data.local) void syncTrainingNow();
       };
     const wake = () => {
       if (document.visibilityState !== 'hidden') void syncTrainingNow();

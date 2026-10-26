@@ -23,12 +23,21 @@
   import ConfusionList from '#lib/components/progress/ConfusionList.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import * as m from '#lib/paraglide/messages.js';
+  import { recordedCharacters } from '#lib/training/targeted-review.ts';
+  import {
+    openLearningPilotDb,
+    getLearningPilotHistory,
+    type LearningPilotHistory
+  } from '#lib/data/learning-pilot.ts';
 
   let showHistory = $state(false);
   let loading = $state(true);
   let loadError = $state(false);
   let summary = $state.raw<ProgressSummary | null>(null);
   let history = $state.raw<HistorySessionRecord[]>([]);
+  let knownCharacters = $state.raw<string[]>([]);
+  let reviewHistory = $state.raw<LearningPilotHistory[]>([]);
+  let reviewHistoryError = $state(false);
   const dateFormat = $derived(
     new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
   );
@@ -48,6 +57,8 @@
       loadedOwner = null;
       summary = null;
       history = [];
+      knownCharacters = [];
+      reviewHistory = [];
       showHistory = false;
       loading = true;
     }
@@ -60,18 +71,41 @@
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
       const repository = createSessionRepository(db, owner);
-      const [attempts, sessions, latestSessions] = await Promise.all([
+      const [attempts, sessions, latestSessions, allAttempts] = await Promise.all([
         createAttemptRepository(db, owner).getAttemptsByTimeRange(
           new Date(now - 60 * 86400000).toISOString(),
           nowIso
         ),
         repository.getSessionsByTimeRange(new Date(now - 7 * 86400000).toISOString(), nowIso),
-        repository.getSessions()
+        repository.getSessions(),
+        createAttemptRepository(db, owner).getAttemptsByTimeRange(
+          '0001-01-01T00:00:00.000Z',
+          nowIso
+        )
       ]);
       if (mounted && version === loadVersion && owner === getTrainingOwner()) {
+        knownCharacters = recordedCharacters(allAttempts);
         summary = summarizeProgress(attempts, sessions, nowIso);
         history = latestSessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
         loadedOwner = owner;
+        let pilotDb: IDBDatabase | null = null;
+        try {
+          pilotDb = await openLearningPilotDb();
+          const reviews = await getLearningPilotHistory(pilotDb, owner);
+          if (mounted && version === loadVersion && owner === getTrainingOwner()) {
+            reviewHistory = reviews
+              .filter(
+                (review) => review.status !== 'in-progress' || review.completedPromptCount > 0
+              )
+              .slice(0, 10);
+            reviewHistoryError = false;
+          }
+        } catch {
+          if (mounted && version === loadVersion && owner === getTrainingOwner())
+            reviewHistoryError = true;
+        } finally {
+          pilotDb?.close();
+        }
       }
     } catch (error) {
       if (mounted && version === loadVersion && owner === getTrainingOwner()) {
@@ -135,7 +169,35 @@
         >
       </div>
     {:else if summary}
-      {#if !summary.hasRecentActivity && history.length === 0}
+      {#if reviewHistory.length || reviewHistoryError}
+        <section class="progress-section" aria-labelledby="review-history-heading">
+          <h2 id="review-history-heading" class="section-title">{m.review_history_heading()}</h2>
+          <p class="progress-subtitle">{m.review_local_only()}</p>
+          {#if reviewHistoryError}<p role="alert">{m.progress_load_error()}</p>
+            <button class="btn-ghost" onclick={loadProgress}>{m.progress_retry()}</button>{/if}
+          <ol class="history-list">
+            {#each reviewHistory as review (review.id)}
+              <li class="history-row">
+                <div class="session-summary">
+                  <strong
+                    >{review.purpose === 'coaching'
+                      ? m.review_title({ characters: review.targets.join(', ') })
+                      : m.review_return_title()}</strong
+                  ><time datetime={review.completedAt ?? review.startedAt}
+                    >{dateFormat.format(new Date(review.completedAt ?? review.startedAt))}</time
+                  ><span>{m.review_answer_count({ count: review.attempts.length })}</span>
+                </div>
+                <span
+                  >{review.status === 'completed'
+                    ? m.review_result_title()
+                    : m.review_unfinished()}</span
+                >
+              </li>
+            {/each}
+          </ol>
+        </section>
+      {/if}
+      {#if !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0}
         <section class="progress-section" aria-labelledby="empty-heading">
           <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
           <p class="progress-subtitle">{m.progress_empty_description()}</p>
@@ -146,7 +208,11 @@
       {:else}
         {#if summary.confusionPairs.length > 0 || summary.slowChars.length > 0}
           <section class="progress-section" aria-label={m.progress_attention()}>
-            <ConfusionList confusionPairs={summary.confusionPairs} slowChars={summary.slowChars} />
+            <ConfusionList
+              confusionPairs={summary.confusionPairs}
+              slowChars={summary.slowChars}
+              {knownCharacters}
+            />
           </section>
         {/if}
 

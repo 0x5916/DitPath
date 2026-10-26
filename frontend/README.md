@@ -72,6 +72,7 @@ docker run -p 3000:80 opencw-frontend
 
 - [AGENTS.md](AGENTS.md): implementation boundaries and required verification evidence.
 - [Learning architecture](docs/learning.md): routes, domain/controller boundaries, storage, and UI acceptance.
+- [Learning policy pilot](docs/learning-policy.md): prospective assessment criteria, local coaching/screening scope, and activation gates.
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
 - [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.

@@ -101,14 +101,16 @@ CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page response
 
 ## Training synchronization
 
-| Method and canonical path          | Success                                                                                        | Temporary compatibility alias    |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------- |
-| `POST /v1/training/events/batch`   | 200: `acknowledged_ids`, `rejected_events`                                                     | `POST /v2/training/events/batch` |
-| `POST /v1/training/sessions/batch` | 200: `acknowledged_ids`, `rejected_sessions`                                                   | None                             |
-| `GET /v1/training/sessions`        | 200: `sessions`, `limit`, `next_cursor`, `has_more`, `high_water_revision`, optional `summary` | None                             |
-| `GET /v1/training/changes`         | 200: `changes`, `next_cursor`, `has_more`                                                      | None                             |
-| `GET /v1/training/snapshot`        | 200: course position, activity, character masteries                                            | `GET /v2/training/snapshot`      |
-| `PUT /v1/training/settings`        | 200: `updated_at`                                                                              | `PUT /v2/training/settings`      |
+| Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------- |
+| `POST /v1/training/events/batch`             | 200: `acknowledged_ids`, `rejected_events`                                                     | `POST /v2/training/events/batch` |
+| `POST /v1/training/sessions/batch`           | 200: `acknowledged_ids`, `rejected_sessions`                                                   | None                             |
+| `GET /v1/training/sessions`                  | 200: `sessions`, `limit`, `next_cursor`, `has_more`, `high_water_revision`, optional `summary` | None                             |
+| `GET /v1/training/changes`                   | 200: `changes`, `next_cursor`, `has_more`                                                      | None                             |
+| `POST /v1/training/learning-evidence/batch`  | 200: `acknowledged_ids`, `rejected_records`                                                    | None                             |
+| `GET /v1/training/learning-evidence/changes` | 200: separate `changes`, `next_cursor`, `has_more`                                             | None                             |
+| `GET /v1/training/snapshot`                  | 200: course position, activity, character masteries                                            | `GET /v2/training/snapshot`      |
+| `PUT /v1/training/settings`                  | 200: `updated_at`                                                                              | `PUT /v2/training/settings`      |
 
 All require bearer authentication and an existing user. Canonical paths and aliases call the same handler, share the existing database, and preserve payload schema 1 and first-write-wins event retries. There are no redirects or changes to authentication. See the [implemented training contract](docs/training-events-v2.md) for fields, limits, and errors.
 
@@ -125,6 +127,8 @@ Change downloads accept an opaque `cursor` and `limit=1..100` (default 100). The
 Additive startup migration registers history, revision-state, and change-payload tables without replacing existing tables. Account bootstrap backfills at most 100 old attempts and 100 legacy progress rows per request, preserving original IDs/provenance and unknown measurements. Until bootstrap completes, history and change downloads return retryable `503 TRAINING_SYNC_INITIALIZING` with `Retry-After: 1`; retry the request. Malformed/wrong-account/filter cursors return 400; retired epochs return `410 TRAINING_CURSOR_RESET_REQUIRED`. Legacy progress writes atomically mirror into unified history; native sessions never write back into the legacy table, and legacy response shapes/order/counts remain unchanged.
 
 The [frontend synchronization engine](../frontend/src/lib/training-sync-engine.ts) uploads schema-2 attempts before terminal sessions, then restores history through this feed. Its [owner-scoped repository](../frontend/src/lib/data/training-sync-repository.ts) atomically persists records/outbox entries and downloaded pages/checkpoints, retains failed or unacknowledged work, and journals explicit unclaimed-history imports. The [runtime](../frontend/src/lib/training-sync.svelte.ts) fences account changes and retries on local saves, login, reconnect, and returning to the app; see the [frontend guide](../frontend/docs/learning.md) for UI behavior.
+
+The separate [learning-evidence contract](docs/learning-evidence-v1-rfc.md), approved 27 October 2026, accepts schema-1 coaching/screening plans, raw observations, exposure guards/closures, and terminal manifests. Its account-scoped immutable ledger and signed change feed are separate from existing training history. Mixed-check plans return `FEATURE_NOT_ENABLED`; server milestones and review-ladder projection remain gated. No new record appears in the old change feed, snapshot, or guided/practice counts. The current frontend coaching/screening pilot remains device-only until prospective capture and its new transport are integrated.
 
 The [approved specification](docs/training-history-v1-spec.md) retains the V2 retirement gate: supported consumers must migrate and the compatibility window/release must be approved before removing the three aliases. Existing V1 settings writers preserve the stored training daily goal when omitted.
 

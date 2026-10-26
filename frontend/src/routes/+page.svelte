@@ -15,6 +15,7 @@
   } from '#lib/training-sync.svelte.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { openLearningPilotDb, getLearningPilotHistory } from '#lib/data/learning-pilot.ts';
 
   // Keep the prerendered landing page until local history chooses a layout.
   let dashboardVisible = $state(false);
@@ -25,11 +26,18 @@
   let loadVersion = 0;
   let loadedOwner: string | null = null;
   let activeDb: IDBDatabase | null = null;
+  let recentReview = $state(false);
   let lessonLink = $derived.by(() => {
     const title = m.nav_learn();
     const path = '/morse/learn';
     if (!dashboard) return { title, hint: '', path };
     const unfinished = dashboard.unfinishedSession;
+    if (dashboard.returning && !unfinished && !recentReview)
+      return {
+        title: m.review_return_title(),
+        hint: m.review_return_hint(),
+        path: '/morse/learn/session?review=return'
+      };
     if (dashboard.guidance.courseComplete && !unfinished)
       return { title, hint: m.learn_complete_title(), path };
     const { currentStep, reviewChars } = dashboard.guidance;
@@ -55,6 +63,7 @@
     if (owner !== loadedOwner) {
       loadedOwner = null;
       dashboard = null;
+      recentReview = false;
       loading = true;
     }
     loadError = false;
@@ -67,6 +76,24 @@
       if (!current()) return;
       activeDb = db;
       const result = await loadHomeDashboard(db, owner, new Date().toISOString());
+      let pilotDb: IDBDatabase | null = null;
+      try {
+        pilotDb = await openLearningPilotDb();
+        const reviews = await getLearningPilotHistory(pilotDb, owner);
+        if (current())
+          recentReview = reviews.some(
+            (review) =>
+              review.status === 'completed' &&
+              review.completedAt &&
+              Date.parse(review.completedAt) <= Date.now() &&
+              Date.parse(review.completedAt) >= Date.now() - 14 * 86400000
+          );
+      } catch {
+        // Local review storage must not prevent access to existing lessons/history.
+        if (current()) recentReview = false;
+      } finally {
+        pilotDb?.close();
+      }
       if (current()) {
         dashboard = result;
         loadedOwner = owner;

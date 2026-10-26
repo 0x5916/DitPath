@@ -110,7 +110,8 @@ export function guidedSessionTransition(
   state: GuidedSessionState,
   event: GuidedSessionEvent,
   allHistoricalAttempts: AttemptEvent[] = [],
-  nowIso = new Date().toISOString()
+  nowIso = new Date().toISOString(),
+  allowProgression = true
 ): GuidedSessionTransition {
   switch (event.type) {
     case 'start': {
@@ -263,7 +264,8 @@ export function guidedSessionTransition(
       if (isFinished) {
         // Complete the session: compute SessionSummary & progression
         const progression = evaluateProgression(state.step, state.attempts, allHistoricalAttempts, {
-          nowIso
+          nowIso,
+          isFreePractice: !allowProgression
         });
 
         const scoredAttempts = state.attempts.filter((a) => a.classification !== 'unmeasured');

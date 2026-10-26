@@ -7,7 +7,14 @@ import { createSessionRepository } from '../../src/lib/data/session-repository';
 import { createTrainingSyncRepository } from '../../src/lib/data/training-sync-repository';
 import { deriveCourseGuidance } from '../../src/lib/training/v2/course-guidance';
 import { ACCOUNT_ID, buildFixture } from './fixtures';
-import { acceptanceSave, acceptanceTransform, FIXTURE_DB } from './faults';
+import {
+  acceptanceSave,
+  acceptanceTransform,
+  FIXTURE_DB,
+  FIXTURE_LEARNING_PILOT_DB,
+  resetLearningPilotFixture
+} from './faults';
+import { openLearningPilotDb, LEARNING_PILOT_DB_NAME } from '../../src/lib/data/learning-pilot';
 
 const now = Date.parse('2026-10-26T12:00:00Z');
 afterEach(() => vi.unstubAllGlobals());
@@ -76,14 +83,30 @@ describe('acceptance fixture behavior', () => {
     }
   });
 
+  it('resets only the pilot fixture database, preserving production history', async () => {
+    const factory = new IDBFactory();
+    const production = await openLearningPilotDb(factory);
+    const fixture = await openLearningPilotDb(factory, FIXTURE_LEARNING_PILOT_DB);
+    production.close();
+    fixture.close();
+    await resetLearningPilotFixture(factory);
+    const names = (await factory.databases()).map((entry) => entry.name);
+    expect(names).toContain(LEARNING_PILOT_DB_NAME);
+    expect(names).not.toContain(FIXTURE_LEARNING_PILOT_DB);
+  });
+
   it('keeps test seams aligned with production source and rejects drift', () => {
-    for (const name of ['training-schema', 'training-db', 'session-repository']) {
+    for (const name of ['training-schema', 'training-db', 'session-repository', 'learning-pilot']) {
       const id = `/src/lib/data/${name}.ts`;
       const source = readFileSync(new URL(`../..${id}`, import.meta.url), 'utf8');
       const transformed = acceptanceTransform(source, id);
       expect(transformed).toBeDefined();
       expect(transformed).not.toEqual(source);
       if (name === 'training-schema') expect(transformed).toContain(FIXTURE_DB);
+      if (name === 'learning-pilot') {
+        expect(transformed).toContain(FIXTURE_LEARNING_PILOT_DB);
+        expect(transformed).not.toContain("'opencw_learning_pilot_v1'");
+      }
       expect(() => acceptanceTransform('', id)).toThrow('Acceptance seam changed');
     }
     expect(acceptanceTransform('ordinary app', '/src/routes/+page.svelte')).toBeUndefined();
