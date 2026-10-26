@@ -267,7 +267,7 @@
     align-items: center;
     gap: var(--space-4);
     min-width: var(--answer-target-min);
-    min-height: 10rem;
+    min-height: 12rem;
     padding: var(--space-5) var(--space-3);
     text-align: center;
     border: 1px solid var(--border-control);

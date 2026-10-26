@@ -16,16 +16,18 @@
   <div class="masthead-copy">
     <h1 id="home-title" class="masthead-title">{m.home_hero_title()}</h1>
     <p class="masthead-lede">{m.home_hero_subtitle()}</p>
+  </div>
+  <div class="listening-stage"><HomePreview /></div>
+  <div class="masthead-entry">
     <div class="masthead-actions">
       <a href={href('/morse/learn/session?step=1')} class="btn-cta">{m.home_cta()}</a>
       <a href={href('/morse/learn')} class="link all-lessons">{m.home_all_lessons()}</a>
-      <a href={href('/morse/practice')} class="link practice-link">{m.home_hero_cta_secondary()}</a>
     </div>
     <p class="body-text reassurance">
       {m.home_reassurance()}
     </p>
+    <a href={href('/morse/practice')} class="link practice-link">{m.home_hero_cta_secondary()}</a>
   </div>
-  <HomePreview />
 </section>
 
 <details class="method ui-disclosure">
@@ -47,12 +49,14 @@
 <style>
   .masthead {
     display: grid;
-    align-items: center;
-    gap: var(--space-8);
+    grid-template-areas: 'intro' 'listening' 'entry';
+    align-items: start;
+    gap: var(--space-6);
     font-family: var(--font-home);
   }
 
   .masthead-copy {
+    grid-area: intro;
     min-width: 0;
     max-width: 36rem;
     text-align: left;
@@ -60,7 +64,7 @@
 
   .masthead-title {
     margin: 0;
-    max-width: 18ch;
+    max-width: 16ch;
     font-size: clamp(2.125rem, 4.5vw, 3.25rem);
     line-height: 1.2;
     font-weight: 500;
@@ -71,11 +75,25 @@
 
   .masthead-lede {
     max-width: 42ch;
-    margin: var(--space-5) 0 var(--space-6);
+    margin: var(--space-4) 0 0;
     font-size: var(--text-lg);
     line-height: var(--leading-relaxed);
     color: var(--text-secondary);
     text-wrap: pretty;
+  }
+
+  .listening-stage {
+    grid-area: listening;
+    min-width: 0;
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--bg-inset);
+  }
+
+  .masthead-entry {
+    grid-area: entry;
+    min-width: 0;
+    max-width: 36rem;
   }
 
   .masthead-actions {
@@ -109,8 +127,8 @@
   }
 
   .practice-link {
-    grid-column: 1 / -1;
-    justify-self: start;
+    min-height: var(--answer-target-min);
+    margin-top: var(--space-2);
     color: var(--text-secondary);
   }
 
@@ -155,12 +173,12 @@
   }
 
   @media (max-width: 479px) {
-    .masthead {
-      gap: var(--space-6);
+    .listening-stage {
+      padding: var(--space-4);
     }
 
     .masthead-lede {
-      margin: var(--space-3) 0 var(--space-4);
+      margin: var(--space-3) 0 0;
       font-size: var(--text-base);
       line-height: var(--leading-normal);
     }
@@ -168,8 +186,18 @@
 
   @media (min-width: 800px) {
     .masthead {
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-10);
+      grid-template-columns: 1fr 1.08fr;
+      grid-template-areas: 'intro listening' 'entry listening';
+      column-gap: var(--space-10);
+    }
+
+    .masthead-copy {
+      align-self: end;
+    }
+
+    .listening-stage {
+      align-self: center;
+      padding: var(--space-8);
     }
 
     .method .step-list {
