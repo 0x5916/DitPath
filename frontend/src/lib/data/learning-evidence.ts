@@ -201,6 +201,73 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       });
       notify(true);
     },
+    async getImportStatus() {
+      return transaction(db, 'readonly', async (s) => {
+        const assignment = await reqToPromise<Meta | undefined>(
+          s.meta.get(['unclaimed', 'import-owner'])
+        );
+        if (assignment && assignment.value !== owner) return { count: 0, blocked: true };
+        let count = 0;
+        const guest = await reqToPromise<Row[]>(s.records.index('owner').getAll('unclaimed'));
+        for (const row of guest)
+          if (
+            !serverOnly(row.record.kind) &&
+            !(await reqToPromise(s.meta.get(['unclaimed', `import:${row.id}`])))
+          )
+            count++;
+        return { count, blocked: false };
+      });
+    },
+    /** One destination for the source ledger keeps its complete exposure chronology together. */
+    async importUnclaimed(isCurrent: () => boolean): Promise<number> {
+      if (!owner.startsWith('account:')) throw new Error('Evidence import requires an account');
+      const current = () => {
+        if (!isCurrent()) throw new DOMException('Evidence owner changed', 'AbortError');
+      };
+      const count = await transaction(db, 'readwrite', async (s) => {
+        current();
+        const assignment = await reqToPromise<Meta | undefined>(
+          s.meta.get(['unclaimed', 'import-owner'])
+        );
+        if (assignment && assignment.value !== owner)
+          throw new Error('Guest evidence already assigned');
+        const guest = (
+          await reqToPromise<Row[]>(s.records.index('owner').getAll('unclaimed'))
+        ).sort((a, b) => a.order - b.order);
+        let order = Number(
+            (await reqToPromise<Meta | undefined>(s.meta.get([owner, 'order'])))?.value ?? 0
+          ),
+          imported = 0;
+        for (const source of guest) {
+          current();
+          if (
+            serverOnly(source.record.kind) ||
+            (await reqToPromise(s.meta.get(['unclaimed', `import:${source.id}`])))
+          )
+            continue;
+          if (!isEvidenceRecord(source.record)) throw new Error('Invalid guest evidence');
+          const existing = await reqToPromise<Row | undefined>(s.records.get([owner, source.id]));
+          if (existing && evidenceKey(existing.record) !== evidenceKey(source.record))
+            throw new Error('Guest evidence ID conflict');
+          if (!existing) {
+            const row = { ...source, owner, order: ++order };
+            await reqToPromise(s.records.add(row));
+            await reqToPromise(s.outbox.add(row));
+          }
+          await reqToPromise(
+            s.meta.add({ owner: 'unclaimed', key: `import:${source.id}`, value: owner })
+          );
+          imported++;
+        }
+        if (imported)
+          await reqToPromise(s.meta.put({ owner: 'unclaimed', key: 'import-owner', value: owner }));
+        await reqToPromise(s.meta.put({ owner, key: 'order', value: order }));
+        current();
+        return imported;
+      });
+      notify(true);
+      return count;
+    },
     async orphanCandidates() {
       return transaction(db, 'readonly', async (s) => {
         const all = await rows<Row>(s.records);

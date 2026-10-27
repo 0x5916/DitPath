@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { learningSyncState, syncLearningNow } from '#lib/learning-sync.svelte.ts';
+  import {
+    learningSyncState,
+    syncLearningNow,
+    subscribeLearningSync,
+    getGuestEvidenceImportStatus,
+    importGuestLearningEvidence
+  } from '#lib/learning-sync.svelte.ts';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
@@ -104,6 +110,9 @@
   let unclaimedError = $state(false);
   let importing = $state(false);
   let importError = $state(false);
+  let guestEvidence = $state({ count: 0, blocked: false });
+  let evidenceImport = $state<'idle' | 'confirm' | 'busy' | 'done' | 'error'>('idle');
+  let evidenceCountError = $state(false);
   let syncMounted = false;
   let countVersion = 0;
   let lastAuthLoaded: string | null = null;
@@ -130,10 +139,15 @@
     const current = () =>
       syncMounted && sessionCurrent() && owner === getTrainingOwner() && version === countVersion;
     try {
-      const count = await getUnclaimedTrainingCount();
+      const [history, evidence] = await Promise.allSettled([
+        getUnclaimedTrainingCount(),
+        getGuestEvidenceImportStatus()
+      ]);
       if (!current()) return;
-      unclaimedCount = count;
-      unclaimedError = false;
+      unclaimedError = history.status === 'rejected';
+      evidenceCountError = evidence.status === 'rejected';
+      if (history.status === 'fulfilled') unclaimedCount = history.value;
+      if (evidence.status === 'fulfilled') guestEvidence = evidence.value;
     } catch {
       if (current()) unclaimedError = true;
     }
@@ -149,6 +163,9 @@
         identity = nextIdentity;
         countVersion++;
         unclaimedCount = 0;
+        guestEvidence = { count: 0, blocked: false };
+        evidenceImport = 'idle';
+        evidenceCountError = false;
         unclaimedError = importError = importing = false;
       }
       const nextRevision = `${identity}:${state.version}`;
@@ -156,7 +173,15 @@
       revision = nextRevision;
       void loadUnclaimedCount();
     });
+    let evidenceRevision = '';
+    const stopEvidence = subscribeLearningSync((state) => {
+      const next = `${state.owner}:${state.version}:${getAuthSession().generation}`;
+      if (next === evidenceRevision) return;
+      evidenceRevision = next;
+      void loadUnclaimedCount();
+    });
     return () => {
+      stopEvidence();
       syncMounted = false;
       countVersion++;
       unsubscribe();
@@ -177,6 +202,21 @@
       if (current()) importError = true;
     } finally {
       if (current()) importing = false;
+    }
+  }
+
+  async function importEvidence() {
+    if (evidenceImport !== 'confirm' || getTrainingOwner() === 'unclaimed') return;
+    const current = sessionScope.capture();
+    evidenceImport = 'busy';
+    try {
+      await importGuestLearningEvidence();
+      if (current()) {
+        evidenceImport = 'done';
+        await loadUnclaimedCount();
+      }
+    } catch {
+      if (current()) evidenceImport = 'error';
     }
   }
 
@@ -662,6 +702,44 @@
       error={learningSyncState.error}
       onSync={() => void syncLearningNow()}
     />
+    {#if learningSyncState.owner !== 'unclaimed'}
+      {#if guestEvidence.blocked}<p class="body-text">{m.learning_import_other()}</p>
+      {:else if guestEvidence.count > 0}
+        <p class="body-text">{m.learning_import_hint({ count: guestEvidence.count })}</p>
+        {#if evidenceImport === 'confirm' || evidenceImport === 'busy'}
+          <p class="body-text">{m.learning_import_confirm()}</p>
+          <div class="evidence-import-actions">
+            <button
+              type="button"
+              class="btn-primary"
+              disabled={evidenceImport === 'busy'}
+              onclick={() => void importEvidence()}
+              >{evidenceImport === 'busy'
+                ? m.history_importing()
+                : m.learning_import_action()}</button
+            >
+            <button
+              type="button"
+              class="btn-ghost"
+              disabled={evidenceImport === 'busy'}
+              onclick={() => (evidenceImport = 'idle')}>{m.learning_import_cancel()}</button
+            >
+          </div>
+        {:else}<div class="evidence-import-actions">
+            <button type="button" class="btn-ghost" onclick={() => (evidenceImport = 'confirm')}
+              >{m.learning_import_action()}</button
+            >
+          </div>{/if}
+      {/if}
+      {#if evidenceImport === 'done'}<p class="body-text" role="status">
+          {m.learning_import_done()}
+        </p>{/if}
+      {#if evidenceImport === 'error'}<p class="body-text" role="alert">
+          {m.learning_import_error()}
+        </p>{:else if evidenceCountError}<p class="body-text" role="alert">
+          {m.history_sync_error()}
+        </p>{/if}
+    {/if}
   </section>
 
   {#if loading}
@@ -821,6 +899,17 @@
 </div>
 
 <style>
+  .evidence-import-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .evidence-import-actions button {
+    min-height: var(--answer-target-min);
+    max-width: 100%;
+    padding-block: var(--space-2);
+  }
+
   .settings-page {
     display: flex;
     flex-direction: column;

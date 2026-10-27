@@ -627,5 +627,12 @@
   "mixed_pause": "暂停测验",
   "learning_legacy_hint": "这些估算采用早期课程评分模型，不能确立熟练度或长期保持成就。",
   "learning_confusion": "{expected} → {actual}：{total} 次无辅助首次作答中出现 {count} 次",
-  "learning_guest_boundary": "登录后，访客测验结果仍保留在访客记录中。"
+  "learning_guest_boundary": "访客学习证据会保留在此设备上，直到你主动导入。此设备的访客证据只能添加到一个账户。",
+  "learning_import_action": "将访客证据添加到此账户",
+  "learning_import_hint": "有 {count} 条访客证据记录可供导入。访客副本会保留在此设备上。",
+  "learning_import_confirm": "将此设备的访客学习证据添加到当前账户？此选择也决定了今后在此设备保存的访客证据的归属账户。",
+  "learning_import_done": "已在此设备上添加访客证据。账户同步将另行进行。",
+  "learning_import_other": "此设备的访客学习证据已归属另一个账户。",
+  "learning_import_error": "无法导入访客证据。没有转移任何记录，请重试。",
+  "learning_import_cancel": "取消"
 }

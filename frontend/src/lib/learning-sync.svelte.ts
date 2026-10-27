@@ -133,6 +133,28 @@ export async function syncLearningNow(): Promise<void> {
     if (again && mounted && !learningSyncState.unavailable) void syncLearningNow();
   }
 }
+/** Explicit, captured-account import; signing in never calls this action. */
+export async function importGuestLearningEvidence(): Promise<number> {
+  const expected = owner(),
+    session = getAuthSession();
+  if (!expected.startsWith('account:')) throw new Error('Evidence import requires an account');
+  const db = await openLearningEvidenceDb();
+  try {
+    return await createLearningEvidenceRepository(db, expected).importUnclaimed(
+      () => owner() === expected && isAuthSessionCurrent(session)
+    );
+  } finally {
+    db.close();
+  }
+}
+export async function getGuestEvidenceImportStatus() {
+  const db = await openLearningEvidenceDb();
+  try {
+    return await createLearningEvidenceRepository(db, owner()).getImportStatus();
+  } finally {
+    db.close();
+  }
+}
 export function initializeLearningSync(): () => void {
   if (typeof window === 'undefined' || mounted) return () => {};
   mounted = true;

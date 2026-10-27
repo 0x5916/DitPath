@@ -627,5 +627,12 @@
   "mixed_pause": "暫停測驗",
   "learning_legacy_hint": "這些估算採用早期課程評分模型，不能確立熟練度或長期保持成就。",
   "learning_confusion": "{expected} → {actual}：{total} 次無輔助首次作答中出現 {count} 次",
-  "learning_guest_boundary": "登入後，訪客測驗結果仍保留在訪客紀錄中。"
+  "learning_guest_boundary": "訪客學習證據會保留在此裝置上，直到你主動匯入。此裝置的訪客證據只能新增至一個帳戶。",
+  "learning_import_action": "將訪客證據新增至此帳戶",
+  "learning_import_hint": "有 {count} 筆訪客證據紀錄可供匯入。訪客副本會保留在此裝置上。",
+  "learning_import_confirm": "將此裝置的訪客學習證據新增至目前帳戶？此選擇也決定了日後在此裝置儲存的訪客證據的歸屬帳戶。",
+  "learning_import_done": "已在此裝置上新增訪客證據。帳戶同步將另行進行。",
+  "learning_import_other": "此裝置的訪客學習證據已歸屬另一個帳戶。",
+  "learning_import_error": "無法匯入訪客證據。沒有轉移任何紀錄，請重試。",
+  "learning_import_cancel": "取消"
 }

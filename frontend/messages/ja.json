@@ -627,5 +627,12 @@
   "mixed_pause": "チェックを一時停止",
   "learning_legacy_hint": "これらは以前のレッスン採点モデルによる評価です。習熟や保持の達成を認定するものではありません。",
   "learning_confusion": "{expected} → {actual}：補助なしの初回回答 {total} 回中 {count} 回",
-  "learning_guest_boundary": "ゲストのチェック結果は、ログイン後もゲスト履歴に残ります。"
+  "learning_guest_boundary": "ゲストの学習記録は、取り込むまでこの端末に残ります。この端末のゲスト記録を追加できるアカウントは1つです。",
+  "learning_import_action": "ゲストの学習記録をこのアカウントに追加",
+  "learning_import_hint": "取り込めるゲスト記録は{count}件です。ゲスト側のコピーはこの端末に残ります。",
+  "learning_import_confirm": "この端末のゲスト学習記録を現在のアカウントに追加しますか？今後この端末に保存されるゲスト記録も、このアカウントへの追加対象になります。",
+  "learning_import_done": "この端末でゲストの学習記録を追加しました。アカウントとの同期は別に行われます。",
+  "learning_import_other": "この端末のゲスト学習記録は別のアカウントに割り当てられています。",
+  "learning_import_error": "ゲストの学習記録を取り込めませんでした。記録は転送されていません。もう一度お試しください。",
+  "learning_import_cancel": "キャンセル"
 }

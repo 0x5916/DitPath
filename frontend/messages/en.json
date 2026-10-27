@@ -627,5 +627,12 @@
   "mixed_pause": "Pause check",
   "learning_legacy_hint": "These estimates use the earlier lesson scoring model. They do not establish proficiency or retention milestones.",
   "learning_confusion": "{expected} → {actual}: {count} of {total} unassisted first attempts",
-  "learning_guest_boundary": "Guest check results stay in Guest history when you sign in."
+  "learning_guest_boundary": "Guest learning evidence stays on this device until you import it. This device’s guest evidence can be added to one account.",
+  "learning_import_action": "Add guest evidence to this account",
+  "learning_import_hint": "{count} guest evidence records are available. The guest copy will stay on this device.",
+  "learning_import_confirm": "Add this device’s guest evidence to the current account? This choice also sets the account for later guest evidence saved here.",
+  "learning_import_done": "Guest evidence added on this device. Account synchronization is separate.",
+  "learning_import_other": "This device’s guest evidence is assigned to another account.",
+  "learning_import_error": "Guest evidence could not be imported. Nothing was transferred; try again.",
+  "learning_import_cancel": "Cancel"
 }

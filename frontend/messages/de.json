@@ -627,5 +627,12 @@
   "mixed_pause": "Test pausieren",
   "learning_legacy_hint": "Diese Einschätzungen verwenden das frühere Bewertungsmodell. Sie belegen keine Meilensteine für Fertigkeit oder langfristiges Behalten.",
   "learning_confusion": "{expected} → {actual}: {count} von {total} ersten Versuchen ohne Hilfe",
-  "learning_guest_boundary": "Testergebnisse als Gast bleiben bei der Anmeldung im Gastverlauf."
+  "learning_guest_boundary": "Gast-Lernnachweise bleiben bis zum Import auf diesem Gerät. Sie können nur einem Konto zugeordnet werden.",
+  "learning_import_action": "Gast-Lernnachweise diesem Konto hinzufügen",
+  "learning_import_hint": "{count} Gast-Nachweisdatensätze sind verfügbar. Die Gastkopie bleibt auf diesem Gerät.",
+  "learning_import_confirm": "Die Gast-Lernnachweise dieses Geräts dem aktuellen Konto hinzufügen? Diese Auswahl gilt auch für spätere Gast-Nachweise auf diesem Gerät.",
+  "learning_import_done": "Gast-Lernnachweise auf diesem Gerät hinzugefügt. Die Kontosynchronisierung erfolgt separat.",
+  "learning_import_other": "Die Gast-Lernnachweise dieses Geräts sind einem anderen Konto zugeordnet.",
+  "learning_import_error": "Gast-Lernnachweise konnten nicht importiert werden. Es wurde nichts übertragen. Bitte erneut versuchen.",
+  "learning_import_cancel": "Abbrechen"
 }
