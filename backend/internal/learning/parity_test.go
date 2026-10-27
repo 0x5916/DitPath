@@ -70,7 +70,7 @@ func assertPolicyJSON(t *testing.T, want json.RawMessage, got any) {
 	}
 }
 func TestLearningPolicySharedParity(t *testing.T) {
-	raw, err := os.ReadFile("testdata/policy-v1.json")
+	raw, err := os.ReadFile("../../../frontend/testdata/learning-policy-v1.json")
 	if err != nil {
 		t.Fatal(err)
 	}

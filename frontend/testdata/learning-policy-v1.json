@@ -20,14 +20,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-29T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -652,14 +646,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -1967,10 +1955,7 @@
               "policyVersion": "learning-policy-1.0",
               "kind": "proficiency",
               "awardedAt": "2026-10-30T12:00:00.000Z",
-              "checkIds": [
-                "a",
-                "b"
-              ],
+              "checkIds": ["a", "b"],
               "status": "provisional"
             }
           ],
@@ -1998,14 +1983,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-29T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -2630,14 +2609,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -3960,14 +3933,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-29T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -4592,14 +4559,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -5922,14 +5883,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-16T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -6554,14 +6509,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -7869,10 +7818,7 @@
               "policyVersion": "learning-policy-1.0",
               "kind": "proficiency",
               "awardedAt": "2026-10-30T12:00:00.000Z",
-              "checkIds": [
-                "a",
-                "b"
-              ],
+              "checkIds": ["a", "b"],
               "status": "provisional"
             }
           ],
@@ -7900,14 +7846,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-24T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -8532,14 +8472,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -9168,10 +9102,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-22T12:00:00.000Z",
-          "checkIds": [
-            "previous-a",
-            "previous-b"
-          ],
+          "checkIds": ["previous-a", "previous-b"],
           "status": "verified"
         }
       ],
@@ -9862,10 +9793,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-22T12:00:00.000Z",
-              "checkIds": [
-                "previous-a",
-                "previous-b"
-              ],
+              "checkIds": ["previous-a", "previous-b"],
               "status": "verified"
             }
           ],
@@ -9879,10 +9807,7 @@
               "policyVersion": "learning-policy-1.0",
               "kind": "retention",
               "awardedAt": "2026-10-30T12:00:00.000Z",
-              "checkIds": [
-                "a",
-                "b"
-              ],
+              "checkIds": ["a", "b"],
               "status": "provisional"
             }
           ],
@@ -9910,14 +9835,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-24T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -10542,14 +10461,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -11178,10 +11091,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-22T12:00:00.000Z",
-          "checkIds": [
-            "previous-a",
-            "previous-b"
-          ],
+          "checkIds": ["previous-a", "previous-b"],
           "status": "verified"
         }
       ],
@@ -11872,10 +11782,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-22T12:00:00.000Z",
-              "checkIds": [
-                "previous-a",
-                "previous-b"
-              ],
+              "checkIds": ["previous-a", "previous-b"],
               "status": "verified"
             }
           ],
@@ -11904,14 +11811,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-27T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -12536,14 +12437,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-28T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -13168,14 +13063,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-29T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -13804,10 +13693,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-28T12:00:00.000Z",
-          "checkIds": [
-            "a",
-            "b"
-          ],
+          "checkIds": ["a", "b"],
           "status": "unverified"
         }
       ],
@@ -14830,10 +14716,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-28T12:00:00.000Z",
-              "checkIds": [
-                "a",
-                "b"
-              ],
+              "checkIds": ["a", "b"],
               "status": "unverified"
             }
           ],
@@ -14847,10 +14730,7 @@
               "policyVersion": "learning-policy-1.0",
               "kind": "proficiency",
               "awardedAt": "2026-10-29T12:00:00.000Z",
-              "checkIds": [
-                "b",
-                "c"
-              ],
+              "checkIds": ["b", "c"],
               "status": "provisional"
             }
           ],
@@ -14878,14 +14758,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-25T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -15510,14 +15384,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-26T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -16146,10 +16014,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-28T12:00:00.000Z",
-          "checkIds": [
-            "missing-a",
-            "missing-b"
-          ],
+          "checkIds": ["missing-a", "missing-b"],
           "status": "verified"
         }
       ],
@@ -16840,10 +16705,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-28T12:00:00.000Z",
-              "checkIds": [
-                "missing-a",
-                "missing-b"
-              ],
+              "checkIds": ["missing-a", "missing-b"],
               "status": "verified"
             }
           ],
@@ -16857,10 +16719,7 @@
               "policyVersion": "learning-policy-1.0",
               "kind": "proficiency",
               "awardedAt": "2026-10-26T12:00:00.000Z",
-              "checkIds": [
-                "earlier-a",
-                "earlier-b"
-              ],
+              "checkIds": ["earlier-a", "earlier-b"],
               "status": "provisional"
             }
           ],
@@ -16869,10 +16728,7 @@
               "awardKey": "[\"account:parity\",\"{\\\"audioCondition\\\":\\\"clean\\\",\\\"charWpm\\\":20,\\\"id\\\":\\\"clean20\\\",\\\"responseSupport\\\":\\\"open\\\",\\\"task\\\":\\\"single-character\\\"}\",\"K\",\"proficiency\",\"learning-policy-1.0\"]",
               "claimId": "later",
               "reason": "earlier-attainment-found",
-              "checkIds": [
-                "missing-a",
-                "missing-b"
-              ],
+              "checkIds": ["missing-a", "missing-b"],
               "replacementBasisKey": "[\"[\\\"account:parity\\\",\\\"{\\\\\\\"audioCondition\\\\\\\":\\\\\\\"clean\\\\\\\",\\\\\\\"charWpm\\\\\\\":20,\\\\\\\"id\\\\\\\":\\\\\\\"clean20\\\\\\\",\\\\\\\"responseSupport\\\\\\\":\\\\\\\"open\\\\\\\",\\\\\\\"task\\\\\\\":\\\\\\\"single-character\\\\\\\"}\\\",\\\"K\\\",\\\"proficiency\\\",\\\"learning-policy-1.0\\\"]\",\"earlier-a\",\"earlier-b\"]"
             }
           ],
@@ -16902,10 +16758,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-27T12:00:00.000Z",
-          "checkIds": [
-            "old-a",
-            "old-b"
-          ],
+          "checkIds": ["old-a", "old-b"],
           "status": "superseded"
         },
         {
@@ -16917,10 +16770,7 @@
           "character": "K",
           "kind": "proficiency",
           "awardedAt": "2026-10-25T12:00:00.000Z",
-          "checkIds": [
-            "new-a",
-            "new-b"
-          ],
+          "checkIds": ["new-a", "new-b"],
           "status": "unverified"
         }
       ],
@@ -16946,10 +16796,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-27T12:00:00.000Z",
-              "checkIds": [
-                "old-a",
-                "old-b"
-              ],
+              "checkIds": ["old-a", "old-b"],
               "status": "superseded"
             },
             {
@@ -16961,10 +16808,7 @@
               "character": "K",
               "kind": "proficiency",
               "awardedAt": "2026-10-25T12:00:00.000Z",
-              "checkIds": [
-                "new-a",
-                "new-b"
-              ],
+              "checkIds": ["new-a", "new-b"],
               "status": "unverified"
             }
           ],
@@ -17004,14 +16848,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -17636,9 +17474,7 @@
           "rung": 1,
           "dueAt": "2026-11-02T12:00:00.000Z",
           "cycleId": "[\"account:parity\",\"{\\\"audioCondition\\\":\\\"clean\\\",\\\"charWpm\\\":20,\\\"id\\\":\\\"clean20\\\",\\\"responseSupport\\\":\\\"open\\\",\\\"task\\\":\\\"single-character\\\"}\",\"K\",\"learning-policy-1.0\",\"review\",\"passed\"]",
-          "appliedCheckIds": [
-            "review"
-          ]
+          "appliedCheckIds": ["review"]
         },
         "issues": []
       }
@@ -17672,14 +17508,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -18306,14 +18136,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -18938,9 +18762,7 @@
           "rung": 1,
           "dueAt": "2026-11-02T12:00:00.000Z",
           "cycleId": "[\"account:parity\",\"{\\\"audioCondition\\\":\\\"clean\\\",\\\"charWpm\\\":20,\\\"id\\\":\\\"clean20\\\",\\\"responseSupport\\\":\\\"open\\\",\\\"task\\\":\\\"single-character\\\"}\",\"K\",\"learning-policy-1.0\",\"review\",\"passed\"]",
-          "appliedCheckIds": [
-            "review"
-          ]
+          "appliedCheckIds": ["review"]
         },
         "issues": []
       }
@@ -18974,14 +18796,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -19606,9 +19422,7 @@
           "rung": 0,
           "dueAt": "2026-10-31T12:00:00.000Z",
           "cycleId": "[\"account:parity\",\"{\\\"audioCondition\\\":\\\"clean\\\",\\\"charWpm\\\":20,\\\"id\\\":\\\"clean20\\\",\\\"responseSupport\\\":\\\"open\\\",\\\"task\\\":\\\"single-character\\\"}\",\"K\",\"learning-policy-1.0\",\"review\",\"recovery\"]",
-          "appliedCheckIds": [
-            "review"
-          ]
+          "appliedCheckIds": ["review"]
         },
         "issues": []
       }
@@ -19642,14 +19456,8 @@
               "responseSupport": "open"
             },
             "startedAt": "2026-10-30T11:59:00.000Z",
-            "targets": [
-              "K",
-              "M"
-            ],
-            "introducedCharacters": [
-              "K",
-              "M"
-            ],
+            "targets": ["K", "M"],
+            "introducedCharacters": ["K", "M"],
             "prompts": [
               {
                 "id": "p0",
@@ -20272,9 +20080,7 @@
           "rung": 0,
           "dueAt": "2026-10-31T12:00:00.000Z",
           "cycleId": "[\"[\\\"account:parity\\\",\\\"{\\\\\\\"audioCondition\\\\\\\":\\\\\\\"clean\\\\\\\",\\\\\\\"charWpm\\\\\\\":20,\\\\\\\"id\\\\\\\":\\\\\\\"clean20\\\\\\\",\\\\\\\"responseSupport\\\\\\\":\\\\\\\"open\\\\\\\",\\\\\\\"task\\\\\\\":\\\\\\\"single-character\\\\\\\"}\\\",\\\"K\\\",\\\"proficiency\\\",\\\"learning-policy-1.0\\\"]\",\"initial-review\"]",
-          "appliedCheckIds": [
-            "review"
-          ]
+          "appliedCheckIds": ["review"]
         },
         "issues": []
       }

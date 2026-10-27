@@ -16,10 +16,7 @@ interface Vector {
   expected: unknown;
 }
 const fixtures = JSON.parse(
-  readFileSync(
-    new URL('../../../../../backend/internal/learning/testdata/policy-v1.json', import.meta.url),
-    'utf8'
-  )
+  readFileSync(new URL('../../../../testdata/learning-policy-v1.json', import.meta.url), 'utf8')
 ) as { cases: Vector[] };
 describe('shared TypeScript / Go learning-policy vectors', () => {
   for (const vector of fixtures.cases)
