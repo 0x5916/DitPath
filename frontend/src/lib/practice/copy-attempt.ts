@@ -1,3 +1,4 @@
+import { contextualPassage, type PracticeContext } from '../training/contextual-practice';
 import { createExercise, type Exercise, type RandomSource } from '../training/exercise';
 import { LESSONS } from '../training/sequence';
 import { calculateDuration } from '../training/timing';
@@ -8,6 +9,7 @@ import { score, diffWords, type DiffToken } from '../score';
 import { normalizePlaybackSettings, type PlaybackSettings } from './playback';
 
 export interface CopyAttempt {
+  id?: string;
   exercise: Exercise;
   settings: PlaybackSettings;
   session: SessionState;
@@ -36,10 +38,14 @@ export function createCopyAttempt(
   lesson: number,
   values: PlaybackSettings,
   previous?: CopyAttempt,
-  random?: RandomSource
+  random?: RandomSource,
+  context: PracticeContext = 'groups'
 ): CopyAttempt {
   const settings = normalizePlaybackSettings(values);
-  const exercise = createExercise({ lesson: normalizePracticeLesson(lesson), ...settings, random });
+  const exercise =
+    context === 'groups'
+      ? createExercise({ lesson: normalizePracticeLesson(lesson), ...settings, random })
+      : { lesson: LESSONS.length, context, text: contextualPassage(context, random) };
   const next = previous && transition(previous.session, { type: 'new-exercise' });
   return {
     exercise,

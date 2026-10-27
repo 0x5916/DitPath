@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LearningHistory from '#lib/components/learning/LearningHistory.svelte';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
   import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
   const learning = createLearningView();
@@ -160,6 +161,10 @@
     {#if learning.failed}<p role="alert">{m.progress_load_error()}</p>
       <button class="btn-ghost" onclick={() => learning.refresh()}>{m.progress_retry()}</button
       >{/if}
+
+    {#if learning.snapshot?.history.length}<LearningHistory
+        entries={learning.snapshot.history}
+      />{/if}
 
     <TrainingSyncStatus
       owner={trainingSyncState.owner}

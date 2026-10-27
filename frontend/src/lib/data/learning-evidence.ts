@@ -201,6 +201,28 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       });
       notify(true);
     },
+    async checkpoints(): Promise<unknown[]> {
+      return transaction(db, 'readonly', async (s) =>
+        (await reqToPromise<Meta[]>(s.meta.getAll()))
+          .filter((r) => r.owner === owner && r.key.startsWith('checkpoint:'))
+          .map((r) => r.value)
+      );
+    },
+    async getCheckpoint(id: string): Promise<unknown> {
+      return transaction(
+        db,
+        'readonly',
+        async (s) =>
+          (await reqToPromise<Meta | undefined>(s.meta.get([owner, `checkpoint:${id}`])))?.value ??
+          null
+      );
+    },
+    async setCheckpoint(id: string, value: unknown) {
+      await transaction(db, 'readwrite', async (s) => {
+        if (value === null) await reqToPromise(s.meta.delete([owner, `checkpoint:${id}`]));
+        else await reqToPromise(s.meta.put({ owner, key: `checkpoint:${id}`, value }));
+      });
+    },
     async getImportStatus() {
       return transaction(db, 'readonly', async (s) => {
         const assignment = await reqToPromise<Meta | undefined>(

@@ -1,4 +1,25 @@
 <script lang="ts">
+  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
+  import {
+    listCheckpoints,
+    discardCheckpoint,
+    type SessionCheckpoint
+  } from '#lib/data/session-checkpoints.ts';
+  let savedSessions = $state.raw<SessionCheckpoint[]>([]);
+  async function discardSaved(entry: SessionCheckpoint) {
+    if (sessionActionPending) return;
+    sessionActionPending = true;
+    const owner = getTrainingOwner();
+    try {
+      await discardCheckpoint(owner, entry);
+      if (owner === getTrainingOwner()) await loadLessons();
+    } catch {
+      if (owner === getTrainingOwner()) sessionActionError = m.session_resume_error();
+    } finally {
+      if (owner === getTrainingOwner()) sessionActionPending = false;
+    }
+  }
+
   import { createLearningView } from '#lib/learning-view.svelte.ts';
   import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
   const learning = createLearningView();
@@ -82,6 +103,7 @@
     const owner = getTrainingOwner();
     if (loadedOwner !== owner) {
       loadedOwner = owner;
+      savedSessions = [];
       sessionActionPending = false;
       sessionActionError = '';
     }
@@ -109,10 +131,11 @@
       const attemptRepo = createAttemptRepository(db, owner);
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
-      const [unfinished, recentAttempts, attemptCount] = await Promise.all([
+      const [unfinished, recentAttempts, attemptCount, checkpoints] = await Promise.all([
         repository.getLatestInProgressSession(),
         attemptRepo.getAttemptsByTimeRange(new Date(now - 60 * 86400000).toISOString(), nowIso),
-        attemptRepo.countAttempts()
+        attemptRepo.countAttempts(),
+        listCheckpoints(owner)
       ]);
       if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
       const guidance = deriveCourseGuidance(recentAttempts, nowIso);
@@ -121,7 +144,9 @@
       reviewChars = guidance.reviewChars;
       courseComplete = guidance.courseComplete;
       hasAttempts = attemptCount > 0;
-      inProgressSession = unfinished;
+      savedSessions = checkpoints.filter((c) => c.kind === 'guided');
+      inProgressSession =
+        unfinished && !savedSessions.some((c) => c.id === unfinished.id) ? unfinished : null;
       suggestedStep =
         owner === 'unclaimed' && migration.suggestedStep > 1 ? migration.suggestedStep : undefined;
       sessionRepo = repository;
@@ -208,6 +233,11 @@
 {/snippet}
 
 {#snippet currentLesson()}
+  <SavedSessions
+    entries={savedSessions}
+    onDiscard={(entry) => void discardSaved(entry)}
+    busy={sessionActionPending}
+  />
   {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2 && !inProgressSession && activeStep === currentStep}
     <LearningOverview snapshot={learning.snapshot} />
   {:else}<LearnHero

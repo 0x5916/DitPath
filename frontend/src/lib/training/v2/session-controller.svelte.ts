@@ -37,6 +37,12 @@ import type {
 
 export interface SessionControllerDependencies {
   sessionId?: string;
+  resume?: { state: GuidedSessionState; record: TrainingSessionRecord; draft: string };
+  saveCheckpoint?: (
+    state: GuidedSessionState,
+    record: TrainingSessionRecord,
+    draft: string
+  ) => Promise<void>;
   step: number;
   prompts?: Prompt[];
   clock?: () => number;
@@ -58,6 +64,9 @@ export interface SessionControllerDependencies {
 export type SessionPersistenceStatus = 'saving' | 'saved' | 'failed';
 
 export class GuidedSessionController {
+  #checkpoint?: SessionControllerDependencies['saveCheckpoint'];
+  #draft = '';
+  #restored = false;
   #clock: () => number;
   #nowIso: () => string;
   #audioEngine: AudioEngine;
@@ -94,12 +103,14 @@ export class GuidedSessionController {
     audioError: null
   });
 
+  restoring = $state(false);
   persistenceError = $state<string | null>(null);
   persistenceStatus = $state<SessionPersistenceStatus>('saving');
   feedbackCharacter = $state<string | null>(null);
   feedbackAudioError = $state<string | null>(null);
 
   constructor(deps: SessionControllerDependencies) {
+    this.#checkpoint = deps.saveCheckpoint;
     this.#clock = deps.clock ?? (() => Date.now());
     this.#nowIso = deps.nowIso ?? (() => new SvelteDate().toISOString());
     this.#audioEngine = deps.audioEngine;
@@ -126,6 +137,32 @@ export class GuidedSessionController {
       step: deps.step,
       prompts
     });
+
+    if (deps.resume) {
+      const saved = structuredClone(deps.resume.state);
+      this.#initialRecord = structuredClone(deps.resume.record);
+      this.#draft = deps.resume.draft;
+      this.#completedPromptCount = deps.resume.record.completedPromptCount;
+      this.#restored = true;
+      this.restoring = true;
+      if (saved.phase !== 'feedback') {
+        const interrupted = ['playing', 'answering', 'paused'].includes(saved.phase);
+        saved.phase = 'paused';
+        saved.pausedFromPhase =
+          saved.currentPrompt?.spec.kind === 'introduction' ? 'introducing' : 'ready';
+        saved.answerReadyAtMs = null;
+        if (interrupted) {
+          saved.replayCount = Math.max(1, saved.replayCount);
+          if (saved.currentPrompt)
+            saved.currentPrompt = {
+              ...saved.currentPrompt,
+              spec: { ...saved.currentPrompt.spec },
+              isScored: false
+            };
+        }
+      }
+      this.state = saved;
+    }
 
     // Subscribe to audio engine completion
     this.#audioUnsubscribe = this.#audioEngine.subscribe((event: AudioEngineEvent) => {
@@ -196,8 +233,30 @@ export class GuidedSessionController {
       this.#completedPromptCount = this.state.currentPromptIndex + 1;
     }
     this.state = transitionResult.state;
+    const terminal = ['complete', 'abandoned'].includes(this.state.phase);
+    if (!terminal && event.type === 'submit-answer') this.#saveCheckpoint();
     this.#executeEffects(transitionResult.effects);
+    if (terminal || event.type !== 'submit-answer') this.#saveCheckpoint();
     return true;
+  }
+
+  #saveCheckpoint(): void {
+    if (!this.#checkpoint || !this.#initialRecord) return;
+    const state = JSON.parse(JSON.stringify(this.state)) as GuidedSessionState;
+    const record = { ...this.#initialRecord, completedPromptCount: this.#completedPromptCount };
+    const draft = this.#draft;
+    this.#enqueuePersistence(() => this.#checkpoint!(state, record, draft));
+  }
+  setDraft(value: string) {
+    if (value !== this.#draft) {
+      this.#draft = value;
+      this.#saveCheckpoint();
+    }
+  }
+  suspend() {
+    this.pause();
+    void this.#audioEngine.stop({ notify: false });
+    this.#saveCheckpoint();
   }
 
   #executeEffects(effects: GuidedSessionEffect[]): void {
@@ -316,12 +375,29 @@ export class GuidedSessionController {
       this.#schedulePersistence();
     }
     const saved = await this.flushPersistence();
+    if (saved && this.#restored) {
+      await this.start();
+      return await this.flushPersistence();
+    }
     if (saved && this.#initialRecord && this.phase === 'idle') this.#dispatch({ type: 'start' });
     return saved;
   }
 
   /** Start only after the initial record commits; retry keeps the original session identity. */
   async start(): Promise<void> {
+    if (this.#restored) {
+      const attempts = JSON.parse(JSON.stringify(this.state.attempts)) as AttemptEvent[];
+      this.#enqueuePersistence(async () => {
+        for (const a of attempts) await this.#attemptRepo.saveAttempt(a);
+      });
+      if (await this.flushPersistence()) {
+        this.#restored = false;
+        this.restoring = false;
+        if (this.#deferredFeedback && this.state.phase === 'feedback') this.continue();
+        else this.#saveCheckpoint();
+      }
+      return;
+    }
     if (this.#disposed || this.state.phase !== 'idle') return;
     if (!this.#initialRecord) {
       const settings = this.state.prompts[0].spec;

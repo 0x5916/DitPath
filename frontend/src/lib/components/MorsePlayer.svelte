@@ -44,7 +44,7 @@
     /* Test seam: replace the browser engine (e.g. with a fake) without
        touching the transport UI. */
     createEngine?: () => AudioEngine;
-    exposureSource?: 'reference' | 'group';
+    exposureSource?: 'reference' | 'group' | 'word' | 'callsign';
   }
 
   let {

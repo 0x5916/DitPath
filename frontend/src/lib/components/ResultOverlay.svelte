@@ -12,6 +12,7 @@
     diffTokens: DiffToken[];
     /** Lesson the result belongs to (shown in the panel header area). */
     lessonNum: number;
+    contentLabel?: string;
     /** The passage that was sent — the reference for the diff and the copy. */
     sourceText: string;
     onClose: () => void;
@@ -25,6 +26,7 @@
     result,
     diffTokens,
     lessonNum,
+    contentLabel,
     sourceText,
     onClose,
     onRegenerate,
@@ -127,10 +129,11 @@
       <div class="overlay-score-body">
         <p class="overlay-grade">{scoreText}</p>
         <p class="overlay-rule">
-          {m.home_lesson_title({
-            step: lessonNum,
-            characters: (LESSONS[lessonNum - 1] ?? '').split('').join(', ')
-          })}
+          {contentLabel ??
+            m.home_lesson_title({
+              step: lessonNum,
+              characters: (LESSONS[lessonNum - 1] ?? '').split('').join(', ')
+            })}
         </p>
       </div>
     </div>

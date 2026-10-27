@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
+  import type { PracticeContext } from '../../training/contextual-practice';
   import { getLessonChars, LESSONS } from '../../training/sequence';
   import { canCheck } from '../../training/session';
   import {
@@ -21,6 +22,8 @@
 
   interface Props {
     lesson?: number;
+    resume?: import('../../data/session-checkpoints').CopyCheckpoint | null;
+    onCheckpoint?: (attempt: CopyAttempt, draft: string) => void;
     charWpm?: number;
     effWpm?: number;
     freq?: number;
@@ -35,6 +38,8 @@
 
   let {
     lesson = 1,
+    resume = null,
+    onCheckpoint,
     charWpm = 20,
     effWpm = 12,
     freq = 600,
@@ -53,6 +58,7 @@
   let session = $derived(attempt.session);
   let lessonText = $derived(attempt.exercise.text);
 
+  let context = $state<PracticeContext>('groups');
   let inputText = $state('');
   let result = $derived(attempt.review?.result.accuracy ?? -1);
   let showOverlay = $state(false);
@@ -78,11 +84,30 @@
     const nextLesson = lesson;
     untrack(() => {
       settings = next;
-      regenerate(nextLesson);
+      if (resume) {
+        const restored = structuredClone(resume.attempt);
+        settings = restored.settings;
+        context = restored.exercise.context ?? 'groups';
+        attempt = copyPlaybackEvent(restored, 'stop');
+        inputText = resume.draft;
+        showOverlay = Boolean(restored.review);
+        onStart?.();
+        if (restored.review) onReview?.(restored);
+      } else regenerate(nextLesson);
     });
   });
 
-  let currentLessonChars = $derived(getLessonChars(activeLesson).split('').filter(Boolean));
+  $effect(() => {
+    const current = attempt,
+      draft = inputText;
+    untrack(() => onCheckpoint?.(current, draft));
+  });
+
+  let currentLessonChars = $derived(
+    context === 'groups'
+      ? getLessonChars(activeLesson).split('').filter(Boolean)
+      : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'.split('')
+  );
 
   let transportLive = $derived(session.status === 'playing' || session.status === 'paused');
   let sessionStarted = $derived(session.status !== 'ready' && session.status !== 'disposed');
@@ -107,7 +132,10 @@
     if (savePending) return;
     if (focusTimer) clearTimeout(focusTimer);
     void player?.stopNow();
-    attempt = createCopyAttempt(nextLesson, settings, attempt);
+    attempt = {
+      ...createCopyAttempt(nextLesson, settings, attempt, undefined, context),
+      id: crypto.randomUUID()
+    };
     inputText = '';
     showOverlay = false;
   }
@@ -140,6 +168,16 @@
     regenerate();
     await tick();
     if (!destroyed) player?.focusPlay();
+  }
+
+  async function selectContext(event: Event) {
+    const select = event.currentTarget as HTMLSelectElement;
+    const next = select.value as PracticeContext;
+    select.value = context;
+    if (next !== context && (await confirmReplaceExercise())) {
+      context = next;
+      regenerate();
+    }
   }
 
   async function selectLesson(event: Event) {
@@ -214,19 +252,36 @@
 
 <div class="continuous-copy-practice" role="region" aria-label={m.practice_copy_region()}>
   <div class="console-head">
-    <label class="field">
-      <span class="label-text">{m.trainer_current_lesson()}</span>
-      <select class="select" value={activeLesson} onchange={selectLesson} disabled={savePending}>
-        {#each LESSONS as characters, index (index)}
-          <option value={index + 1}
-            >{m.home_lesson_title({
-              step: index + 1,
-              characters: characters.split('').join(', ')
-            })}</option
-          >
-        {/each}
-      </select>
-    </label>
+    <label class="field"
+      ><span class="label-text">{m.context_label()}</span><select
+        class="select"
+        value={context}
+        onchange={selectContext}
+        disabled={savePending}
+      >
+        <option value="groups">{m.context_groups()}</option><option value="words"
+          >{m.context_words()}</option
+        ><option value="callsigns">{m.context_callsigns()}</option><option value="contact"
+          >{m.context_contact()}</option
+        >
+      </select></label
+    >
+    {#if context !== 'groups'}<p>{m.context_notice()}</p>{/if}
+    {#if context === 'groups'}
+      <label class="field">
+        <span class="label-text">{m.trainer_current_lesson()}</span>
+        <select class="select" value={activeLesson} onchange={selectLesson} disabled={savePending}>
+          {#each LESSONS as characters, index (index)}
+            <option value={index + 1}
+              >{m.home_lesson_title({
+                step: index + 1,
+                characters: characters.split('').join(', ')
+              })}</option
+            >
+          {/each}
+        </select>
+      </label>
+    {/if}
     <p class="console-meta">
       {m.practice_speed_summary({ character: settings.charWpm, effective: settings.effWpm })}
     </p>
@@ -238,25 +293,29 @@
 
   <p class="session-state" aria-live="polite">{sessionStateText}</p>
   <div class="player-wrapper">
-    <MorsePlayer
-      exposureSource="group"
-      bind:this={player}
-      text={lessonText}
-      bind:charWpm={settings.charWpm}
-      bind:effWpm={settings.effWpm}
-      bind:freq={settings.freq}
-      bind:volume={settings.volume}
-      bind:startDelay={settings.startDelay}
-      onBeforeSettingsInput={confirmReplaceExercise}
-      onSettingsInput={() => regenerate()}
-      showSettings
-      playTone={sessionStarted ? 'quiet' : 'primary'}
-      showTransportExtras={transportLive}
-      onStart={handleStart}
-      onEnded={handleEnded}
-      playLabel={sessionStarted ? m.trainer_replay() : m.practice_start()}
-      onPausedChange={(paused) => (playbackPaused = paused)}
-    />
+    {#key context}<MorsePlayer
+        exposureSource={context === 'words'
+          ? 'word'
+          : context === 'callsigns'
+            ? 'callsign'
+            : 'group'}
+        bind:this={player}
+        text={lessonText}
+        bind:charWpm={settings.charWpm}
+        bind:effWpm={settings.effWpm}
+        bind:freq={settings.freq}
+        bind:volume={settings.volume}
+        bind:startDelay={settings.startDelay}
+        onBeforeSettingsInput={confirmReplaceExercise}
+        onSettingsInput={() => regenerate()}
+        showSettings
+        playTone={sessionStarted ? 'quiet' : 'primary'}
+        showTransportExtras={transportLive}
+        onStart={handleStart}
+        onEnded={handleEnded}
+        playLabel={sessionStarted ? m.trainer_replay() : m.practice_start()}
+        onPausedChange={(paused) => (playbackPaused = paused)}
+      />{/key}
   </div>
 
   <div class="answer-section">
@@ -320,6 +379,13 @@
     <ResultOverlay
       {result}
       {diffTokens}
+      contentLabel={context === 'groups'
+        ? undefined
+        : context === 'words'
+          ? m.context_words()
+          : context === 'callsigns'
+            ? m.context_callsigns()
+            : m.context_contact()}
       lessonNum={activeLesson}
       sourceText={lessonText}
       onClose={() => (showOverlay = false)}

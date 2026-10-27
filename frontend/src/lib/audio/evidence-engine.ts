@@ -22,7 +22,15 @@ export interface EvidenceAudioEngine extends AudioEngine {
 }
 interface Options {
   ownerKey?: string;
-  source: 'guided' | 'reference' | 'coaching' | 'screening' | 'mixed-check' | 'group';
+  source:
+    | 'guided'
+    | 'reference'
+    | 'coaching'
+    | 'screening'
+    | 'mixed-check'
+    | 'group'
+    | 'word'
+    | 'callsign';
   sessionId?: string;
   knownCharacters?: readonly string[];
   onError?: (error: unknown) => void;

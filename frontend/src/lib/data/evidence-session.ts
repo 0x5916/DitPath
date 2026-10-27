@@ -20,16 +20,28 @@ export function createEvidenceSessionRepositories(
   repo: LearningEvidenceRepository,
   ownerKey: string,
   metadata: LearningSessionPlan,
-  audio: EvidenceAudioEngine
+  audio: EvidenceAudioEngine,
+  resume?: {
+    session: TrainingSessionRecord;
+    records: EvidenceRecord[];
+    attempts: AttemptEvent[];
+    first?: { promptId: string; presentation: EvidencePresentation };
+  }
 ): {
   attemptRepo: AttemptRepository;
   sessionRepo: SessionRepository;
   captureFirst: (prompt: Prompt) => void;
+  firstPresentation: (promptId: string) => EvidencePresentation | null;
 } {
   const first = new Map<string, EvidencePresentation>();
   const frozen = new Map<string, EvidenceRecord>();
   const attempts = new Map<string, AttemptEvent>();
-  let session: TrainingSessionRecord | null = null;
+  let session: TrainingSessionRecord | null = resume?.session ?? null;
+  if (resume) {
+    for (const r of resume.records) frozen.set(r.id, r);
+    for (const a of resume.attempts) attempts.set(a.id, a);
+    if (resume.first) first.set(resume.first.promptId, resume.first.presentation);
+  }
   const envelope = (
     id: string,
     kind: EvidenceRecord['kind'],
@@ -142,6 +154,7 @@ export function createEvidenceSessionRepositories(
   };
   const allAttempts = () => [...attempts.values()];
   return {
+    firstPresentation: (id) => first.get(id) ?? null,
     captureFirst(prompt) {
       const presentation = audio.presentation();
       if (presentation && !first.has(prompt.id)) first.set(prompt.id, presentation);

@@ -17,6 +17,7 @@
     assessment?: boolean;
     busy?: boolean;
     onExit: () => void;
+    onSaveLeave?: () => void;
     onExitRequest?: () => void;
     onExitCancel?: () => void;
     onPauseToggle?: () => void;
@@ -33,6 +34,7 @@
     assessment = false,
     busy = false,
     onExit = () => {},
+    onSaveLeave,
     onExitRequest = () => {},
     onExitCancel = () => {},
     onPauseToggle = () => {},
@@ -109,6 +111,12 @@
       />
     </div>
 
+    {#if onSaveLeave && !complete}<button
+        type="button"
+        class="btn-ghost"
+        disabled={busy}
+        onclick={onSaveLeave}>{m.session_save_leave()}</button
+      >{/if}
     {#if canPause}
       <button
         type="button"

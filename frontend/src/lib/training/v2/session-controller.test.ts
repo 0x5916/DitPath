@@ -774,3 +774,106 @@ describe('mixed-check controller boundary', () => {
     await controller.dispose();
   });
 });
+
+it('restores the frozen prompt, draft and attempts, and treats interrupted recognition as unmeasured', async () => {
+  const audio = createFakeAudioEngine(),
+    attemptRepo = createFakeAttemptRepo(),
+    sessionRepo = createFakeSessionRepo();
+  let saved: NonNullable<
+    import('./session-controller.svelte').SessionControllerDependencies['resume']
+  > | null = null;
+  const prompts = [createMockPrompt('resume-one', 'K'), createMockPrompt('resume-two', 'M')];
+  const controller = new GuidedSessionController({
+    step: 1,
+    sessionId: 'resume',
+    prompts,
+    audioEngine: audio,
+    attemptRepo,
+    sessionRepo,
+    saveCheckpoint: async (state, record, draft) => {
+      saved = { state, record, draft };
+    }
+  });
+  await controller.start();
+  controller.play();
+  audio.finish();
+  controller.submitAnswer('K', 'keyboard');
+  controller.continue();
+  controller.setDraft('M');
+  controller.play();
+  await controller.flushPersistence();
+  const checkpoint = structuredClone(saved!);
+  await controller.dispose();
+  const engine = createFakeAudioEngine();
+  const resumed = new GuidedSessionController({
+    step: 1,
+    prompts,
+    audioEngine: engine,
+    attemptRepo,
+    sessionRepo,
+    resume: checkpoint
+  });
+  await resumed.start();
+  expect(resumed.currentPrompt?.id).toBe('resume-two');
+  expect(checkpoint.draft).toBe('M');
+  expect(resumed.attempts.map((a) => a.promptId)).toEqual(['resume-one']);
+  expect(attemptRepo.saved).toHaveLength(1);
+  expect(resumed.phase).toBe('paused');
+  resumed.resume();
+  resumed.play();
+  engine.finish();
+  resumed.submitAnswer('M', 'keyboard');
+  expect(resumed.lastAttempt?.classification).toBe('unmeasured');
+  await resumed.dispose();
+});
+it('commits a first-response checkpoint before its attempt and retains feedback through a restart', async () => {
+  const audio = createFakeAudioEngine(),
+    attemptRepo = createFakeAttemptRepo(),
+    sessionRepo = createFakeSessionRepo();
+  const order: string[] = [];
+  let saved: NonNullable<
+    import('./session-controller.svelte').SessionControllerDependencies['resume']
+  > | null = null;
+  const original = attemptRepo.saveAttempt;
+  attemptRepo.saveAttempt = async (a) => {
+    order.push('attempt');
+    await original(a);
+  };
+  const prompts = [createMockPrompt('frozen', 'K'), createMockPrompt('later', 'M')];
+  const controller = new GuidedSessionController({
+    step: 1,
+    prompts,
+    audioEngine: audio,
+    attemptRepo,
+    sessionRepo,
+    saveCheckpoint: async (state, record, draft) => {
+      saved = { state, record, draft };
+      if (state.phase === 'feedback') order.push('checkpoint');
+    }
+  });
+  await controller.start();
+  controller.play();
+  audio.finish();
+  await controller.flushPersistence();
+  order.length = 0;
+  controller.submitAnswer('K', 'keyboard');
+  await controller.flushPersistence();
+  expect(order).toEqual(['checkpoint', 'attempt']);
+  const checkpoint = structuredClone(saved!);
+  await controller.dispose();
+  const resumed = new GuidedSessionController({
+    step: 1,
+    prompts,
+    audioEngine: createFakeAudioEngine(),
+    attemptRepo,
+    sessionRepo,
+    resume: checkpoint
+  });
+  await resumed.start();
+  expect(resumed.phase).toBe('feedback');
+  expect(attemptRepo.saved).toHaveLength(1);
+  expect(resumed.lastAttempt?.id).toBe(checkpoint.state.lastAttempt?.id);
+  resumed.continue();
+  expect(resumed.currentPrompt?.id).toBe('later');
+  await resumed.dispose();
+});

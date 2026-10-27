@@ -16,6 +16,7 @@ export type { RandomSource };
 export interface Exercise {
   /** Lesson the exercise was generated for. */
   lesson: number;
+  context?: import('./contextual-practice').PracticeContext;
   /** Passage to send; content stays fixed for the life of the exercise. */
   text: string;
 }

@@ -103,3 +103,30 @@ it('abandons an orphaned local plan with its actual observation manifest', async
   ]);
   f.db.close();
 });
+
+it('retains a resumable plan while conservatively closing its old exposure', async () => {
+  const f = await fixture();
+  await f.repo.append([
+    {
+      id: 'resumable',
+      kind: 'plan',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-26T00:00:00Z',
+      session_id: 'saved'
+    }
+  ]);
+  const store = f.db.transaction('records', 'readwrite').objectStore('records');
+  const row = await reqToPromise(store.get(['unclaimed', 'resumable']));
+  await reqToPromise(store.put({ ...row, processId: 'previous-document' }));
+  await f.repo.setCheckpoint('saved', { kind: 'guided', id: 'saved' });
+  vi.stubGlobal('navigator', {
+    locks: {
+      request: async (_n: unknown, _o: unknown, fn: (lock: object) => Promise<void>) => fn({})
+    }
+  });
+  await recoverInterruptedEvidence('unclaimed', () => true);
+  const records = await f.repo.all();
+  expect(records.some((r) => r.kind === 'terminal')).toBe(false);
+  expect(records.some((r) => r.kind === 'exposure-close')).toBe(true);
+  f.db.close();
+});

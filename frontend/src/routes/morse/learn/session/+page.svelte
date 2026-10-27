@@ -1,4 +1,13 @@
 <script lang="ts">
+  import {
+    loadCheckpoint,
+    saveCheckpoint,
+    removeCheckpoint,
+    claimSession,
+    checkpointMetadata,
+    type GuidedCheckpoint
+  } from '#lib/data/session-checkpoints.ts';
+  import type { EvidencePresentation } from '#lib/audio/evidence-engine.ts';
   import { browser } from '$app/env';
   import { page } from '$app/state';
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
@@ -80,6 +89,9 @@
   let sessionOwner: string | null = null;
   const controllerOwners = new WeakMap<GuidedSessionController, string>();
   let discardPersistence = false;
+  const suspendedControllers = new WeakSet<GuidedSessionController>();
+  const sessionLeases = new WeakMap<GuidedSessionController, () => Promise<void>>();
+  const resumeValue = $derived(browser ? page.url.searchParams.get('resume') : null);
 
   let step = $derived.by(() => {
     if (!browser) return 1;
@@ -88,7 +100,9 @@
     return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, LESSONS.length) : 1;
   });
 
-  const routeKey = $derived(`${step}:${reviewValue ?? ''}:${checkValue ?? ''}`);
+  const routeKey = $derived(
+    `${step}:${reviewValue ?? ''}:${checkValue ?? ''}:${resumeValue ?? ''}`
+  );
 
   async function releaseSession(
     ctrl: GuidedSessionController | null,
@@ -99,12 +113,14 @@
       database?.close();
       return;
     }
-    ctrl.abandon();
+    if (!suspendedControllers.has(ctrl)) ctrl.abandon();
     const cleanup = async () => {
       try {
         await ctrl.dispose();
       } finally {
         database?.close();
+        await sessionLeases.get(ctrl)?.();
+        sessionLeases.delete(ctrl);
       }
     };
     if (discard) await cleanup();
@@ -117,7 +133,7 @@
       });
   }
 
-  async function startSession(requestedStep: number, beginReview = false) {
+  async function startSession(requestedStep: number, beginReview = false, continueSaved = true) {
     const requestedReview = reviewValue;
     const reviewRequest = parseReviewRequest(requestedReview);
     const requestedCheck = checkValue;
@@ -144,6 +160,7 @@
     pendingAction = null;
     pendingNavigation = null;
     let database: IDBDatabase | null = null;
+    let pendingLease: (() => Promise<void>) | null = null;
     try {
       await releaseSession(previousController, previousDb);
       if (destroyed || generation !== initialization || owner !== getTrainingOwner()) return;
@@ -164,10 +181,79 @@
         return;
       }
       const sound = readClientCwSettings();
-      const id = createSessionId();
+      const loaded = continueSaved && resumeValue ? await loadCheckpoint(owner, resumeValue) : null;
+      if (continueSaved && resumeValue && loaded?.kind !== 'guided')
+        throw Error('Saved session unavailable');
+      const resume = loaded?.kind === 'guided' ? loaded : null;
+      const id = resume?.id ?? createSessionId();
+      let firstPresentation: (id: string) => EvidencePresentation | null = () => null;
       let captureFirst: ((prompt: import('#lib/training/v2/types.ts').Prompt) => void) | undefined;
       let audio;
-      if (reviewRequest || checkTargets) {
+      if (resume) {
+        pendingLease = await claimSession(owner, id, true);
+        answerDraft = resume.draft;
+        reviewPlan = resume.review;
+        mixedPlan = resume.mixed;
+        reviewStarted = true;
+        if (resume.review || resume.mixed) {
+          database.close();
+          database = await openLearningEvidenceDb();
+          const repo = createLearningEvidenceRepository(database, owner),
+            records = await repo.all();
+          if (records.some((r) => r.kind === 'terminal' && r.session_id === id)) {
+            await removeCheckpoint(owner, id);
+            throw Error('Saved session finalized');
+          }
+          const first = resume.first
+            ? {
+                ...resume.first,
+                ...(resume.state.phase === 'feedback' ? {} : { valid: false, interrupted: true })
+              }
+            : null;
+          audio = createEvidenceAudioEngine({
+            ownerKey: owner,
+            currentOwner: getTrainingOwner,
+            source: resume.mixed
+              ? 'mixed-check'
+              : resume.review?.purpose === 'return-screening'
+                ? 'screening'
+                : 'coaching',
+            sessionId: id,
+            knownCharacters: checkpointMetadata(resume).knownCharacters,
+            repository: repo
+          });
+          const adapted = createEvidenceSessionRepositories(
+            repo,
+            owner,
+            checkpointMetadata(resume),
+            audio,
+            {
+              session: resume.record,
+              records,
+              attempts: resume.state.attempts,
+              first: first
+                ? { promptId: resume.state.currentPrompt!.id, presentation: first }
+                : undefined
+            }
+          );
+          attemptRepo = adapted.attemptRepo;
+          sessionRepo = adapted.sessionRepo;
+          captureFirst = adapted.captureFirst;
+          firstPresentation = adapted.firstPresentation;
+        } else {
+          const existing = await sessionRepo.getSession(id);
+          if (existing && existing.status !== 'in-progress') {
+            await removeCheckpoint(owner, id);
+            throw Error('Saved session finalized');
+          }
+          if (!existing) await sessionRepo.saveSession(resume.record);
+          audio = createEvidenceAudioEngine({
+            ownerKey: owner,
+            currentOwner: getTrainingOwner,
+            source: 'guided'
+          });
+        }
+      } else if (reviewRequest || checkTargets) {
         const snapshot = await loadLearningSnapshot({ ownerKey: owner });
         if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
           database.close();
@@ -210,6 +296,7 @@
         database.close();
         database = null;
         if (!beginReview) return;
+        pendingLease = await claimSession(owner, id);
         database = await openLearningEvidenceDb();
         if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
           database.close();
@@ -245,14 +332,52 @@
         attemptRepo = local.attemptRepo;
         sessionRepo = local.sessionRepo;
         captureFirst = local.captureFirst;
+        firstPresentation = local.firstPresentation;
       } else {
+        pendingLease = await claimSession(owner, id);
         audio = createEvidenceAudioEngine({
           ownerKey: owner,
           currentOwner: getTrainingOwner,
           source: 'guided'
         });
       }
+      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+        await audio.dispose();
+        database?.close();
+        return;
+      }
+      const checkpointContext = {
+        review: reviewPlan,
+        mixed: mixedPlan,
+        href: `/morse/learn/session?step=${requestedStep}${requestedReview ? `&review=${encodeURIComponent(requestedReview)}` : ''}${requestedCheck ? `&check=${encodeURIComponent(requestedCheck)}` : ''}`
+      };
       const ctrl = new GuidedSessionController({
+        ...(resume
+          ? {
+              resume: { state: resume.state, record: resume.record, draft: resume.draft },
+              prompts: resume.state.prompts
+            }
+          : {}),
+        saveCheckpoint: async (state, record, draft) => {
+          if (['complete', 'abandoned'].includes(state.phase)) {
+            await removeCheckpoint(owner, id);
+            return;
+          }
+          const value: GuidedCheckpoint = {
+            version: 1,
+            kind: 'guided',
+            id,
+            href: checkpointContext.href,
+            savedAt: new Date().toISOString(),
+            draft,
+            state,
+            record,
+            review: checkpointContext.review,
+            mixed: checkpointContext.mixed,
+            first: state.currentPrompt ? firstPresentation(state.currentPrompt.id) : null
+          };
+          await saveCheckpoint(owner, JSON.parse(JSON.stringify(value)));
+        },
         sessionId: id,
         step: requestedStep,
         ...(mixedPlan
@@ -270,6 +395,10 @@
         sessionRepo,
         allHistoricalAttempts: recentAttempts
       });
+      if (pendingLease) {
+        sessionLeases.set(ctrl, pendingLease);
+        pendingLease = null;
+      }
       controllerOwners.set(ctrl, owner);
       controller = ctrl;
       db = database;
@@ -281,6 +410,7 @@
         console.error('Failed to initialize guided session:', err);
       }
     } finally {
+      await pendingLease?.();
       if (!destroyed && generation === initialization && owner === getTrainingOwner())
         initializing = false;
     }
@@ -408,6 +538,26 @@
     void continueNavigation(pending);
   });
 
+  async function saveAndLeave() {
+    const ctrl = controller,
+      owner = getTrainingOwner();
+    if (!ctrl || leaving) return;
+    leaving = true;
+    ctrl.suspend();
+    try {
+      if (!(await ctrl.flushPersistence()) || destroyed || owner !== getTrainingOwner()) return;
+      suspendedControllers.add(ctrl);
+      await releaseSession(ctrl, db);
+      db = null;
+      if (destroyed || owner !== getTrainingOwner()) return;
+      controller = null;
+      bypassDestination = new URL(localizedHref('/morse/learn'), page.url.href).href;
+      await goto(bypassDestination);
+    } finally {
+      leaving = false;
+    }
+  }
+
   async function leaveSession(action: 'exit' | 'repeat' | 'next', discard = false) {
     if (leaving) return;
     leaving = true;
@@ -427,7 +577,7 @@
       controller = null;
       if (action === 'repeat') {
         if (reviewPlan) reviewRound += 1;
-        await startSession(step, Boolean(reviewPlan));
+        await startSession(step, Boolean(reviewPlan), false);
       } else {
         const destination = localizedHref(
           action === 'next'
@@ -541,7 +691,8 @@
   <main class="loading-stage">
     <div class="recovery-panel" role="alert">
       <AlertCircle size={24} aria-hidden="true" />
-      <p>{m.lesson_initialization_error()}</p>
+      <p>{resumeValue ? m.session_resume_error() : m.lesson_initialization_error()}</p>
+      <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
       <button type="button" class="btn-primary" onclick={() => startSession(step)}
         >{m.lesson_retry_start()}</button
       >
@@ -626,6 +777,7 @@
     busy={leaving || (controller.phase === 'complete' && controller.persistenceStatus === 'saving')}
     canPause={!leaving &&
       ['introducing', 'ready', 'playing', 'answering', 'paused'].includes(controller.phase)}
+    onSaveLeave={() => void saveAndLeave()}
     onExit={handleExit}
     onExitRequest={handleExitRequest}
     onExitCancel={handleExitCancel}
@@ -658,7 +810,7 @@
             learning.snapshot.recommendation.primary,
             learning.snapshot.knownCharacters
           ) === `/morse/learn/session?check=${checkValue}`
-            ? () => startSession(step, true)
+            ? () => startSession(step, true, false)
             : undefined}
           result={learning.snapshot?.checks.find((c) => c.id === controller?.state.sessionId) ??
             null}
@@ -699,7 +851,13 @@
             !mixedPlan &&
             controller.currentPromptIndex ===
               controller.state.prompts.findIndex((prompt) => prompt.spec.kind === 'recall')}
-          bind:draft={answerDraft}
+          bind:draft={
+            () => answerDraft,
+            (value) => {
+              answerDraft = value;
+              controller?.setDraft(value);
+            }
+          }
           classification={controller.lastAttempt?.classification}
           options={controller.currentPrompt.spec.options ?? []}
           expected={controller.currentPrompt.spec.expectedText}

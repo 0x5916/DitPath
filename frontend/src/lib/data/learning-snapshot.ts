@@ -1,3 +1,4 @@
+import { learningHistory, type LearningHistoryEntry } from './learning-history';
 /** One owner-scoped prospective projection for Home, Lessons, Progress and Results. */
 import {
   createLearningEvidenceRepository,
@@ -54,6 +55,7 @@ export interface LearningSnapshot {
   hasProspectiveEvidence: boolean;
   characters: LearningCharacter[];
   checks: EvaluatedCheck[];
+  history: LearningHistoryEntry[];
   recommendation: ReturnType<typeof recommendNext>;
   frontierStep: number;
   courseComplete: boolean;
@@ -461,6 +463,7 @@ export function projectLearningSnapshot(
     hasProspectiveEvidence: records.some((r) => r.kind === 'plan') || claims.length > 0,
     characters,
     checks,
+    history: learningHistory(records),
     recommendation,
     frontierStep: Math.min(attained + 1, LESSONS.length),
     courseComplete: attained === LESSONS.length,

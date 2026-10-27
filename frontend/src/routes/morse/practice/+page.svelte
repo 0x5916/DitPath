@@ -1,4 +1,139 @@
 <script lang="ts">
+  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
+  import {
+    loadCheckpoint,
+    saveCheckpoint,
+    removeCheckpoint,
+    discardCheckpoint,
+    claimSession,
+    type CopyCheckpoint,
+    type SessionCheckpoint
+  } from '#lib/data/session-checkpoints.ts';
+  let savedCopy = $state.raw<CopyCheckpoint | null>(null),
+    restoreCopy = $state.raw<CopyCheckpoint | null>(null);
+  let copyLoading = $state(true),
+    copySaveError = $state(false),
+    copyBlocked = $state(false),
+    copyHasWork = $state(false);
+  let checkpointQueue = Promise.resolve(),
+    copyLoad = 0;
+  let copyLease: (() => Promise<void>) | null = null;
+  let lastCopyCheckpoint: CopyCheckpoint | null = null;
+  async function loadSavedCopy() {
+    const owner = getTrainingOwner(),
+      version = ++copyLoad;
+    copyLoading = true;
+    copyBlocked = false;
+    savedCopy = null;
+    restoreCopy = null;
+    copyHasWork = false;
+    try {
+      const release = copyLease;
+      copyLease = null;
+      await release?.();
+      const c = await loadCheckpoint(owner, 'copy');
+      if (destroyed || owner !== getTrainingOwner() || version !== copyLoad) return;
+      if (c?.kind === 'copy') savedCopy = c;
+      else {
+        const release = await claimSession(owner, 'copy');
+        if (destroyed || owner !== getTrainingOwner() || version !== copyLoad) {
+          await release();
+          return;
+        }
+        copyLease = release;
+      }
+      copySaveError = false;
+    } catch {
+      if (owner === getTrainingOwner()) {
+        copySaveError = true;
+        copyBlocked = true;
+      }
+    } finally {
+      if (owner === getTrainingOwner() && version === copyLoad) copyLoading = false;
+    }
+  }
+  async function discardSavedCopy(entry: SessionCheckpoint) {
+    const owner = getTrainingOwner();
+    try {
+      await discardCheckpoint(owner, entry);
+      if (owner === getTrainingOwner()) {
+        await loadSavedCopy();
+      }
+    } catch {
+      if (owner === getTrainingOwner()) copySaveError = true;
+    }
+  }
+  async function continueSavedCopy(entry: SessionCheckpoint) {
+    if (entry.kind !== 'copy') return;
+    const owner = getTrainingOwner();
+    copyLoading = true;
+    try {
+      const release = await claimSession(owner, 'copy', true);
+      if (destroyed || owner !== getTrainingOwner()) {
+        await release();
+        return;
+      }
+      copyLease = release;
+      restoreCopy = entry;
+      savedCopy = null;
+      copySaveError = false;
+      copyBlocked = false;
+    } catch {
+      if (owner === getTrainingOwner()) {
+        copySaveError = true;
+        copyBlocked = true;
+      }
+    } finally {
+      if (owner === getTrainingOwner()) copyLoading = false;
+    }
+  }
+  function retryCopyCheckpoint() {
+    const owner = getTrainingOwner(),
+      value = lastCopyCheckpoint;
+    checkpointQueue = checkpointQueue
+      .then(() => (value ? saveCheckpoint(owner, value) : removeCheckpoint(owner, 'copy')))
+      .then(() => {
+        if (owner === getTrainingOwner()) copySaveError = false;
+      })
+      .catch(() => {
+        if (owner === getTrainingOwner()) copySaveError = true;
+      });
+  }
+
+  function checkpointCopy(attempt: CopyAttempt, draft: string) {
+    if (!attempt.id || !attempt.exercise.text) return;
+    const owner = getTrainingOwner();
+    if (attempt.session.status === 'ready' && !copyHasWork) return;
+    const clear = attempt.session.status === 'ready';
+    copyHasWork = !clear;
+    const value: CopyCheckpoint = {
+      version: 1,
+      kind: 'copy',
+      id: 'copy',
+      href: '/morse/practice',
+      savedAt: new Date().toISOString(),
+      attempt: JSON.parse(JSON.stringify(attempt)),
+      draft
+    };
+    lastCopyCheckpoint = clear ? null : value;
+    checkpointQueue = checkpointQueue
+      .then(() => (clear ? removeCheckpoint(owner, 'copy') : saveCheckpoint(owner, value)))
+      .then(() => {
+        if (owner === getTrainingOwner()) copySaveError = false;
+      })
+      .catch(() => {
+        if (owner === getTrainingOwner()) copySaveError = true;
+      });
+  }
+  async function saveCopyAndLeave() {
+    practice?.prepareToLeave();
+    await tick();
+    await checkpointQueue;
+    if (copySaveError) return;
+    bypassDestination = new URL(localizedHref('/'), page.url.href).href;
+    await goto(bypassDestination);
+  }
+
   import { onDestroy, onMount, tick } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
@@ -58,7 +193,7 @@
   function recordPractice(attempt: CopyAttempt) {
     if (attemptOwner === null || attemptOwner !== getTrainingOwner()) return;
     recordOwner = attemptOwner;
-    pendingRecord = createPracticeSessionRecord(attempt, crypto.randomUUID());
+    pendingRecord = createPracticeSessionRecord(attempt, attempt.id ?? crypto.randomUUID());
     if (pendingRecord) {
       unsavedRecords.set(recordOwner, pendingRecord);
       void savePractice();
@@ -74,6 +209,11 @@
     try {
       db = await openTrainingDb();
       await createSessionRepository(db, owner).saveSession(record);
+      await tick();
+      await checkpointQueue;
+      const checkpoint = await loadCheckpoint(owner, 'copy');
+      if (checkpoint?.kind === 'copy' && checkpoint.attempt.id === record.id)
+        await removeCheckpoint(owner, 'copy');
       if (unsavedRecords.get(owner) === record) unsavedRecords.delete(owner);
       if (owner === getTrainingOwner() && pendingRecord === record) {
         pendingRecord = null;
@@ -155,6 +295,8 @@
     confirming = true;
     navigationError = false;
     try {
+      await checkpointQueue;
+      await removeCheckpoint(getTrainingOwner(), 'copy');
       if (await departure.confirm()) departure = null;
     } catch {
       bypassDestination = null;
@@ -171,6 +313,9 @@
   });
   onDestroy(() => {
     destroyed = true;
+    const release = copyLease;
+    copyLease = null;
+    void checkpointQueue.finally(() => release?.());
     departure?.cancel();
     cancelHistoryRestore?.();
   });
@@ -185,11 +330,13 @@
   // Keep existing character-explorer bookmarks useful after giving the tool its own page.
   onMount(() => {
     loadDefaults();
+    void loadSavedCopy();
     const unsubscribe = subscribeTrainingSync(() => {
       const owner = getTrainingOwner();
       if (practiceOwner === owner) return;
       void cancelDeparture();
       practiceOwner = owner;
+      void loadSavedCopy();
       loadDefaults();
       attemptOwner = null;
       recordOwner = owner;
@@ -225,19 +372,39 @@
     syncing={trainingSyncState.syncing}
     synced={trainingSyncState.synced}
   />
-  {#key practiceOwner}
-    <ContinuousCopyPractice
-      bind:this={practice}
-      {...defaults}
-      onFinish={() => void goto(localizedHref('/'))}
-      onStart={() => {
-        attemptOwner ??= getTrainingOwner();
-      }}
-      onReview={recordPractice}
-      {persistenceStatus}
-      onRetrySave={() => void savePractice()}
+  {#if copySaveError}<p role="alert">{m.session_save_error()}</p>
+    <button
+      class="btn-ghost"
+      onclick={() => (copyBlocked ? void loadSavedCopy() : retryCopyCheckpoint())}
+      >{m.common_retry()}</button
+    >{/if}
+  {#if copyLoading}<p role="status">{m.common_loading()}</p>
+  {:else if copyBlocked}<p role="alert">{m.session_resume_error()}</p>
+  {:else if savedCopy}<SavedSessions
+      entries={[savedCopy]}
+      onContinue={(entry) => void continueSavedCopy(entry)}
+      onDiscard={(entry) => void discardSavedCopy(entry)}
     />
-  {/key}
+  {:else}
+    {#if copyHasWork}<button class="btn-ghost" onclick={() => void saveCopyAndLeave()}
+        >{m.session_save_leave()}</button
+      >{/if}
+    {#key practiceOwner}
+      <ContinuousCopyPractice
+        resume={restoreCopy}
+        onCheckpoint={checkpointCopy}
+        bind:this={practice}
+        {...defaults}
+        onFinish={() => void goto(localizedHref('/'))}
+        onStart={() => {
+          attemptOwner ??= getTrainingOwner();
+        }}
+        onReview={recordPractice}
+        {persistenceStatus}
+        onRetrySave={() => void savePractice()}
+      />
+    {/key}
+  {/if}
 </div>
 
 <ExitSessionDialog

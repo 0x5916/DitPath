@@ -37,6 +37,7 @@ export async function recoverInterruptedEvidence(
           if (!lock || !isCurrent()) return;
           const all = await repo.all();
           if (candidate.record.kind === 'plan') {
+            if (await repo.getCheckpoint(String(candidate.record.session_id))) return;
             if (
               all.some(
                 (r) => r.kind === 'terminal' && r.session_id === candidate.record.session_id
