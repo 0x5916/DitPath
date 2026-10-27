@@ -31,7 +31,7 @@ export interface AudioEngine {
   /** True while a playback exists (playing or paused). */
   isActive(): boolean;
   isPaused(): boolean;
-  /** Seconds since the last `play()`, including the plan's start delay. */
+  /** Seconds since the plan's clock started (after the lead-in), including its start delay. */
   elapsed(): number;
 }
 
@@ -45,6 +45,15 @@ export type AudioContextFactory = () => AudioContext;
  * audible on a short last dot such as the end of R or S.
  */
 export const MIN_OUTPUT_TAIL = 0.15;
+
+/**
+ * Silence before the first tone. A new AudioContext needs a moment before its
+ * first samples reach the speaker, so a tone scheduled right at the start loses
+ * its beginning: the first dot of S is barely heard and the first dash of K
+ * sounds like a dot. Looping hides it because the context is warm by then.
+ * `elapsed()` starts counting after this lead-in, so the clock is unchanged.
+ */
+export const START_LEAD_IN = 0.2;
 
 function usableSeconds(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
@@ -139,9 +148,10 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     // Match the original player: read the clock after graph setup and silence
     // the oscillator immediately. A future zero leaves GainNode's default
     // gain of 1 audible throughout the start delay.
-    ctxStartTime = audio.currentTime;
+    const now = audio.currentTime;
+    ctxStartTime = now + START_LEAD_IN;
     const t0 = ctxStartTime + plan.startDelay;
-    gain.gain.setValueAtTime(0, ctxStartTime);
+    gain.gain.setValueAtTime(0, now);
     for (const event of plan.events) {
       const start = t0 + event.start;
       const end = start + event.duration;
@@ -203,6 +213,6 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     },
     isActive: () => active,
     isPaused: () => paused,
-    elapsed: () => (active && ctx ? ctx.currentTime - ctxStartTime : 0)
+    elapsed: () => (active && ctx ? Math.max(ctx.currentTime - ctxStartTime, 0) : 0)
   };
 }

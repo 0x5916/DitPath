@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AudioEngine } from './engine';
-import { MIN_OUTPUT_TAIL, createWebAudioEngine } from './engine';
+import { MIN_OUTPUT_TAIL, START_LEAD_IN, createWebAudioEngine } from './engine';
 import { buildAudioPlan } from '../training/timing';
 
 type ParamCall = {
@@ -169,25 +169,28 @@ describe('WebAudioEngine', () => {
     const osc = context.oscillators[0];
     expect(osc.frequency.value).toBe(700);
     expect(osc.started).toBe(true);
-    expect(osc.stoppedAt).toBeCloseTo(10 + 1 + plan.totalDuration + MIN_OUTPUT_TAIL, 12);
+    const t0 = 10 + START_LEAD_IN + 1;
+    expect(osc.stoppedAt).toBeCloseTo(t0 + plan.totalDuration + MIN_OUTPUT_TAIL, 12);
 
     const calls = context.gains[0].gain.calls;
     // Silence starts now, before the delayed first tone, as in the original
     // player. A future initial step leaves the default gain audible until then.
     expect(calls).toHaveLength(1 + plan.events.length * 4);
     expect(calls[0]).toEqual({ method: 'setValueAtTime', value: 0, time: 10 });
-    expect(calls[1]).toEqual({ method: 'setValueAtTime', value: 0, time: 11 });
+    expect(calls[1].method).toBe('setValueAtTime');
+    expect(calls[1].value).toBe(0);
+    expect(calls[1].time).toBeCloseTo(t0, 12);
     expect(calls[2].method).toBe('linearRampToValueAtTime');
     expect(calls[2].value).toBe(0.5);
-    expect(calls[2].time).toBeCloseTo(11.005, 12);
+    expect(calls[2].time).toBeCloseTo(t0 + 0.005, 12);
     expect(calls[3].method).toBe('setValueAtTime');
     expect(calls[3].value).toBe(0.5);
-    expect(calls[3].time).toBeCloseTo(11.055, 12);
+    expect(calls[3].time).toBeCloseTo(t0 + 0.055, 12);
     expect(calls[4].method).toBe('linearRampToValueAtTime');
     expect(calls[4].value).toBe(0);
-    expect(calls[4].time).toBeCloseTo(11.06, 12);
+    expect(calls[4].time).toBeCloseTo(t0 + 0.06, 12);
     // Second tone starts after the symbol gap.
-    expect(calls[5].time).toBeCloseTo(11.12, 12);
+    expect(calls[5].time).toBeCloseTo(t0 + 0.12, 12);
   });
 
   it('keeps the context alive after the last tone so a final dot is not clipped', () => {
@@ -200,7 +203,7 @@ describe('WebAudioEngine', () => {
     const lastTone = calls.at(-1)!;
     expect(lastTone.method).toBe('linearRampToValueAtTime');
     expect(lastTone.value).toBe(0);
-    expect(lastTone.time).toBeCloseTo(10 + dots.totalDuration, 12);
+    expect(lastTone.time).toBeCloseTo(10 + START_LEAD_IN + dots.totalDuration, 12);
     expect(context.oscillators[0].stoppedAt).toBeCloseTo(lastTone.time + MIN_OUTPUT_TAIL, 12);
   });
 
@@ -214,7 +217,10 @@ describe('WebAudioEngine', () => {
 
     engine.play(plan);
 
-    expect(context.oscillators[0].stoppedAt).toBeCloseTo(10 + 1 + plan.totalDuration + 0.36, 12);
+    expect(context.oscillators[0].stoppedAt).toBeCloseTo(
+      10 + START_LEAD_IN + 1 + plan.totalDuration + 0.36,
+      12
+    );
   });
 
   it('falls back to the minimum tail when latency is missing or unusable', () => {
@@ -229,10 +235,26 @@ describe('WebAudioEngine', () => {
       engine.play(plan);
 
       expect(context.oscillators[0].stoppedAt).toBeCloseTo(
-        10 + 1 + plan.totalDuration + MIN_OUTPUT_TAIL,
+        10 + START_LEAD_IN + 1 + plan.totalDuration + MIN_OUTPUT_TAIL,
         12
       );
     }
+  });
+
+  it('leaves a silent lead-in so a cold context does not swallow the first tone', () => {
+    const { contexts, engine } = setup();
+    engine.play({ ...plan, startDelay: 0 });
+
+    const context = contexts[0];
+    const firstTone = context.gains[0].gain.calls[1];
+    expect(firstTone.time).toBeCloseTo(10 + START_LEAD_IN, 12);
+
+    // The progress clock starts when the plan does, not during the lead-in.
+    expect(engine.elapsed()).toBe(0);
+    context.currentTime = 10 + START_LEAD_IN / 2;
+    expect(engine.elapsed()).toBe(0);
+    context.currentTime = 10 + START_LEAD_IN + 0.5;
+    expect(engine.elapsed()).toBeCloseTo(0.5, 12);
   });
 
   it('captures the playback clock after constructing the graph', () => {
@@ -253,9 +275,9 @@ describe('WebAudioEngine', () => {
       const calls = context.gains[0].gain.calls;
       expect(engine.elapsed()).toBe(0);
       expect(calls[0]).toEqual({ method: 'setValueAtTime', value: 0, time: 10.25 });
-      expect(calls[1].time).toBe(10.25 + startDelay);
+      expect(calls[1].time).toBeCloseTo(10.25 + START_LEAD_IN + startDelay, 12);
       expect(context.oscillators[0].stoppedAt).toBeCloseTo(
-        10.25 + startDelay + plan.totalDuration + MIN_OUTPUT_TAIL,
+        10.25 + START_LEAD_IN + startDelay + plan.totalDuration + MIN_OUTPUT_TAIL,
         12
       );
     }
