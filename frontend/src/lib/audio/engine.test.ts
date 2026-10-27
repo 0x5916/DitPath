@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AudioEngine } from './engine';
-import { createWebAudioEngine } from './engine';
+import { MIN_OUTPUT_TAIL, createWebAudioEngine } from './engine';
 import { buildAudioPlan } from '../training/timing';
 
 type ParamCall = {
@@ -66,6 +66,8 @@ class FakeAudioContext {
   currentTime = 10;
   destination = { name: 'destination' };
   state = 'running';
+  baseLatency: number | undefined;
+  outputLatency: number | undefined;
   oscillators: FakeOscillatorNode[] = [];
   gains: FakeGainNode[] = [];
   closeCalls = 0;
@@ -167,7 +169,7 @@ describe('WebAudioEngine', () => {
     const osc = context.oscillators[0];
     expect(osc.frequency.value).toBe(700);
     expect(osc.started).toBe(true);
-    expect(osc.stoppedAt).toBeCloseTo(10 + 1 + plan.totalDuration, 12);
+    expect(osc.stoppedAt).toBeCloseTo(10 + 1 + plan.totalDuration + MIN_OUTPUT_TAIL, 12);
 
     const calls = context.gains[0].gain.calls;
     // Silence starts now, before the delayed first tone, as in the original
@@ -186,6 +188,51 @@ describe('WebAudioEngine', () => {
     expect(calls[4].time).toBeCloseTo(11.06, 12);
     // Second tone starts after the symbol gap.
     expect(calls[5].time).toBeCloseTo(11.12, 12);
+  });
+
+  it('keeps the context alive after the last tone so a final dot is not clipped', () => {
+    const { contexts, engine } = setup();
+    const dots = buildAudioPlan('S', { charWpm: 20, effWpm: 20, startDelay: 0 });
+    engine.play(dots);
+
+    const context = contexts[0];
+    const calls = context.gains[0].gain.calls;
+    const lastTone = calls.at(-1)!;
+    expect(lastTone.method).toBe('linearRampToValueAtTime');
+    expect(lastTone.value).toBe(0);
+    expect(lastTone.time).toBeCloseTo(10 + dots.totalDuration, 12);
+    expect(context.oscillators[0].stoppedAt).toBeCloseTo(lastTone.time + MIN_OUTPUT_TAIL, 12);
+  });
+
+  it('extends the tail by the output latency the device reports', () => {
+    const context = new FakeAudioContext();
+    context.baseLatency = 0.01;
+    context.outputLatency = 0.3;
+    const engine = createWebAudioEngine({
+      createContext: () => context as unknown as AudioContext
+    });
+
+    engine.play(plan);
+
+    expect(context.oscillators[0].stoppedAt).toBeCloseTo(10 + 1 + plan.totalDuration + 0.36, 12);
+  });
+
+  it('falls back to the minimum tail when latency is missing or unusable', () => {
+    for (const latency of [undefined, Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+      const context = new FakeAudioContext();
+      context.baseLatency = latency;
+      context.outputLatency = latency;
+      const engine = createWebAudioEngine({
+        createContext: () => context as unknown as AudioContext
+      });
+
+      engine.play(plan);
+
+      expect(context.oscillators[0].stoppedAt).toBeCloseTo(
+        10 + 1 + plan.totalDuration + MIN_OUTPUT_TAIL,
+        12
+      );
+    }
   });
 
   it('captures the playback clock after constructing the graph', () => {
@@ -208,7 +255,7 @@ describe('WebAudioEngine', () => {
       expect(calls[0]).toEqual({ method: 'setValueAtTime', value: 0, time: 10.25 });
       expect(calls[1].time).toBe(10.25 + startDelay);
       expect(context.oscillators[0].stoppedAt).toBeCloseTo(
-        10.25 + startDelay + plan.totalDuration,
+        10.25 + startDelay + plan.totalDuration + MIN_OUTPUT_TAIL,
         12
       );
     }

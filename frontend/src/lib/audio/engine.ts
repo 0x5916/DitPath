@@ -37,6 +37,25 @@ export interface AudioEngine {
 
 export type AudioContextFactory = () => AudioContext;
 
+/**
+ * Silent time kept on the timeline after the last tone. The oscillator's
+ * `ended` event fires when it is rendered, but the sound reaches the speaker
+ * one output latency later and `close()` discards whatever is still in flight.
+ * Without this tail the end of the final tone is clipped, which is most
+ * audible on a short last dot such as the end of R or S.
+ */
+export const MIN_OUTPUT_TAIL = 0.15;
+
+function usableSeconds(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/** How long to keep the context alive after the last tone has been rendered. */
+function outputTail(audio: AudioContext): number {
+  const reported = usableSeconds(audio.baseLatency) + usableSeconds(audio.outputLatency);
+  return Math.max(MIN_OUTPUT_TAIL, reported + 0.05);
+}
+
 export interface WebAudioEngineOptions {
   /** Test seam; defaults to `new AudioContext()` on first play. */
   createContext?: AudioContextFactory;
@@ -139,7 +158,8 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     };
 
     osc.start();
-    osc.stop(t0 + plan.totalDuration);
+    // The gain is already 0 after the last tone, so the extra time is silent.
+    osc.stop(t0 + plan.totalDuration + outputTail(audio));
   }
 
   async function pause(): Promise<void> {
