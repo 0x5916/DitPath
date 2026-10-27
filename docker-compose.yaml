@@ -3,7 +3,7 @@ services:
     image: postgres:18.6-alpine3.24
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -73,11 +73,10 @@ services:
         PUBLIC_API_BASE: ${PUBLIC_API_BASE}
         PUBLIC_GOOGLE_CLIENT_ID: ${PUBLIC_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
-    # With a Cloudflare Tunnel (or a local reverse proxy) this can be narrowed to
-    # 127.0.0.1:3000:80. Keep the mapping either way: deploy.sh, update.sh and status.sh
-    # probe 127.0.0.1:3000.
+    # Keep host probes on loopback; Cloudflare Tunnel reaches the service over
+    # the Compose network. Direct LAN access requires an explicit binding change.
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     logging:
       driver: json-file
       options:
@@ -121,10 +120,10 @@ services:
       DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME:-30m}
       DB_CONN_MAX_IDLE_TIME: ${DB_CONN_MAX_IDLE_TIME:-5m}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     # No healthcheck: the image is distroless, so there is no shell or HTTP client inside it
     # to run one with. `make status` and deploy.sh probe /v1/health from the host instead.
-    # Narrow to 127.0.0.1:8080:8080 with a tunnel or local proxy, but keep the mapping.
+    # Keep the loopback mapping for host probes when using a tunnel or local proxy.
     logging:
       driver: json-file
       options:

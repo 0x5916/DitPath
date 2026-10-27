@@ -8,7 +8,7 @@ For a newly created Proxmox LXC, begin with [Fresh LXC setup](#fresh-lxc-setup),
 
 Use Docker with Compose v2, Bash 4 or newer, Git, Make, gzip, and curl or wget; OpenSSL generates secrets. The scripts require GNU host utilities, so run them on the deployment host. Enable Docker at boot and reserve space for database data, images, and retained backups.
 
-The shipped bindings expose the database at `${DB_PORT:-5432}`, backend at `8080`, and frontend at `3000` on every interface. pgAdmin binds only to `127.0.0.1:${PGADMIN_PORT:-5050}`. Restrict database and application ports with your firewall or loopback bindings when a tunnel or local proxy supplies public access. Retain the loopback mappings used by health probes.
+The shipped bindings expose the database at `127.0.0.1:${DB_PORT:-5432}`, backend at `127.0.0.1:8080`, frontend at `127.0.0.1:3000`, and pgAdmin at `127.0.0.1:${PGADMIN_PORT:-5050}`. Cloudflare Tunnel reaches services over the Compose network; a host reverse proxy uses loopback. Direct LAN access requires the explicit application binding changes below. Keep the database and pgAdmin private, and retain local access for health probes.
 
 ## Fresh LXC setup
 
@@ -121,7 +121,7 @@ Paste the generated value into `JWT_SECRET` and fill the required values below. 
 
 Set the database's RAM budget on a shared or nested host; see [PostgreSQL resource tuning](#postgresql-resource-tuning). The template selects PGTune's web profile; other tuning inputs remain commented until you remove their leading `#`. Review optional ports, HTTP timeouts, connection pool settings, and tunnel values in [example.env](example.env), then run `make check`.
 
-For an initial **LAN installation**, replace the following values in `.env`. This example assumes the LXC is `192.168.1.50` with the 4-core/8-GiB allocation above; substitute its actual IP. These are settings to edit, not commands to run:
+For an initial **LAN installation**, explicitly change the frontend and backend bindings in `docker-compose.yaml` to `"3000:80"` and `"8080:8080"`, respectively, and restrict those ports to your intended LAN clients with the upstream firewall. Keep database and pgAdmin bindings on loopback. These application binding changes enable the host health probes and direct LAN access. Then replace the following values in `.env`. This example assumes the LXC is `192.168.1.50` with the 4-core/8-GiB allocation above; substitute its actual IP. These are settings to edit, not commands to run:
 
 ```dotenv
 POSTGRES_DATA_PATH=/data/postgres
