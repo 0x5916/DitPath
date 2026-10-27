@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,20 +166,25 @@ func TestCombinedSettingsPostgresAssociations(t *testing.T) {
 	settingsReadSnapshot(t, db, &user, "cw", 200, `{"char_wpm":20,"eff_wpm":12,"freq":600,"start_delay":0.5}`)
 	settingsReadSnapshot(t, db, &user, "page", 200, `{"language":"auto","cur_lesson":0}`)
 	now := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
+	// PostgreSQL timestamptz scans preserve the instant in the host location.
+	// Snapshot the equivalent offset without changing the response contract.
+	localStamp := now.In(time.Local).Format(time.RFC3339)
+	localZeroCW := strings.ReplaceAll(settingsZeroCW, now.Format(time.RFC3339), localStamp)
+	localStoredPage := strings.ReplaceAll(settingsStoredPage, now.Format(time.RFC3339), localStamp)
 	cw := models.CWSettings{Base: models.Base{UpdatedAt: now}, UserID: user.ID}
 	if err := db.Create(&cw).Error; err != nil {
 		t.Fatal(err)
 	}
-	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(settingsZeroCW, settingsDefaultPage))
+	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(localZeroCW, settingsDefaultPage))
 	page := models.PageSettings{Base: models.Base{UpdatedAt: now}, UserID: user.ID, Lang: "en", CurLesson: 8}
 	if err := db.Create(&page).Error; err != nil {
 		t.Fatal(err)
 	}
-	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(settingsZeroCW, settingsStoredPage))
+	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(localZeroCW, localStoredPage))
 	if err := db.Delete(&cw).Error; err != nil {
 		t.Fatal(err)
 	}
-	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(settingsDefaultCW, settingsStoredPage))
+	settingsReadSnapshot(t, db, &user, "all", 200, combinedSettingsSnapshot(settingsDefaultCW, localStoredPage))
 	if err := db.Delete(&page).Error; err != nil {
 		t.Fatal(err)
 	}

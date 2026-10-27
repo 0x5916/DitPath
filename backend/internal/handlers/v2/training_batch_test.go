@@ -105,14 +105,14 @@ func TestTrainingBatchDuplicatesPreserveAcknowledgementsAndActivity(t *testing.T
 		byID[event.EventID] = event
 	}
 	const latest = "2100-01-02T00:00:00.123456Z"
-	if len(stored) != 2 || byID["second"].ClientCreatedAt.Format(time.RFC3339Nano) != latest || byID[" first "].TargetCharacter != "T" || byID[" first "].EnteredText != "T" {
+	if len(stored) != 2 || byID["second"].ClientCreatedAt.UTC().Format(time.RFC3339Nano) != latest || byID[" first "].TargetCharacter != "T" || byID[" first "].EnteredText != "T" {
 		t.Fatalf("stored batch changed: %+v", stored)
 	}
 	var profile models.TrainingProfile
 	if err := db.Where("user_id = ?", user.ID).Take(&profile).Error; err != nil {
 		t.Fatal(err)
 	}
-	if profile.LastActiveAt == nil || profile.LastActiveAt.Format(time.RFC3339Nano) != latest {
+	if profile.LastActiveAt == nil || profile.LastActiveAt.UTC().Format(time.RFC3339Nano) != latest {
 		t.Fatalf("activity did not use the normalized stored event: %+v", profile)
 	}
 	// A schema-1 retry acknowledges its ID without changing canonical activity.
@@ -125,7 +125,7 @@ func TestTrainingBatchDuplicatesPreserveAcknowledgementsAndActivity(t *testing.T
 	if err := db.Model(&models.TrainingEvent{}).Where("user_id = ?", user.ID).Count(&count).Error; err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 || profile.LastActiveAt == nil || profile.LastActiveAt.Format(time.RFC3339Nano) != latest {
+	if count != 2 || profile.LastActiveAt == nil || profile.LastActiveAt.UTC().Format(time.RFC3339Nano) != latest {
 		t.Fatalf("retry changed storage or activity: count=%d profile=%+v", count, profile)
 	}
 	var state models.TrainingSyncState
@@ -141,7 +141,7 @@ func TestTrainingBatchDuplicatesPreserveAcknowledgementsAndActivity(t *testing.T
 		if err := json.Unmarshal(changes[index].Payload, &payload); err != nil {
 			t.Fatal(err)
 		}
-		if changes[index].Kind != "attempt" || changes[index].RecordID != id || changes[index].Revision != int64(index+1) || byID[id].SyncRevision != changes[index].Revision || len(byID[id].PayloadHash) != 32 || payload["id"] != id || payload["created_at"] != byID[id].ClientCreatedAt.Format(time.RFC3339Nano) {
+		if changes[index].Kind != "attempt" || changes[index].RecordID != id || changes[index].Revision != int64(index+1) || byID[id].SyncRevision != changes[index].Revision || len(byID[id].PayloadHash) != 32 || payload["id"] != id || payload["created_at"] != byID[id].ClientCreatedAt.UTC().Format(time.RFC3339Nano) {
 			t.Fatalf("canonical event/history mismatch: event=%+v change=%+v payload=%v", byID[id], changes[index], payload)
 		}
 	}

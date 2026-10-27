@@ -134,6 +134,8 @@ func TestForumThreadPostgresLiveCountAndSoftDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := strings.Replace(forumThreadBody, `{"username":"reader","call_sign":"N0CALL"}`, `null`, 1)
+	// The driver returns timestamptz in the host location; the instant is unchanged.
+	body = strings.ReplaceAll(body, now.Format(time.RFC3339), now.In(time.Local).Format(time.RFC3339))
 	forumThreadSnapshot(t, db, context.Background(), thread.ID.String(), 200, body, "")
 	if err := db.Delete(&thread).Error; err != nil {
 		t.Fatal(err)

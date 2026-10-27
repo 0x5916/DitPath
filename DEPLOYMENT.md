@@ -246,6 +246,19 @@ For Cloudflare Tunnel, configure `CLOUDFLARED_TUNNEL_TOKEN` and route public hos
 
 A reverse proxy must terminate TLS and forward the frontend to port 3000 and API to port 8080. Preserve both `/v1` and `/v2` API paths. If adding a public path prefix, include the V1 path in `PUBLIC_API_BASE` and configure proxy rewriting consistently. Rebuild the frontend after changing that value; recreate the backend after changing CORS. Production uses `GIN_MODE=release`, which disables profiling routes; development registers `/debug/pprof/*`, so keep development profiling private.
 
+### Cloudflared security update reminder
+
+As of 28 October 2026, Cloudflare's [latest stable release is 2026.10.5](https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5). Upgrade every tunnel connector to the latest stable release when applying the current security update. The Compose service uses `:latest`, but restarting an existing container does not pull a new image. On each deployment host, during an authorized maintenance window:
+
+```bash
+docker compose pull cloudflared
+docker compose up -d --no-deps cloudflared
+docker compose exec cloudflared cloudflared --version
+docker compose logs --tail=50 cloudflared
+```
+
+Verify the running version and successful tunnel connections, then check the public application URL. Repeat for connectors outside this Compose stack using their installation method. Publishing Git commits does not update running connectors. This reminder does not establish that any deployed connector has been upgraded.
+
 ### Authentication source attribution
 
 The root [environment template](example.env) and [Compose stack](docker-compose.yaml) pass `AUTH_TRUSTED_PROXY_CIDRS` to the backend with an empty default. Empty/unset trusts no proxy, so public login and registration use the canonical transport peer. Users behind the same Cloudflare Tunnel/reverse-proxy peer therefore share 10 login and 3 registration admissions per rolling minute, alongside the combined per-process quota. Restarts reset history and additional backend processes multiply limits; [the API contract](backend/API.md#authentication-resource-admission) owns responses and precedence.
