@@ -88,6 +88,8 @@ export interface EvaluatedCheck {
   readonly reviewCycleIds: Readonly<Record<string, string>>;
 }
 export interface Attainment {
+  readonly claimId?: string;
+  readonly basisKey?: string;
   readonly key: string;
   readonly ownerKey: string;
   readonly profileKey: string;
@@ -96,7 +98,7 @@ export interface Attainment {
   readonly kind: 'proficiency' | 'retention';
   readonly awardedAt: string;
   readonly checkIds: readonly string[];
-  readonly status: 'provisional' | 'verified' | 'unverified';
+  readonly status: 'provisional' | 'verified' | 'unverified' | 'superseded';
 }
 export interface EvidenceContext {
   readonly ownerKey: string;

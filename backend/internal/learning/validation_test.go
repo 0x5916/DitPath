@@ -25,7 +25,7 @@ func TestValidateLearningPlan(t *testing.T) {
 	}{
 		{"unknown owner", "INVALID_RECORD", func(m map[string]any) { m["user_id"] = "someone" }},
 		{"unsupported policy", "UNSUPPORTED_POLICY_VERSION", func(m map[string]any) { m["policy_version"] = "other" }},
-		{"mixed gated", "FEATURE_NOT_ENABLED", func(m map[string]any) { m["purpose"] = "mixed-check" }},
+		{"invalid mixed", "INVALID_RECORD", func(m map[string]any) { m["purpose"] = "mixed-check" }},
 		{"invalid speed", "INVALID_RECORD", func(m map[string]any) { m["eff_wpm"] = 21 }},
 		{"invalid profile", "INVALID_RECORD", func(m map[string]any) { m["profile"].(map[string]any)["char_wpm"] = 25 }},
 		{"untaught target", "INVALID_RECORD", func(m map[string]any) { m["targets"] = []string{"K", "Z"} }},

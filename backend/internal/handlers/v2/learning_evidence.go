@@ -107,6 +107,9 @@ func (h TrainingHandler) PostLearningEvidence(c *gin.Context) {
 					response.AcknowledgedIDs = append(response.AcknowledgedIDs, id)
 				}
 			}
+			if len(response.AcknowledgedIDs) > 0 {
+				return learning.ProjectAccount(tx, state, response.AcknowledgedIDs, time.Now().UTC())
+			}
 			return nil
 		})
 		if err != nil {

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { ArrowRight, CircleCheck, CircleX, Play, Square } from '@lucide/svelte';
-  import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
+  import type { AudioEngine } from '#lib/audio/engine.ts';
+  import { createEvidenceAudioEngine } from '#lib/audio/evidence-engine.ts';
   import { acceptsSessionShortcut } from '#lib/components/learning/keyboard.ts';
   import { buildAudioPlan } from '#lib/training/timing.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
@@ -29,8 +30,13 @@
   }
 
   onMount(() => {
-    audio = createWebAudioEngine();
-    const unsubscribe = audio.subscribe(() => {
+    audio = createEvidenceAudioEngine({ source: 'reference' });
+    const unsubscribe = audio.subscribe((event) => {
+      if (event === 'error') {
+        sampleError = true;
+        clearSample();
+        return;
+      }
       if (audio?.isActive()) return;
       if (sampleCharacter && !quizCharacter && !heardCharacters.includes(sampleCharacter)) {
         heardCharacters = [...heardCharacters, sampleCharacter];

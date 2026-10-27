@@ -4,7 +4,26 @@
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
-  import { createWebAudioEngine } from '#lib/audio/engine.ts';
+  import { createEvidenceAudioEngine } from '#lib/audio/evidence-engine.ts';
+  import {
+    createLearningEvidenceRepository,
+    openLearningEvidenceDb
+  } from '#lib/data/learning-evidence.ts';
+  import { createEvidenceSessionRepositories } from '#lib/data/evidence-session.ts';
+  import {
+    activeLearningProfile,
+    loadLearningSnapshot,
+    learningRecommendationHref
+  } from '#lib/data/learning-snapshot.ts';
+  import {
+    buildMixedCheck,
+    parseMixedTargets,
+    type MixedCheckSession
+  } from '#lib/training/learning-policy/mixed-plan.ts';
+  import { createSessionId } from '#lib/training/v2/ids.ts';
+  import MixedCheckPanel from '#lib/components/learning/MixedCheckPanel.svelte';
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import { learningSyncState } from '#lib/learning-sync.svelte.ts';
   import { openTrainingDb } from '#lib/data/training-db.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
   import { createSessionRepository } from '#lib/data/session-repository.ts';
@@ -18,13 +37,8 @@
   import {
     buildReviewPlan,
     parseReviewRequest,
-    recordedCharacters,
     type ReviewPlan
   } from '#lib/training/targeted-review.ts';
-  import {
-    openLearningPilotDb,
-    createLearningPilotRepositories
-  } from '#lib/data/learning-pilot.ts';
   import { readClientCwSettings } from '#lib/cwSync.ts';
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
@@ -39,6 +53,9 @@
   } from '#lib/training-sync.svelte.ts';
   import { saveBeforeSessionNavigation, type PendingSessionNavigation } from './navigation';
 
+  const learning = createLearningView();
+  let mixedPlan = $state.raw<MixedCheckSession | null>(null);
+  const checkValue = $derived(browser ? page.url.searchParams.get('check') : null);
   let controller = $state<GuidedSessionController | null>(null);
   let db: IDBDatabase | null = null;
   let initializing = $state(true);
@@ -71,7 +88,7 @@
     return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, LESSONS.length) : 1;
   });
 
-  const routeKey = $derived(`${step}:${reviewValue ?? ''}`);
+  const routeKey = $derived(`${step}:${reviewValue ?? ''}:${checkValue ?? ''}`);
 
   async function releaseSession(
     ctrl: GuidedSessionController | null,
@@ -103,8 +120,14 @@
   async function startSession(requestedStep: number, beginReview = false) {
     const requestedReview = reviewValue;
     const reviewRequest = parseReviewRequest(requestedReview);
+    const requestedCheck = checkValue;
+    const checkTargets = parseMixedTargets(requestedCheck);
+    mixedPlan = null;
     reviewPlan = null;
-    reviewUnavailable = requestedReview !== null && !reviewRequest;
+    reviewUnavailable =
+      (requestedReview !== null && !reviewRequest) ||
+      (requestedCheck !== null && !checkTargets) ||
+      (requestedReview !== null && requestedCheck !== null);
     reviewStarted = beginReview;
     answerDraft = '';
     const owner = getTrainingOwner();
@@ -140,43 +163,109 @@
         database.close();
         return;
       }
-      if (reviewRequest) {
-        const history = await attemptRepo.getAttemptsByTimeRange(
-          '0001-01-01T00:00:00.000Z',
-          new Date().toISOString()
-        );
+      const sound = readClientCwSettings();
+      const id = createSessionId();
+      let captureFirst: ((prompt: import('#lib/training/v2/types.ts').Prompt) => void) | undefined;
+      let audio;
+      if (reviewRequest || checkTargets) {
+        const snapshot = await loadLearningSnapshot({ ownerKey: owner });
         if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
           database.close();
           return;
         }
-        const known = recordedCharacters(history);
-        if (!known.length || reviewRequest.targets.some((ch) => !known.includes(ch))) {
+        const known = snapshot.knownCharacters;
+        const targets = checkTargets ?? reviewRequest!.targets;
+        if (
+          !known.length ||
+          targets.some((ch) => !known.includes(ch)) ||
+          (checkTargets && known.length < 2)
+        ) {
           reviewUnavailable = true;
           database.close();
           return;
         }
-        const sound = readClientCwSettings();
-        reviewPlan = buildReviewPlan(reviewRequest, known, {
-          charWpm: sound.char_wpm,
-          effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
-          freqHz: sound.freq
-        });
+        if (checkTargets) {
+          mixedPlan = buildMixedCheck({
+            ownerKey: owner,
+            targets: checkTargets,
+            knownCharacters: known,
+            profile: activeLearningProfile(sound.char_wpm),
+            effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
+            freqHz: sound.freq,
+            startedAt: new Date().toISOString(),
+            checkId: id,
+            reviewCycleIds: Object.fromEntries(
+              snapshot.characters
+                .filter((c) => checkTargets.includes(c.character) && c.reviewState)
+                .map((c) => [c.character, c.reviewState!.cycleId])
+            )
+          });
+        } else {
+          reviewPlan = buildReviewPlan(reviewRequest!, known, {
+            charWpm: sound.char_wpm,
+            effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
+            freqHz: sound.freq
+          });
+        }
         database.close();
         database = null;
         if (!beginReview) return;
-        database = await openLearningPilotDb();
+        database = await openLearningEvidenceDb();
         if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
           database.close();
           return;
         }
-        const local = createLearningPilotRepositories(database, owner, reviewPlan);
+        const purpose = mixedPlan
+          ? 'mixed-check'
+          : reviewPlan!.purpose === 'return-screening'
+            ? 'screening'
+            : 'coaching';
+        const evidenceRepository = createLearningEvidenceRepository(database, owner);
+        audio = createEvidenceAudioEngine({
+          ownerKey: owner,
+          currentOwner: getTrainingOwner,
+          source: purpose,
+          sessionId: id,
+          knownCharacters: known,
+          repository: evidenceRepository
+        });
+        const local = createEvidenceSessionRepositories(
+          evidenceRepository,
+          owner,
+          {
+            purpose,
+            targets: mixedPlan?.plan.targets ?? reviewPlan!.targets,
+            knownCharacters: known,
+            prompts: mixedPlan?.prompts ?? reviewPlan!.prompts,
+            profile: activeLearningProfile(sound.char_wpm),
+            reviewCycleIds: mixedPlan?.plan.reviewCycleIds
+          },
+          audio
+        );
         attemptRepo = local.attemptRepo;
         sessionRepo = local.sessionRepo;
+        captureFirst = local.captureFirst;
+      } else {
+        audio = createEvidenceAudioEngine({
+          ownerKey: owner,
+          currentOwner: getTrainingOwner,
+          source: 'guided'
+        });
       }
       const ctrl = new GuidedSessionController({
+        sessionId: id,
         step: requestedStep,
-        ...(reviewPlan ? { prompts: reviewPlan.prompts, allowProgression: false } : {}),
-        audioEngine: createWebAudioEngine(),
+        ...(mixedPlan
+          ? {
+              prompts: mixedPlan.prompts,
+              allowProgression: false,
+              feedback: 'after-check' as const
+            }
+          : reviewPlan
+            ? { prompts: reviewPlan.prompts, allowProgression: false }
+            : {}),
+        audioEngine: audio,
+        onPromptPlayback: captureFirst,
         attemptRepo,
         sessionRepo,
         allHistoricalAttempts: recentAttempts
@@ -198,10 +287,11 @@
   }
 
   onMount(() => {
+    const stopLearning = learning.start();
     void startSession(step);
     onVisibility = () => controller?.handleVisibilityChange(document.hidden);
     document.addEventListener('visibilitychange', onVisibility);
-    return subscribeTrainingSync(() => {
+    const stopTraining = subscribeTrainingSync(() => {
       if (sessionOwner === null || sessionOwner === getTrainingOwner()) return;
       initialization++;
       pendingAction = null;
@@ -218,6 +308,10 @@
         console.error('Session cleanup failed:', error)
       );
     });
+    return () => {
+      stopLearning();
+      stopTraining();
+    };
   });
 
   afterNavigate(() => {
@@ -338,7 +432,7 @@
         const destination = localizedHref(
           action === 'next'
             ? `/morse/learn/session?step=${nextStep}`
-            : reviewPlan
+            : reviewPlan || mixedPlan
               ? '/morse/progress'
               : '/morse/learn'
         );
@@ -426,7 +520,13 @@
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
 <svelte:head>
-  <title>{reviewValue !== null ? m.review_history_heading() : m.lesson_page_title({ step })}</title>
+  <title
+    >{checkValue !== null
+      ? m.mixed_title()
+      : reviewValue !== null
+        ? m.review_history_heading()
+        : m.lesson_page_title({ step })}</title
+  >
 </svelte:head>
 
 {#if reviewUnavailable}
@@ -446,6 +546,14 @@
         >{m.lesson_retry_start()}</button
       >
     </div>
+  </main>
+{:else if mixedPlan && !reviewStarted && !initializing}
+  <main class="loading-stage review-setup">
+    <MixedCheckPanel
+      plan={mixedPlan}
+      onStart={() => startSession(step, true)}
+      onFinish={handleExit}
+    />
   </main>
 {:else if reviewPlan && !reviewStarted && !initializing}
   <main class="loading-stage review-setup">
@@ -486,12 +594,19 @@
     {:else if controller?.persistenceStatus === 'saving'}
       <p class="save-status" role="status">{m.lesson_saving()}</p>
     {:else if controller?.persistenceStatus === 'saved'}
-      {#if controller.phase === 'complete'}
+      {#if controller.phase === 'complete' && !reviewPlan && !mixedPlan}
         <p class="save-status" role="status">
           <Check size={18} aria-hidden="true" />{m.lesson_saved()}
         </p>
       {/if}
-      {#if !reviewPlan}<TrainingSyncStatus
+      {#if reviewPlan || mixedPlan}<TrainingSyncStatus
+          expanded
+          owner={learningSyncState.owner}
+          pending={learningSyncState.pending}
+          error={learningSyncState.error}
+          syncing={learningSyncState.syncing}
+          synced={learningSyncState.synced}
+        />{:else}<TrainingSyncStatus
           owner={trainingSyncState.owner}
           pending={trainingSyncState.pending}
           error={trainingSyncState.error}
@@ -502,7 +617,8 @@
   {/snippet}
 
   <SessionShell
-    review={Boolean(reviewPlan)}
+    review={Boolean(reviewPlan || mixedPlan)}
+    assessment={Boolean(mixedPlan)}
     currentPromptIndex={controller.currentPromptIndex}
     totalPrompts={controller.totalPrompts}
     isPaused={controller.phase === 'paused'}
@@ -533,7 +649,25 @@
         </button>
       </div>
     {:else if controller.phase === 'complete' && controller.summary}
-      {#if reviewPlan}<ReviewPanel
+      {#if mixedPlan}<MixedCheckPanel
+          plan={mixedPlan}
+          finished
+          snapshot={learning.snapshot}
+          onRepeatCheck={learning.snapshot &&
+          learningRecommendationHref(
+            learning.snapshot.recommendation.primary,
+            learning.snapshot.knownCharacters
+          ) === `/morse/learn/session?check=${checkValue}`
+            ? () => startSession(step, true)
+            : undefined}
+          result={learning.snapshot?.checks.find((c) => c.id === controller?.state.sessionId) ??
+            null}
+          busy={leaving || controller.persistenceStatus === 'saving'}
+          {storageStatus}
+          onStart={() => {}}
+          onFinish={handleExit}
+        />
+      {:else if reviewPlan}<ReviewPanel
           plan={reviewPlan}
           attempts={controller.attempts}
           status={controller.persistenceStatus}
@@ -560,7 +694,9 @@
           typed={['recall', 'short-group'].includes(controller.currentPrompt.spec.kind)}
           scored={controller.currentPrompt.isScored}
           coaching={Boolean(reviewPlan)}
+          assessment={Boolean(mixedPlan)}
           firstRecall={!reviewPlan &&
+            !mixedPlan &&
             controller.currentPromptIndex ===
               controller.state.prompts.findIndex((prompt) => prompt.spec.kind === 'recall')}
           bind:draft={answerDraft}
@@ -578,6 +714,11 @@
           onHear={(ch) => controller?.playFeedback(ch)}
           onContinue={handleContinue}
         />
+        {#if mixedPlan && controller.phase === 'answering'}<button
+            type="button"
+            class="btn-ghost"
+            onclick={() => handleSubmitAnswer('', 'keyboard')}>{m.mixed_skip()}</button
+          >{/if}
       {/key}
     {:else if controller.currentPrompt?.spec.kind === 'introduction' && !['abandoned', 'idle'].includes(controller.phase)}
       <AudioPrompt

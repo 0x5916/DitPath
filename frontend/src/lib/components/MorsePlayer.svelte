@@ -1,6 +1,6 @@
 <script lang="ts">
   import { calculateDuration } from '#lib/training/timing.ts';
-  import { createWebAudioEngine } from '#lib/audio/engine.ts';
+  import { createEvidenceAudioEngine } from '#lib/audio/evidence-engine.ts';
   import type { AudioEngine } from '#lib/audio/engine.ts';
   import { formatClock } from '#lib/format.ts';
   import { onDestroy, untrack } from 'svelte';
@@ -44,6 +44,7 @@
     /* Test seam: replace the browser engine (e.g. with a fake) without
        touching the transport UI. */
     createEngine?: () => AudioEngine;
+    exposureSource?: 'reference' | 'group';
   }
 
   let {
@@ -64,7 +65,8 @@
     onStart = () => {},
     onEnded = () => {},
     onPausedChange = () => {},
-    createEngine = (): AudioEngine => createWebAudioEngine()
+    exposureSource = 'reference',
+    createEngine = (): AudioEngine => createEvidenceAudioEngine({ source: exposureSource })
   }: Props = $props();
 
   let reservedPlayLabels = $derived([...new Set(reservePlayLabels)]);

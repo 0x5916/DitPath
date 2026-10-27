@@ -720,3 +720,57 @@ describe('coached review integration', () => {
     await controller.dispose();
   });
 });
+
+describe('mixed-check controller boundary', () => {
+  it('advances without revealing or auditioning feedback, including skipped answers', async () => {
+    const audio = createFakeAudioEngine(),
+      repo = createFakeAttemptRepo();
+    const onPromptPlayback = vi.fn();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [
+        { ...createMockPrompt('a', 'K'), isScored: false },
+        { ...createMockPrompt('b', 'M'), isScored: false }
+      ],
+      audioEngine: audio,
+      attemptRepo: repo,
+      sessionRepo: createFakeSessionRepo(),
+      allowProgression: false,
+      feedback: 'after-check',
+      onPromptPlayback
+    });
+    await controller.start();
+    controller.play();
+    audio.finish();
+    expect(controller.submitAnswer('K', 'keyboard')).toBe(true);
+    expect(controller.phase).toBe('ready');
+    expect(controller.lastAttempt).toBeNull();
+    controller.playFeedback('K');
+    expect(audio.playedPlans).toHaveLength(1);
+    controller.play();
+    audio.finish();
+    controller.submitAnswer('', 'keyboard');
+    expect(controller.phase).toBe('complete');
+    expect(controller.summary?.unlockedNextStep).toBe(false);
+    await controller.flushPersistence();
+    expect(repo.saved).toHaveLength(2);
+    expect(onPromptPlayback).toHaveBeenCalledTimes(2);
+    await controller.dispose();
+  });
+  it('recovers asynchronous audio/storage errors without enabling an answer', async () => {
+    const audio = createFakeAudioEngine();
+    const controller = new GuidedSessionController({
+      step: 1,
+      prompts: [createMockPrompt('a', 'K')],
+      audioEngine: audio,
+      attemptRepo: createFakeAttemptRepo(),
+      sessionRepo: createFakeSessionRepo()
+    });
+    await controller.start();
+    controller.play();
+    for (const listener of audio.listeners) listener('error');
+    expect(controller.phase).toBe('ready');
+    expect(controller.submitAnswer('K', 'keyboard')).toBe(false);
+    await controller.dispose();
+  });
+});

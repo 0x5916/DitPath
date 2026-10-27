@@ -32,7 +32,7 @@ func lookup(tx *gorm.DB, user uuid.UUID, key string, bySemantic bool) (Record, e
 	if err != nil {
 		return Record{}, err
 	}
-	record, rejection := Validate(row.Payload)
+	record, rejection := DecodeStoredV1(row.Payload)
 	if rejection != nil {
 		return Record{}, fmt.Errorf("invalid stored learning evidence")
 	}
@@ -106,7 +106,7 @@ func checkDependencies(tx *gorm.DB, user uuid.UUID, r Record) (*Rejection, error
 		var prior models.LearningEvidenceRecord
 		err := tx.Take(&prior, "user_id = ? AND kind = ? AND profile_id = ?", user, "plan", r.ProfileID).Error
 		if err == nil {
-			p, rejection := Validate(prior.Payload)
+			p, rejection := DecodeStoredV1(prior.Payload)
 			if rejection != nil {
 				return nil, fmt.Errorf("invalid stored profile")
 			}
@@ -119,7 +119,7 @@ func checkDependencies(tx *gorm.DB, user uuid.UUID, r Record) (*Rejection, error
 		}
 		return nil, err
 	case "exposure-open":
-		if r.Text("source") == "coaching" || r.Text("source") == "screening" {
+		if r.Text("source") == "coaching" || r.Text("source") == "screening" || r.Text("source") == "mixed-check" {
 			plan, reject, err := dependency(tx, user, semantic("plan", r.SessionID), true, r.ID)
 			if reject != nil || err != nil {
 				return reject, err
@@ -162,6 +162,26 @@ func checkDependencies(tx *gorm.DB, user uuid.UUID, r Record) (*Rejection, error
 					return conflict("Exposure cannot end before it starts")
 				}
 			}
+		}
+		var observed models.LearningEvidenceRecord
+		observedErr := tx.Take(&observed, "user_id = ? AND presentation_id = ?", user, open.Text("presentation_id")).Error
+		if observedErr == nil {
+			observation, rejection := DecodeStoredV1(observed.Payload)
+			if rejection != nil {
+				return nil, fmt.Errorf("invalid stored observation")
+			}
+			plan, reject, err := dependency(tx, user, semantic("plan", observation.SessionID), true, r.ID)
+			if reject != nil || err != nil {
+				return reject, err
+			}
+			for _, value := range plan.Data["prompts"].([]any) {
+				prompt := value.(map[string]any)
+				if prompt["id"] == observation.Text("prompt_id") && strictlyAfter(observation.Data["first_presented_at"], ends[prompt["character"].(string)]) {
+					return conflict("Exposure end cannot precede the observed tone")
+				}
+			}
+		} else if !errors.Is(observedErr, gorm.ErrRecordNotFound) {
+			return nil, observedErr
 		}
 		return nil, nil
 	case "observation", "terminal":
@@ -210,8 +230,17 @@ func checkDependencies(tx *gorm.DB, user uuid.UUID, r Record) (*Rejection, error
 			if open.SessionID != r.SessionID || open.Text("source") != plan.Text("purpose") || !slices.Contains(textSet(open.Data, "characters"), prompt["character"].(string)) {
 				return conflict("First presentation does not match the planned prompt")
 			}
-			if disjoint(r.Data["first_presented_at"], open.Data["started_at"]) {
-				return conflict("Observation and exposure start bounds disagree")
+			if strictlyAfter(open.Data["started_at"], r.Data["first_presented_at"]) {
+				return conflict("Observation cannot precede the exposure guard")
+			}
+			closure, closeErr := lookup(tx, user, semantic("exposure-close", open.ID), true)
+			if closeErr == nil {
+				end := closure.Data["last_exposure"].(map[string]any)[prompt["character"].(string)]
+				if strictlyAfter(r.Data["first_presented_at"], end) {
+					return conflict("Observation cannot follow the exposure end")
+				}
+			} else if !errors.Is(closeErr, gorm.ErrRecordNotFound) {
+				return nil, closeErr
 			}
 			if strictlyAfter(r.Data["prior_exposure"], r.Data["first_presented_at"]) {
 				return conflict("Prior exposure cannot follow the first presentation")
@@ -244,7 +273,7 @@ func checkDependencies(tx *gorm.DB, user uuid.UUID, r Record) (*Rejection, error
 		}
 		ids := textSet(r.Data, "observation_ids")
 		for _, o := range observations {
-			observed, rejection := Validate(o.Payload)
+			observed, rejection := DecodeStoredV1(o.Payload)
 			if rejection != nil {
 				return nil, fmt.Errorf("invalid stored observation")
 			}

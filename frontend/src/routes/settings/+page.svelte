@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { learningSyncState, syncLearningNow } from '#lib/learning-sync.svelte.ts';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { getAuthSession, user } from '#lib/auth.ts';
@@ -36,7 +38,8 @@
     saveClientCwSettings
   } from '#lib/cwSync.ts';
   import { localizeApiError } from '#lib/errorLocalization.ts';
-  import { createWebAudioEngine, type AudioEngine } from '#lib/audio/engine.ts';
+  import type { AudioEngine } from '#lib/audio/engine.ts';
+  import { createEvidenceAudioEngine } from '#lib/audio/evidence-engine.ts';
   import { buildAudioPlan } from '#lib/training/timing.ts';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
@@ -191,7 +194,12 @@
   );
 
   onMount(() => {
-    toneAudio = createWebAudioEngine();
+    toneAudio = createEvidenceAudioEngine({
+      source: 'reference',
+      onError: () => {
+        cwError = m.lesson_feedback_audio_error();
+      }
+    });
     return () => {
       void toneAudio?.dispose();
       toneAudio = null;
@@ -200,6 +208,7 @@
 
   function playTestTone() {
     if (!toneAudio || !canTestTone) return;
+    cwError = '';
     try {
       const plan = buildAudioPlan('AAA', {
         frequency: freq,
@@ -209,6 +218,7 @@
       toneAudio.play(plan);
     } catch (err) {
       console.error('Failed to play test tone:', err);
+      cwError = m.lesson_feedback_audio_error();
     }
   }
 
@@ -640,6 +650,19 @@
       {importing}
     />
   {/key}
+  <section class="panel panel--ledger" id="learning-evidence">
+    <h2 class="card-title">{m.learning_overview_heading()}</h2>
+    <p class="body-text">{m.learning_guest_boundary()}</p>
+    <TrainingSyncStatus
+      expanded
+      owner={learningSyncState.owner}
+      pending={learningSyncState.pending}
+      syncing={learningSyncState.syncing}
+      synced={learningSyncState.synced}
+      error={learningSyncState.error}
+      onSync={() => void syncLearningNow()}
+    />
+  </section>
 
   {#if loading}
     <LoadingSpinner />

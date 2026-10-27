@@ -14,6 +14,7 @@
     canPause?: boolean;
     complete?: boolean;
     review?: boolean;
+    assessment?: boolean;
     busy?: boolean;
     onExit: () => void;
     onExitRequest?: () => void;
@@ -29,6 +30,7 @@
     canPause = true,
     complete = false,
     review = false,
+    assessment = false,
     busy = false,
     onExit = () => {},
     onExitRequest = () => {},
@@ -74,8 +76,20 @@
     <button
       type="button"
       class="btn-icon"
-      aria-label={complete ? m.lesson_result_finish() : review ? m.review_exit() : m.lesson_exit()}
-      title={complete ? m.lesson_result_finish() : review ? m.review_exit() : m.lesson_exit()}
+      aria-label={complete
+        ? m.lesson_result_finish()
+        : assessment
+          ? m.mixed_exit()
+          : review
+            ? m.review_exit()
+            : m.lesson_exit()}
+      title={complete
+        ? m.lesson_result_finish()
+        : assessment
+          ? m.mixed_exit()
+          : review
+            ? m.review_exit()
+            : m.lesson_exit()}
       disabled={busy}
       {@attach (button) => {
         exitButton = button;
@@ -99,8 +113,20 @@
       <button
         type="button"
         class="btn-icon"
-        aria-label={isPaused ? m.lesson_resume() : review ? m.review_pause() : m.lesson_pause()}
-        title={isPaused ? m.lesson_resume() : review ? m.review_pause() : m.lesson_pause()}
+        aria-label={isPaused
+          ? m.lesson_resume()
+          : assessment
+            ? m.mixed_pause()
+            : review
+              ? m.review_pause()
+              : m.lesson_pause()}
+        title={isPaused
+          ? m.lesson_resume()
+          : assessment
+            ? m.mixed_pause()
+            : review
+              ? m.review_pause()
+              : m.lesson_pause()}
         onclick={onPauseToggle}
       >
         {#if isPaused}
@@ -126,7 +152,7 @@
     isOpen={showExitConfirm}
     title={review ? m.review_leave_title() : undefined}
     description={review ? m.review_leave_description() : undefined}
-    confirmLabel={review ? m.review_exit() : undefined}
+    confirmLabel={assessment ? m.mixed_exit() : review ? m.review_exit() : undefined}
     onConfirm={handleConfirmExit}
     onCancel={handleCancelExit}
     {returnFocusTo}

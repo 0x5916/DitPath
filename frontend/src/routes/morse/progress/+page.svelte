@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
+  const learning = createLearningView();
   import { onMount } from 'svelte';
   import { CircleCheck, CircleMinus, Dumbbell, History, Radio } from '@lucide/svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
@@ -120,6 +123,7 @@
   }
 
   onMount(() => {
+    const stopLearning = learning.start();
     mounted = true;
     let revision = '';
     const unsubscribe = subscribeTrainingSync((state) => {
@@ -130,6 +134,7 @@
     });
     return () => {
       unsubscribe();
+      stopLearning();
       mounted = false;
       loadVersion++;
       if (activeDb) closeTrainingDb(activeDb);
@@ -147,6 +152,14 @@
       <h1 class="page-title">{m.nav_progress()}</h1>
       <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.nav_learn()}</a>
     </header>
+
+    {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2}<LearningOverview
+        snapshot={learning.snapshot}
+        details
+      />{/if}
+    {#if learning.failed}<p role="alert">{m.progress_load_error()}</p>
+      <button class="btn-ghost" onclick={() => learning.refresh()}>{m.progress_retry()}</button
+      >{/if}
 
     <TrainingSyncStatus
       owner={trainingSyncState.owner}
@@ -206,7 +219,7 @@
           >
         </section>
       {:else}
-        {#if summary.confusionPairs.length > 0 || summary.slowChars.length > 0}
+        {#if !learning.snapshot?.checks.length && (summary.confusionPairs.length > 0 || summary.slowChars.length > 0)}
           <section class="progress-section" aria-label={m.progress_attention()}>
             <ConfusionList
               confusionPairs={summary.confusionPairs}
@@ -226,10 +239,11 @@
           accuracyPercent={summary.accuracyPercent}
         />
 
-        <section class="progress-section" aria-labelledby="mastery-heading">
-          <h2 id="mastery-heading" class="section-title">{m.progress_mastery_heading()}</h2>
+        <details class="progress-section ui-disclosure">
+          <summary>{m.progress_mastery_heading()}</summary>
+          <p>{m.learning_legacy_hint()}</p>
           <CharacterMasteryGrid masteryMap={summary.masteryMap} />
-        </section>
+        </details>
 
         {#if history.length > 0}
           <details class="progress-section ui-disclosure">

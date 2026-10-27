@@ -239,7 +239,7 @@ export function initializeTrainingSync(): () => void {
       if (!pilot) void refreshStatus(owner, getAuthSession().generation).catch(() => {});
     };
     const unsubscribeData = subscribeTrainingDataChanges(({ ownerKey, local, scope }) => {
-      const pilot = scope === 'learning-pilot';
+      const pilot = scope === 'learning-pilot' || scope === 'learning-evidence';
       changed(ownerKey, pilot);
       channel?.postMessage({ owner: ownerKey, local, scope });
       if (!pilot && local && ownerKey === getTrainingOwner()) void syncTrainingNow();
@@ -247,7 +247,8 @@ export function initializeTrainingSync(): () => void {
     if (channel)
       channel.onmessage = (event) => {
         if (event.data?.owner !== getTrainingOwner()) return;
-        const pilot = event.data.scope === 'learning-pilot';
+        const pilot =
+          event.data.scope === 'learning-pilot' || event.data.scope === 'learning-evidence';
         changed(event.data.owner, pilot);
         if (!pilot && event.data.local) void syncTrainingNow();
       };

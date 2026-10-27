@@ -70,7 +70,15 @@ export function recommendNext(input: RecommendationInput): {
         award.policyVersion === P.version &&
         award.kind === 'proficiency' &&
         award.status !== 'unverified' &&
-        !item.evidence.revalidation.some((correction) => correction.awardKey === award.key)
+        award.status !== 'superseded' &&
+        !item.evidence.revalidation.some(
+          (correction) =>
+            correction.reason === 'invalid-witness' &&
+            (correction.claimId
+              ? correction.claimId === award.claimId
+              : correction.awardKey === award.key &&
+                JSON.stringify(correction.checkIds) === JSON.stringify(award.checkIds))
+        )
     );
   const attained = characters.filter(awarded);
   const attainedChars = new Set(attained.map((item) => item.character));
@@ -189,8 +197,10 @@ export function recommendNext(input: RecommendationInput): {
   return finish(
     recommendation(
       'check-current',
-      characters
-        .filter((item) => item.evidence.current.criterion !== 'met')
+      (characters.some((item) => item.evidence.current.criterion !== 'met' || !awarded(item))
+        ? characters.filter((item) => item.evidence.current.criterion !== 'met' || !awarded(item))
+        : characters
+      )
         .slice(0, P.maxTargets)
         .map((item) => item.character)
     )

@@ -110,7 +110,12 @@ export function createPlaybackController(ports: PlaybackPorts) {
   }
 
   const unsubscribe = engine.subscribe((event) => {
-    if (disposed || event !== 'ended' || !state.started) return;
+    if (disposed || !state.started) return;
+    if (event === 'error') {
+      fail(generation);
+      return;
+    }
+    if (event !== 'ended') return;
     generation += 1;
     reset();
     ports.onEnded();

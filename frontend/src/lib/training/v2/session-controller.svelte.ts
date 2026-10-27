@@ -45,6 +45,8 @@ export interface SessionControllerDependencies {
   attemptRepo: AttemptRepository;
   sessionRepo: SessionRepository;
   allowProgression?: boolean;
+  feedback?: 'immediate' | 'after-check';
+  onPromptPlayback?: (prompt: Prompt) => void;
   masteryPolicy?: MasteryPolicy;
   allHistoricalAttempts?: AttemptEvent[];
   volume?: number;
@@ -62,6 +64,8 @@ export class GuidedSessionController {
   #attemptRepo: AttemptRepository;
   #sessionRepo: SessionRepository;
   #allowProgression: boolean;
+  #deferredFeedback: boolean;
+  #onPromptPlayback?: (prompt: Prompt) => void;
   #masteryPolicy?: MasteryPolicy;
   #allHistoricalAttempts: AttemptEvent[];
   #volume: number;
@@ -102,6 +106,8 @@ export class GuidedSessionController {
     this.#attemptRepo = deps.attemptRepo;
     this.#sessionRepo = deps.sessionRepo;
     this.#allowProgression = deps.allowProgression ?? true;
+    this.#deferredFeedback = deps.feedback === 'after-check';
+    this.#onPromptPlayback = deps.onPromptPlayback;
     this.#masteryPolicy = deps.masteryPolicy;
     this.#allHistoricalAttempts = deps.allHistoricalAttempts ?? [];
     this.#volume = deps.volume ?? 1.0;
@@ -124,6 +130,10 @@ export class GuidedSessionController {
     // Subscribe to audio engine completion
     this.#audioUnsubscribe = this.#audioEngine.subscribe((event: AudioEngineEvent) => {
       // Closing an older context may notify after another playback starts.
+      if (event === 'error') {
+        this.feedbackCharacter = null;
+        this.#dispatch({ type: 'audio-error', error: 'Audio or evidence storage failed' });
+      }
       if (event === 'ended' && !this.#audioEngine.isActive()) {
         this.onAudioEnded();
       }
@@ -244,6 +254,7 @@ export class GuidedSessionController {
       });
       if (plan.events.length === 0) throw new Error('No playable Morse characters');
       this.#audioEngine.play(plan);
+      if (!feedback) this.#onPromptPlayback?.(prompt);
     } catch (err) {
       void this.#audioEngine.stop({ notify: false });
       const msg = err instanceof Error ? err.message : 'Audio playback error';
@@ -346,6 +357,7 @@ export class GuidedSessionController {
     const prompt = this.currentPrompt;
     if (
       this.#disposed ||
+      this.#deferredFeedback ||
       this.phase !== 'feedback' ||
       !prompt ||
       !text ||
@@ -393,7 +405,9 @@ export class GuidedSessionController {
       nowIso: this.#nowIso()
     });
 
-    return this.#dispatch({ type: 'submit-answer', attempt });
+    const accepted = this.#dispatch({ type: 'submit-answer', attempt });
+    if (accepted && this.#deferredFeedback) this.continue();
+    return accepted;
   }
 
   continue(): boolean {

@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import { learningRecommendationHref } from '#lib/data/learning-snapshot.ts';
+  import { recommendationTitle } from '#lib/components/learning/recommendation-copy.ts';
+  const learning = createLearningView();
   import { onMount } from 'svelte';
   import { ArrowRight, ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
   import HomeLanding from '#lib/components/home/HomeLanding.svelte';
@@ -32,6 +36,18 @@
     const path = '/morse/learn';
     if (!dashboard) return { title, hint: '', path };
     const unfinished = dashboard.unfinishedSession;
+    const snapshot = learning.snapshot;
+    if (!unfinished && snapshot && snapshot.knownCharacters.length >= 2) {
+      const primary = snapshot.recommendation.primary;
+      return {
+        title: recommendationTitle(primary),
+        hint:
+          snapshot.coverage === 'partial'
+            ? m.learning_coverage_partial()
+            : m.learning_overview_profile({ speed: snapshot.profile.charWpm }),
+        path: learningRecommendationHref(primary, snapshot.knownCharacters)
+      };
+    }
     if (dashboard.returning && !unfinished && !recentReview)
       return {
         title: m.review_return_title(),
@@ -112,6 +128,7 @@
   }
 
   onMount(() => {
+    const stopLearning = learning.start();
     mounted = true;
     let revision = '';
     const unsubscribe = subscribeTrainingSync(({ owner, version }) => {
@@ -122,6 +139,7 @@
     });
     return () => {
       unsubscribe();
+      stopLearning();
       mounted = false;
       loadVersion++;
       if (activeDb) closeTrainingDb(activeDb);
@@ -129,7 +147,7 @@
   });
 </script>
 
-{#if !dashboardVisible}
+{#if !dashboardVisible && !learning.snapshot?.hasProspectiveEvidence}
   <HomeLanding />
 {:else}
   <div class="page-narrow page-stack home-dashboard">

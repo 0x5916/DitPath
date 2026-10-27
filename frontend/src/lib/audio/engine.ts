@@ -13,9 +13,11 @@
 
 import type { AudioPlan } from '../training/timing';
 
-export type AudioEngineEvent = 'ended';
+export type AudioEngineEvent = 'ended' | 'error';
 
 export interface AudioEngine {
+  /** Unlock audio on the user gesture before an asynchronous evidence transaction. */
+  prepare?(): Promise<void>;
   /** Schedule a plan on the audio timeline, replacing any current playback. */
   play(plan: AudioPlan): void;
   /** Suspend the timeline; safe while idle. */
@@ -99,14 +101,14 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
 
   function play(plan: AudioPlan): void {
     if (disposed) return;
-    if (active || ctx !== null) void stopInternal(false);
+    if (active) void stopInternal(false);
 
     const gen = ++generation;
     endedNotified = false;
     active = true;
     paused = false;
 
-    const audio = createContext();
+    const audio = ctx ?? createContext();
     ctx = audio;
 
     const osc = audio.createOscillator();
@@ -171,6 +173,11 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
   }
 
   return {
+    async prepare() {
+      if (disposed) return;
+      if (!ctx) ctx = createContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+    },
     play,
     pause,
     resume,

@@ -76,7 +76,7 @@
     </p>
   {/if}
   <p class="supporting">{m.review_unmeasured()}</p>
-  <p class="supporting">{m.review_local_only()}</p>
+
   {#if result && round >= 1}<p>{m.review_break_hint()}</p>{/if}
   <div class="actions">
     {#if result}

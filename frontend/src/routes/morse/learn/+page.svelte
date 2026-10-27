@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
+  const learning = createLearningView();
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { CircleAlert } from '@lucide/svelte';
@@ -138,6 +141,7 @@
   }
 
   onMount(() => {
+    const stopLearning = learning.start();
     mounted = true;
     let revision = '';
     const unsubscribe = subscribeTrainingSync((state) => {
@@ -148,6 +152,7 @@
     });
     return () => {
       unsubscribe();
+      stopLearning();
       mounted = false;
       loadVersion++;
       sessionRepo = null;
@@ -203,19 +208,21 @@
 {/snippet}
 
 {#snippet currentLesson()}
-  <LearnHero
-    embedded
-    kind={heroKind}
-    step={activeStep}
-    introducedChar={activeIntroduced}
-    {reviewChars}
-    resumableSessionId={inProgressSession?.id}
-    errorMessage={errorMsg}
-    {sessionActionPending}
-    onStart={handleStartLesson}
-    onResume={handleResumeSession}
-    onDiscardResume={handleDiscardResume}
-  />
+  {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2 && !inProgressSession && activeStep === currentStep}
+    <LearningOverview snapshot={learning.snapshot} />
+  {:else}<LearnHero
+      embedded
+      kind={heroKind}
+      step={activeStep}
+      introducedChar={activeIntroduced}
+      {reviewChars}
+      resumableSessionId={inProgressSession?.id}
+      errorMessage={errorMsg}
+      {sessionActionPending}
+      onStart={handleStartLesson}
+      onResume={handleResumeSession}
+      onDiscardResume={handleDiscardResume}
+    />{/if}
   {#if errorMsg}
     <button type="button" class="btn-primary" onclick={loadLessons}>{m.progress_retry()}</button>
   {/if}
@@ -223,7 +230,7 @@
 {/snippet}
 
 {#snippet lessonRequirements()}
-  {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0}
+  {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0 && !learning.snapshot?.knownCharacters.length}
     <details
       class={['unlock-checks', (heroKind === 'new' || heroKind === 'next') && 'with-start-row']}
     >

@@ -562,7 +562,7 @@ describe('admissibility, delayed provenance and scoped diagnostics', () => {
       b = fixture('b').check;
     const result = projectCharacterEvidence(
       [a, b],
-      [{ ...award(), status: 'unverified' }],
+      [{ ...award(), checkIds: [a.id, b.id], status: 'unverified' }],
       context()
     );
     expect(result.candidates).toHaveLength(0);
@@ -622,4 +622,39 @@ it('requires clock provenance instead of manufacturing an exact retention gap', 
       : observation
   );
   expect(evaluateCheck(f.plan, observations, f.completedAt).complete).toBe(false);
+});
+
+it('allows requalification with a new witness while retaining a corrected claim', () => {
+  const a = fixture('a', add(now, -3 * day)).check,
+    b = fixture('b', add(now, -2 * day)).check,
+    c = fixture('c', add(now, -day)).check,
+    d = fixture('d').check;
+  const corrected = {
+    ...award(),
+    claimId: 'corrected-claim',
+    checkIds: [a.id, b.id],
+    status: 'unverified' as const
+  };
+  const result = projectCharacterEvidence([a, b, c, d], [corrected], context());
+  expect(result.historical).toContain(corrected);
+  expect(result.candidates[0].checkIds).not.toEqual(corrected.checkIds);
+  expect(result.candidates[0].kind).toBe('proficiency');
+});
+it('late earlier witnesses supersede rather than overwrite an issued attainment', () => {
+  const a = fixture('earlier-a', add(now, -5 * day)).check,
+    b = fixture('earlier-b', add(now, -4 * day)).check;
+  const issued = { ...award('proficiency', add(now, -2 * day)), claimId: 'later-claim' };
+  const result = projectCharacterEvidence([a, b], [issued], context());
+  expect(result.candidates[0].awardedAt).toBe(b.completedAt);
+  expect(result.revalidation[0]).toMatchObject({
+    claimId: 'later-claim',
+    reason: 'earlier-attainment-found'
+  });
+  expect(result.historical[0]).toBe(issued);
+});
+it('review ignores assessments preceding the proficiency award', () => {
+  const proficiency = award('proficiency', now),
+    initial = initializeReview(proficiency);
+  const prior = fixture('old-failure', add(now, -day), { k: 0 }).check;
+  expect(reconcileReview(initial, [prior], now).state).toEqual(initial);
 });

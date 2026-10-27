@@ -7,3 +7,5 @@ export * from './review';
 export * from './recommendation';
 
 export * from './confusion';
+
+export * from './mixed-plan';

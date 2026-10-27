@@ -59,12 +59,12 @@ func learningPost(t *testing.T, db *gorm.DB, user models.User, records ...map[st
 	}
 	return result
 }
-func TestLearningEvidenceEnvelopeAndDisabledClaims(t *testing.T) {
+func TestLearningEvidenceEnvelopeAndClientClaims(t *testing.T) {
 	plan := learningPlanFixture()
 	plan["purpose"] = "mixed-check"
 	result := learningPost(t, nil, models.User{}, plan)
-	if len(result.AcknowledgedIDs) != 0 || len(result.RejectedRecords) != 1 || result.RejectedRecords[0].ErrorCode != "FEATURE_NOT_ENABLED" {
-		t.Fatalf("mixed claims not gated: %+v", result)
+	if len(result.AcknowledgedIDs) != 0 || len(result.RejectedRecords) != 1 || result.RejectedRecords[0].ErrorCode != "INVALID_RECORD" {
+		t.Fatalf("invalid mixed plan accepted: %+v", result)
 	}
 	for _, test := range []struct {
 		name  string
@@ -214,11 +214,11 @@ func TestLearningEvidencePostgresPresentationAndChronology(t *testing.T) {
 	if r := learningPost(t, db, user, open); len(r.AcknowledgedIDs) != 1 {
 		t.Fatal(r)
 	}
-	observation := learningFixture("observation", "answer", map[string]any{"session_id": "review", "prompt_id": "p0", "presentation_id": "sound", "first_response": "K", "final_response": "K", "skipped": false, "replay_count_before_response": 0, "help_before_response": false, "audio_valid": true, "interruption_invalidated": false, "response_interface": "keyboard", "first_presented_at": learningBounds("2026-10-27T00:02:00Z"), "prior_exposure": nil, "char_wpm": 20, "eff_wpm": 12, "freq_hz": 600})
+	observation := learningFixture("observation", "answer", map[string]any{"session_id": "review", "prompt_id": "p0", "presentation_id": "sound", "first_response": "K", "final_response": "K", "skipped": false, "replay_count_before_response": 0, "help_before_response": false, "audio_valid": true, "interruption_invalidated": false, "response_interface": "keyboard", "first_presented_at": learningBounds("2026-10-27T00:00:30Z"), "prior_exposure": nil, "char_wpm": 20, "eff_wpm": 12, "freq_hz": 600})
 	if r := learningPost(t, db, user, observation); len(r.RejectedRecords) != 1 || r.RejectedRecords[0].ErrorCode != "EVIDENCE_SET_CONFLICT" {
 		t.Fatal("contradictory presentation accepted", r)
 	}
-	observation["first_presented_at"] = learningBounds("2026-10-27T00:01:00Z")
+	observation["first_presented_at"] = learningBounds("2026-10-27T00:02:00Z")
 	if r := learningPost(t, db, user, observation); len(r.AcknowledgedIDs) != 1 {
 		t.Fatal(r)
 	}

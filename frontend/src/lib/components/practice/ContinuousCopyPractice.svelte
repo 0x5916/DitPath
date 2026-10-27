@@ -239,6 +239,7 @@
   <p class="session-state" aria-live="polite">{sessionStateText}</p>
   <div class="player-wrapper">
     <MorsePlayer
+      exposureSource="group"
       bind:this={player}
       text={lessonText}
       bind:charWpm={settings.charWpm}

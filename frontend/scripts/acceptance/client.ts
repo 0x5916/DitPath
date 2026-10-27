@@ -3,7 +3,7 @@ import { createAttemptRepository } from '../../src/lib/data/attempt-repository';
 import { createSessionRepository } from '../../src/lib/data/session-repository';
 import { AUTH_STORAGE_KEYS, CW_STORAGE_KEYS } from '../../src/lib/storageKeys';
 import { ACCOUNT_ID, buildFixture, SCENARIOS, type Scenario } from './fixtures';
-import { resetLearningPilotFixture } from './faults';
+import { resetLearningPilotFixture, resetEvidenceFixture } from './faults';
 
 async function selectScenario(scenario: Scenario) {
   if (location.origin !== 'http://127.0.0.1:4174') throw new Error('Wrong fixture origin');
@@ -17,6 +17,9 @@ async function selectScenario(scenario: Scenario) {
     status.textContent = 'Close other acceptance tabs to continue.';
   });
   await resetLearningPilotFixture(indexedDB, () => {
+    status.textContent = 'Close other acceptance tabs to continue.';
+  });
+  await resetEvidenceFixture(indexedDB, () => {
     status.textContent = 'Close other acceptance tabs to continue.';
   });
   const signedIn = scenario === 'pending-sync' || scenario === 'account-error';

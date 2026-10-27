@@ -8,6 +8,7 @@ export interface ReviewState {
   readonly profileKey: string;
   readonly character: string;
   readonly policyVersion: string;
+  readonly attainedAt: string;
   readonly rung: number;
   readonly dueAt: string;
   readonly cycleId: string;
@@ -28,6 +29,7 @@ export function initializeReview(proficiency: Attainment): ReviewState {
   if (
     proficiency.kind !== 'proficiency' ||
     proficiency.status === 'unverified' ||
+    proficiency.status === 'superseded' ||
     proficiency.policyVersion !== P.version ||
     !Number.isFinite(timestamp(proficiency.awardedAt))
   )
@@ -37,6 +39,7 @@ export function initializeReview(proficiency: Attainment): ReviewState {
     profileKey: proficiency.profileKey,
     character: proficiency.character,
     policyVersion: P.version,
+    attainedAt: proficiency.awardedAt,
     rung: 0,
     dueAt: at(timestamp(proficiency.awardedAt) + P.reviewIntervalsMs[0]),
     cycleId: canonical([proficiency.key, 'initial-review']),
@@ -73,7 +76,11 @@ export function reconcileReview(
   const issues = conflicts.map((id) => `conflicting-check:${id}`);
   const ordered = checks
     .filter(
-      (check) => check.complete && check.completedAt !== null && timestamp(check.completedAt) <= now
+      (check) =>
+        check.complete &&
+        check.completedAt !== null &&
+        timestamp(check.completedAt) <= now &&
+        timestamp(check.startedAt) >= timestamp(initial.attainedAt)
     )
     .sort((a, b) => timestamp(a.startedAt) - timestamp(b.startedAt) || (a.id < b.id ? -1 : 1));
   const overlapping = new Set<string>();
@@ -120,7 +127,14 @@ export function reconcileReview(
         ...state,
         rung: 0,
         dueAt: at(recovery),
-        cycleId: canonical([state.cycleId, check.id, 'recovery'])
+        cycleId: canonical([
+          state.ownerKey,
+          state.profileKey,
+          state.character,
+          P.version,
+          check.id,
+          'recovery'
+        ])
       };
     } else if (
       sameCycle &&
@@ -133,7 +147,14 @@ export function reconcileReview(
         ...state,
         rung,
         dueAt: at(timestamp(check.completedAt!) + P.reviewIntervalsMs[rung]),
-        cycleId: canonical([state.cycleId, check.id, 'passed'])
+        cycleId: canonical([
+          state.ownerKey,
+          state.profileKey,
+          state.character,
+          P.version,
+          check.id,
+          'passed'
+        ])
       };
     }
   }

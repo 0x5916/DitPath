@@ -16,7 +16,9 @@ export interface CharacterEvidence {
   readonly candidates: readonly Attainment[];
   readonly revalidation: readonly {
     readonly awardKey: string;
-    readonly reason: 'invalid-witness';
+    readonly claimId?: string;
+    readonly reason: 'invalid-witness' | 'earlier-attainment-found';
+    readonly replacementBasisKey?: string;
     readonly checkIds: readonly string[];
   }[];
   readonly repeatedDifficulty: boolean;
@@ -159,7 +161,27 @@ export function projectCharacterEvidence(
   ).checks;
   const revalidation: CharacterEvidence['revalidation'][number][] = [];
   const knownById = new Map(unique.map((check) => [check.id, check]));
-  for (const award of historical.filter((entry) => entry.policyVersion === P.version)) {
+  const scopeKey = (kind: Attainment['kind']) =>
+    canonical([context.ownerKey, context.profileKey, context.character, kind, P.version]);
+  const basisKey = (kind: Attainment['kind'], ids: readonly string[]) =>
+    canonical([scopeKey(kind), ...ids]);
+  const awardFor = (kind: Attainment['kind'], witness: readonly EvaluatedCheck[]): Attainment => ({
+    key: scopeKey(kind),
+    basisKey: basisKey(
+      kind,
+      witness.map((check) => check.id)
+    ),
+    ownerKey: context.ownerKey,
+    profileKey: context.profileKey,
+    character: context.character,
+    policyVersion: P.version,
+    kind,
+    awardedAt: witness.at(-1)!.completedAt!,
+    checkIds: witness.map((check) => check.id),
+    status: 'provisional'
+  });
+  const currentPolicyHistory = historical.filter((award) => award.policyVersion === P.version);
+  for (const award of currentPolicyHistory) {
     const witness = award.checkIds.map((id) => knownById.get(id));
     if (witness.length !== 2 || witness.some((check) => !check)) continue;
     const pair = (witness as EvaluatedCheck[]).sort(chronological);
@@ -171,98 +193,143 @@ export function projectCharacterEvidence(
       valid &&=
         timestamp(pair[1].completedAt!) - timestamp(pair[0].completedAt!) <= P.freshnessMs &&
         eligible.indexOf(pair[1]) === eligible.indexOf(pair[0]) + 1;
-    else {
+    else
       valid &&= pair.every((check) =>
         recordedColdPass(check, context.character, knownExposureChecks)
       );
-      const anchor = historical
-        .filter(
-          (entry) =>
-            entry.kind === 'proficiency' &&
-            entry.policyVersion === P.version &&
-            entry.status !== 'unverified'
-        )
-        .sort((a, b) => timestamp(a.awardedAt) - timestamp(b.awardedAt))[0];
-      if (anchor)
-        valid &&=
-          pair.every(
-            (check) =>
-              timestamp(check.targets[context.character].firstProbe?.presentedAt?.earliest ?? '') >
-              timestamp(anchor.awardedAt)
-          ) &&
-          timestamp(pair[1].targets[context.character].firstProbe?.presentedAt?.earliest ?? '') -
-            timestamp(anchor.awardedAt) >=
-            P.retentionSpanMs;
-    }
     if (!valid)
       revalidation.push({
         awardKey: award.key,
+        ...(award.claimId ? { claimId: award.claimId } : {}),
         reason: 'invalid-witness',
         checkIds: [...award.checkIds]
       });
   }
-  const invalidKeys = new Set(revalidation.map((item) => item.awardKey));
-  const validAwards = historical.filter(
-    (award) =>
-      award.status !== 'unverified' &&
-      !invalidKeys.has(award.key) &&
-      award.policyVersion === P.version &&
-      timestamp(award.awardedAt) <= now
+  const invalid = (award: Attainment) =>
+    award.status === 'unverified' ||
+    revalidation.some(
+      (item) =>
+        item.reason === 'invalid-witness' &&
+        (item.claimId
+          ? item.claimId === award.claimId
+          : item.awardKey === award.key && canonical(item.checkIds) === canonical(award.checkIds))
+    );
+  const validHistory = currentPolicyHistory.filter(
+    (award) => !invalid(award) && timestamp(award.awardedAt) <= now
   );
-  const awardFor = (kind: Attainment['kind'], evidence: readonly EvaluatedCheck[]): Attainment => ({
-    key: canonical([context.ownerKey, context.profileKey, context.character, kind, P.version]),
-    ownerKey: context.ownerKey,
-    profileKey: context.profileKey,
-    character: context.character,
-    policyVersion: P.version,
-    kind,
-    awardedAt: evidence.at(-1)!.completedAt!,
-    checkIds: evidence.map((check) => check.id),
-    status: 'provisional'
-  });
-  let proficiency = validAwards
-    .filter((award) => award.kind === 'proficiency')
-    .sort((a, b) => timestamp(a.awardedAt) - timestamp(b.awardedAt))[0];
-  if (
-    !uncertain &&
-    !proficiency &&
-    !historical.some((award) => award.kind === 'proficiency' && award.policyVersion === P.version)
-  ) {
+  const rejectedBases = new Set(
+    currentPolicyHistory
+      .filter(invalid)
+      .map((award) => award.basisKey ?? basisKey(award.kind, award.checkIds))
+  );
+  const earliest = (kind: Attainment['kind']) =>
+    validHistory
+      .filter((award) => award.kind === kind && !invalid(award))
+      .sort(
+        (a, b) =>
+          timestamp(a.awardedAt) - timestamp(b.awardedAt) ||
+          canonical(a.checkIds).localeCompare(canonical(b.checkIds))
+      )[0];
+  function select(
+    kind: Attainment['kind'],
+    witness: readonly EvaluatedCheck[] | undefined
+  ): Attainment | undefined {
+    const previous = earliest(kind);
+    if (!witness || uncertain) return previous;
+    const candidate = awardFor(kind, witness);
+    if (previous && timestamp(previous.awardedAt) <= timestamp(candidate.awardedAt))
+      return previous;
+    candidates.push(candidate);
+    for (const award of validHistory.filter(
+      (item) =>
+        item.kind === kind &&
+        !invalid(item) &&
+        item.status !== 'superseded' &&
+        timestamp(item.awardedAt) > timestamp(candidate.awardedAt)
+    )) {
+      revalidation.push({
+        awardKey: award.key,
+        ...(award.claimId ? { claimId: award.claimId } : {}),
+        reason: 'earlier-attainment-found',
+        checkIds: [...award.checkIds],
+        replacementBasisKey: candidate.basisKey
+      });
+    }
+    return candidate;
+  }
+  let proficiencyWitness: EvaluatedCheck[] | undefined;
+  if (!uncertain)
     for (let index = 1; index < eligible.length; index++) {
       const pair = [eligible[index - 1], eligible[index]];
       if (
         timestamp(pair[1].completedAt!) - timestamp(pair[0].completedAt!) <= P.freshnessMs &&
-        pair.every((check) => passesTarget(check, context.character))
+        pair.every((check) => passesTarget(check, context.character)) &&
+        !rejectedBases.has(
+          basisKey(
+            'proficiency',
+            pair.map((check) => check.id)
+          )
+        )
       ) {
-        proficiency = awardFor('proficiency', pair);
-        candidates.push(proficiency);
+        proficiencyWitness = pair;
         break;
       }
     }
-  }
-  if (
-    !uncertain &&
-    proficiency &&
-    !historical.some((award) => award.kind === 'retention' && award.policyVersion === P.version)
-  ) {
-    const proficiencyAt = timestamp(proficiency.awardedAt);
-    const later = eligible.filter((check) => {
-      const probe = check.targets[context.character].firstProbe;
-      return (
+  const proficiency = select('proficiency', proficiencyWitness);
+  if (proficiency) {
+    const anchor = timestamp(proficiency.awardedAt);
+    const later = eligible.filter(
+      (check) =>
         recordedColdPass(check, context.character, knownExposureChecks) &&
-        probe !== null &&
-        validBounds(probe.presentedAt) &&
-        timestamp(probe.presentedAt.earliest) > proficiencyAt
-      );
-    });
-    const qualifying = later.find(
-      (check, index) =>
-        index >= 1 &&
-        timestamp(check.targets[context.character].firstProbe!.presentedAt!.earliest) -
-          proficiencyAt >=
-          P.retentionSpanMs
+        timestamp(check.targets[context.character].firstProbe!.presentedAt!.earliest) > anchor
     );
-    if (qualifying) candidates.push(awardFor('retention', [later[0], qualifying]));
+    let retentionWitness: EvaluatedCheck[] | undefined;
+    for (let index = 1; index < later.length && !retentionWitness; index++) {
+      if (
+        timestamp(later[index].targets[context.character].firstProbe!.presentedAt!.earliest) -
+          anchor <
+        P.retentionSpanMs
+      )
+        continue;
+      for (let earlier = 0; earlier < index; earlier++) {
+        const pair = [later[earlier], later[index]];
+        if (
+          !rejectedBases.has(
+            basisKey(
+              'retention',
+              pair.map((check) => check.id)
+            )
+          )
+        ) {
+          retentionWitness = pair;
+          break;
+        }
+      }
+    }
+    for (const award of validHistory.filter((item) => item.kind === 'retention')) {
+      const pair = award.checkIds.map((id) => knownById.get(id));
+      if (
+        pair.length === 2 &&
+        pair.every(Boolean) &&
+        (!pair.every(
+          (check) =>
+            timestamp(check!.targets[context.character].firstProbe?.presentedAt?.earliest ?? '') >
+            anchor
+        ) ||
+          timestamp(pair[1]!.targets[context.character].firstProbe?.presentedAt?.earliest ?? '') -
+            anchor <
+            P.retentionSpanMs)
+      ) {
+        revalidation.push({
+          awardKey: award.key,
+          ...(award.claimId ? { claimId: award.claimId } : {}),
+          reason: 'invalid-witness',
+          checkIds: [...award.checkIds]
+        });
+        rejectedBases.add(award.basisKey ?? basisKey(award.kind, award.checkIds));
+      }
+    }
+    select('retention', retentionWitness);
   }
   const recent = eligible
     .filter((check) => now - timestamp(check.completedAt!) <= P.freshnessMs)

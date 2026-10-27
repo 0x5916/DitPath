@@ -11,6 +11,8 @@ import {
   acceptanceSave,
   acceptanceTransform,
   FIXTURE_DB,
+  FIXTURE_EVIDENCE_DB,
+  resetEvidenceFixture,
   FIXTURE_LEARNING_PILOT_DB,
   resetLearningPilotFixture
 } from './faults';
@@ -111,4 +113,22 @@ describe('acceptance fixture behavior', () => {
     }
     expect(acceptanceTransform('ordinary app', '/src/routes/+page.svelte')).toBeUndefined();
   });
+});
+
+it('isolates prospective evidence fixture names and reset', async () => {
+  const source = readFileSync(
+    new URL('../../src/lib/data/learning-evidence.ts', import.meta.url),
+    'utf8'
+  );
+  const transformed = acceptanceTransform(source, '/src/lib/data/learning-evidence.ts');
+  expect(transformed).toContain(FIXTURE_EVIDENCE_DB);
+  expect(transformed).not.toContain("'opencw_learning_evidence_v1'");
+  const factory = new IDBFactory();
+  const { openLearningEvidenceDb } = await import('../../src/lib/data/learning-evidence');
+  const live = await openLearningEvidenceDb(factory);
+  const fixture = await openLearningEvidenceDb(factory, FIXTURE_EVIDENCE_DB);
+  fixture.close();
+  await resetEvidenceFixture(factory);
+  expect((await factory.databases()).map((db) => db.name)).toContain('opencw_learning_evidence_v1');
+  live.close();
 });

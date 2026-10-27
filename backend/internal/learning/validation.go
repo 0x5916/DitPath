@@ -219,8 +219,27 @@ func semantic(parts ...string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// Validate returns canonical semantic content, preserving null/unknown evidence.
-func Validate(raw json.RawMessage) (Record, *Rejection) {
+// Keep the stored schema-1/policy-1.0 decoder independent of rollout gates.
+const mixedCheckIntakeEnabled = true
+
+func Validate(raw json.RawMessage) (Record, *Rejection) { return validateV1(raw, true) }
+func DecodeStoredV1(raw json.RawMessage) (Record, *Rejection) {
+	data, err := DecodeObject(raw)
+	if err == nil && (data["kind"] == "milestone" || data["kind"] == "milestone-correction") {
+		record := Record{Data: data}
+		record.ID, _ = data["id"].(string)
+		record.Kind, _ = data["kind"].(string)
+		if !strings.HasPrefix(record.ID, "legacy:lp:") || len(record.ID) > 128 || data["policy_version"] != PolicyVersion {
+			return record, Reject(record.ID, "INVALID_RECORD", "Invalid stored server record", false)
+		}
+		record.Canonical, _ = json.Marshal(data)
+		return record, nil
+	}
+	return validateV1(raw, false)
+}
+
+// validateV1 remains the historical decoder when later policies are introduced.
+func validateV1(raw json.RawMessage, intake bool) (Record, *Rejection) {
 	data, err := DecodeObject(raw)
 	r := Record{Data: data}
 	if value, ok := data["id"].(string); ok {
@@ -242,12 +261,12 @@ func Validate(raw json.RawMessage) (Record, *Rejection) {
 	base := "id kind policy_version recorded_at "
 	switch r.Kind {
 	case "plan":
-		if data["purpose"] == "mixed-check" {
+		if intake && !mixedCheckIntakeEnabled && data["purpose"] == "mixed-check" {
 			return bad("FEATURE_NOT_ENABLED", "Mixed assessment and milestone projection are not enabled")
 		}
 		err = fields(data, base+"session_id purpose curriculum_version profile char_wpm eff_wpm freq_hz started_at introduced_characters targets prompts fresh_order feedback review_cycle_ids")
-		if err != nil || !id(data["session_id"]) || !enum(data, "purpose", "coaching", "screening") || data["curriculum_version"] != "koch-39-v1" || !playback(data) || !stamp(data, "started_at", false) || !boolean(data, "fresh_order", false) || data["feedback"] != "immediate" || data["review_cycle_ids"] != nil {
-			return bad("INVALID_RECORD", "Invalid coaching/screening plan")
+		if err != nil || !id(data["session_id"]) || !enum(data, "purpose", "coaching", "screening", "mixed-check") || data["curriculum_version"] != "koch-39-v1" || !playback(data) || !stamp(data, "started_at", false) || !boolean(data, "fresh_order", false) {
+			return bad("INVALID_RECORD", "Invalid learning plan")
 		}
 		profile, ok := data["profile"].(map[string]any)
 		if !ok || fields(profile, "id task char_wpm audio_condition response_support") != nil || !id(profile["id"]) || profile["task"] != "single-character" || profile["audio_condition"] != "clean" || profile["response_support"] != "open" || !number(profile, "char_wpm", 5, 50, false) || profile["char_wpm"] != data["char_wpm"] {
@@ -263,51 +282,83 @@ func Validate(raw json.RawMessage) (Record, *Rejection) {
 				return bad("INVALID_RECORD", "Targets must be taught characters")
 			}
 		}
+
 		prompts, ok := data["prompts"].([]any)
-		expected := 12
-		if data["purpose"] == "screening" {
-			expected = 8
-		}
-		if !ok || len(prompts) != expected || (expected == 12 && len(targets) != 2) {
-			return bad("INVALID_RECORD", "Invalid bounded review plan")
+		if !ok || len(prompts) > 100 {
+			return bad("INVALID_RECORD", "Invalid prompt plan")
 		}
 		seen := map[string]bool{}
+		counts := map[string]int{}
+		symbols := map[string]bool{}
+		anchors := 0
 		for _, value := range prompts {
-			p, ok := value.(map[string]any)
-			if !ok || fields(p, "id character role") != nil || !id(p["id"]) || !char(p["character"]) || !enum(p, "role", "target", "anchor") || !slices.Contains(taught, p["character"].(string)) || seen[p["id"].(string)] {
+			prompt, ok := value.(map[string]any)
+			if !ok || fields(prompt, "id character role") != nil || !id(prompt["id"]) || !char(prompt["character"]) || !enum(prompt, "role", "target", "anchor") || !slices.Contains(taught, prompt["character"].(string)) || seen[prompt["id"].(string)] {
 				return bad("INVALID_RECORD", "Invalid plan prompt")
 			}
-			seen[p["id"].(string)] = true
-		}
-
-		counts := map[string]int{}
-		for _, value := range prompts {
-			prompt := value.(map[string]any)
+			seen[prompt["id"].(string)] = true
 			ch := prompt["character"].(string)
 			counts[ch]++
-			if expected == 12 {
-				isTarget := slices.Contains(targets, ch)
-				if (prompt["role"] == "target") != isTarget {
-					return bad("INVALID_RECORD", "Prompt role differs from coaching targets")
-				}
-			} else if prompt["role"] != "target" {
+			symbols[ch] = true
+			if prompt["role"] == "anchor" {
+				anchors++
+			}
+			if data["purpose"] != "screening" && (prompt["role"] == "target") != slices.Contains(targets, ch) {
+				return bad("INVALID_RECORD", "Prompt role differs from target set")
+			}
+			if data["purpose"] == "screening" && prompt["role"] != "target" {
 				return bad("INVALID_RECORD", "Screening prompts must have target role")
 			}
 		}
-		if expected == 12 {
-			each := 3
-			if len(taught) == 2 {
-				each = 6
+		if data["purpose"] == "mixed-check" {
+			wantedAnchors := 0
+			if len(taught) > len(targets) {
+				wantedAnchors = 4
+			}
+			if len(taught) < 2 || len(targets) < 1 || len(targets) > 2 || data["fresh_order"] != true || data["feedback"] != "after-check" || anchors != wantedAnchors || len(symbols) < min(4, len(taught)) {
+				return bad("INVALID_RECORD", "Mixed checks require fresh open recall with valid targets, anchors and delayed feedback")
 			}
 			for _, ch := range targets {
-				if counts[ch] != each {
-					return bad("INVALID_RECORD", "Coaching must balance pair practice and available anchors")
+				if counts[ch] != 10 {
+					return bad("INVALID_RECORD", "Mixed check targets require ten opportunities")
 				}
 			}
-		} else if len(counts) != min(8, len(taught)) {
-			return bad("INVALID_RECORD", "Screening must sample up to eight distinct taught characters")
+			if data["review_cycle_ids"] == nil {
+				delete(data, "review_cycle_ids")
+			} else {
+				cycles, ok := data["review_cycle_ids"].(map[string]any)
+				if !ok || len(cycles) > 2 {
+					return bad("INVALID_RECORD", "Invalid review cycles")
+				}
+				for ch, value := range cycles {
+					cycle, ok := value.(string)
+					if !ok || !slices.Contains(targets, ch) || strings.TrimSpace(cycle) == "" || len(cycle) > 2048 || strings.ContainsRune(cycle, 0) {
+						return bad("INVALID_RECORD", "Invalid bounded review cycle")
+					}
+				}
+			}
+		} else {
+			if data["feedback"] != "immediate" || data["review_cycle_ids"] != nil {
+				return bad("INVALID_RECORD", "Coaching/screening cannot claim a review cycle")
+			}
+			delete(data, "review_cycle_ids")
+			if data["purpose"] == "coaching" {
+				if len(prompts) != 12 || len(targets) != 2 {
+					return bad("INVALID_RECORD", "Coaching requires twelve prompts and two targets")
+				}
+				each := 3
+				if len(taught) == 2 {
+					each = 6
+				}
+				for _, ch := range targets {
+					if counts[ch] != each {
+						return bad("INVALID_RECORD", "Coaching must balance pair practice and available anchors")
+					}
+				}
+			} else if len(prompts) != 8 || len(symbols) != min(8, len(taught)) {
+				return bad("INVALID_RECORD", "Screening must sample up to eight distinct taught characters in eight prompts")
+			}
 		}
-		delete(data, "review_cycle_ids")
 		r.SessionID = data["session_id"].(string)
 		r.ProfileID = profile["id"].(string)
 		r.SemanticKey = semantic("plan", r.SessionID)
@@ -344,11 +395,14 @@ func Validate(raw json.RawMessage) (Record, *Rejection) {
 		r.SessionID = data["session_id"].(string)
 		r.SemanticKey = semantic("observation", r.SessionID, data["prompt_id"].(string))
 	case "exposure-open":
+		if intake && !mixedCheckIntakeEnabled && data["source"] == "mixed-check" {
+			return bad("FEATURE_NOT_ENABLED", "Mixed assessment is not enabled")
+		}
 		if _, exists := data["session_id"]; !exists {
 			return bad("INVALID_RECORD", "session_id is required, nullable")
 		}
 		err = fields(data, base+"session_id presentation_id characters source started_at")
-		if err != nil || (data["session_id"] != nil && !id(data["session_id"])) || !id(data["presentation_id"]) || !stringSet(data, "characters", 40, char) || len(data["characters"].([]string)) == 0 || !enum(data, "source", "guided", "reference", "coaching", "screening", "group", "word", "callsign") {
+		if err != nil || (data["session_id"] != nil && !id(data["session_id"])) || !id(data["presentation_id"]) || !stringSet(data, "characters", 40, char) || len(data["characters"].([]string)) == 0 || !enum(data, "source", "guided", "reference", "coaching", "screening", "mixed-check", "group", "word", "callsign") {
 			return bad("INVALID_RECORD", "Invalid exposure action")
 		}
 		if !namedBounds(data, "started_at") {

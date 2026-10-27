@@ -12,6 +12,7 @@
     typed?: boolean;
     scored: boolean;
     coaching?: boolean;
+    assessment?: boolean;
     firstRecall?: boolean;
     draft?: string;
     classification?: AttemptClassification;
@@ -34,6 +35,7 @@
     typed = false,
     scored,
     coaching = false,
+    assessment = false,
     firstRecall = false,
     draft = $bindable(''),
     classification,
@@ -155,7 +157,11 @@
     {/if}
     {#if audioError}<p class="notice" role="alert">{m.lesson_feedback_audio_error()}</p>{/if}
     <p class="reassurance" role="status">
-      {playing ? m.lesson_listening() : scored || coaching ? '' : m.lesson_warmup_hint()}
+      {playing
+        ? m.lesson_listening()
+        : scored || coaching || assessment
+          ? ''
+          : m.lesson_warmup_hint()}
     </p>
     <footer><p>{phase === 'answering' ? m.lesson_hint_replay() : m.lesson_hint_play()}</p></footer>
   {/if}

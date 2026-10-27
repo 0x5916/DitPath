@@ -6,6 +6,7 @@
   import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
   import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
   import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.svelte.ts';
+  import { initializeLearningSync } from '#lib/learning-sync.svelte.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import { reconcileSettingsWithServer } from '#lib/cwSync.ts';
   import { GITHUB_URL } from '#lib/seo.ts';
@@ -99,7 +100,12 @@
   });
 
   onMount(() => {
-    return initializeTrainingSync();
+    const stopTraining = initializeTrainingSync();
+    const stopLearning = initializeLearningSync();
+    return () => {
+      stopLearning();
+      stopTraining();
+    };
   });
 
   async function handleLogout() {

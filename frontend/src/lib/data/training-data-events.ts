@@ -1,4 +1,8 @@
-type DataChange = { ownerKey: string; local: boolean; scope?: 'learning-pilot' };
+type DataChange = {
+  ownerKey: string;
+  local: boolean;
+  scope?: 'learning-pilot' | 'learning-evidence';
+};
 const listeners = new Set<(event: DataChange) => void>();
 export function subscribeTrainingDataChanges(listener: (event: DataChange) => void): () => void {
   listeners.add(listener);
@@ -7,7 +11,7 @@ export function subscribeTrainingDataChanges(listener: (event: DataChange) => vo
 export function notifyTrainingDataChange(
   ownerKey: string,
   local: boolean,
-  scope?: 'learning-pilot'
+  scope?: 'learning-pilot' | 'learning-evidence'
 ): void {
   for (const listener of listeners) listener({ ownerKey, local, ...(scope ? { scope } : {}) });
 }
