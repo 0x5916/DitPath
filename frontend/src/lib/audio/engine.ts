@@ -33,11 +33,39 @@ export interface AudioEngine {
   /** True while a playback exists (playing or paused). */
   isActive(): boolean;
   isPaused(): boolean;
-  /** Seconds since the last `play()`, including the plan's start delay. */
+  /** Seconds since the plan's clock started (after the lead-in), including its start delay. */
   elapsed(): number;
 }
 
 export type AudioContextFactory = () => AudioContext;
+
+/**
+ * Silent time kept on the timeline after the last tone. The oscillator's
+ * `ended` event fires when it is rendered, but the sound reaches the speaker
+ * one output latency later and `close()` discards whatever is still in flight.
+ * Without this tail the end of the final tone is clipped, which is most
+ * audible on a short last dot such as the end of R or S.
+ */
+export const MIN_OUTPUT_TAIL = 0.15;
+
+/**
+ * Silence before the first tone. A new AudioContext needs a moment before its
+ * first samples reach the speaker, so a tone scheduled right at the start loses
+ * its beginning: the first dot of S is barely heard and the first dash of K
+ * sounds like a dot. Looping hides it because the context is warm by then.
+ * `elapsed()` starts counting after this lead-in, so the clock is unchanged.
+ */
+export const START_LEAD_IN = 0.2;
+
+function usableSeconds(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/** How long to keep the context alive after the last tone has been rendered. */
+function outputTail(audio: AudioContext): number {
+  const reported = usableSeconds(audio.baseLatency) + usableSeconds(audio.outputLatency);
+  return Math.max(MIN_OUTPUT_TAIL, reported + 0.05);
+}
 
 export interface WebAudioEngineOptions {
   /** Test seam; defaults to `new AudioContext()` on first play. */
@@ -122,9 +150,10 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     // Match the original player: read the clock after graph setup and silence
     // the oscillator immediately. A future zero leaves GainNode's default
     // gain of 1 audible throughout the start delay.
-    ctxStartTime = audio.currentTime;
+    const now = audio.currentTime;
+    ctxStartTime = now + START_LEAD_IN;
     const t0 = ctxStartTime + plan.startDelay;
-    gain.gain.setValueAtTime(0, ctxStartTime);
+    gain.gain.setValueAtTime(0, now);
     for (const event of plan.events) {
       const start = t0 + event.start;
       const end = start + event.duration;
@@ -141,7 +170,8 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     };
 
     osc.start();
-    osc.stop(t0 + plan.totalDuration);
+    // The gain is already 0 after the last tone, so the extra time is silent.
+    osc.stop(t0 + plan.totalDuration + outputTail(audio));
   }
 
   async function pause(): Promise<void> {
@@ -190,6 +220,6 @@ export function createWebAudioEngine(options: WebAudioEngineOptions = {}): Audio
     },
     isActive: () => active,
     isPaused: () => paused,
-    elapsed: () => (active && ctx ? ctx.currentTime - ctxStartTime : 0)
+    elapsed: () => (active && ctx ? Math.max(ctx.currentTime - ctxStartTime, 0) : 0)
   };
 }
