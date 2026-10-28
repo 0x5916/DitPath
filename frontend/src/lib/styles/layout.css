@@ -103,7 +103,7 @@
   display: none;
 }
 
-@media (min-width: 800px) {
+@media (min-width: 960px) {
   .navbar-right.navbar-desktop {
     display: flex;
   }
@@ -199,13 +199,6 @@
   white-space: nowrap;
 }
 
-.navbar-divider {
-  width: 1px;
-  height: 1.5rem;
-  background: var(--border-subtle);
-  margin: 0 0.35rem;
-}
-
 .user-menu-wrapper {
   position: relative;
 }
@@ -293,7 +286,7 @@
   transition: color 0.15s;
 }
 
-@media (min-width: 800px) and (max-width: 1023px) {
+@media (min-width: 960px) and (max-width: 1023px) {
   .navbar-right {
     gap: var(--space-1);
   }
@@ -335,7 +328,7 @@
     transform var(--transition-base) var(--ease-smooth);
 }
 
-@media (max-width: 799px) {
+@media (max-width: 959px) {
   .bottom-nav {
     display: flex;
   }
@@ -459,7 +452,7 @@
   text-decoration: underline;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 959px) {
   /* The fixed bottom nav already labels the app on narrow screens. */
   .footer {
     display: none;
@@ -488,4 +481,99 @@
 .btn-primary svg,
 .btn-ghost svg {
   pointer-events: none;
+}
+
+/* Shared desktop navigation: content-sized links, quiet open state, distinct focus. */
+.navbar-inner {
+  max-width: 73rem;
+  min-height: 4rem;
+  padding: 0 var(--space-6);
+  gap: var(--space-8);
+}
+.navbar-right {
+  gap: var(--space-4);
+}
+.navbar-link,
+.navbar-user-btn {
+  min-height: 3rem;
+  height: auto;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+}
+.navbar-link {
+  font-weight: 500;
+}
+.navbar-link.active {
+  font-weight: 600;
+}
+.navbar-link::after {
+  left: var(--space-2);
+  width: calc(100% - 1rem);
+  bottom: -2px;
+}
+.navbar-link:not(.active)::after,
+.navbar-user-btn::after {
+  display: none;
+}
+.navbar-link:hover,
+.navbar-user-btn:hover,
+.navbar-user-btn[aria-expanded='true'] {
+  background: var(--bg-base);
+}
+.navbar-link:focus-visible,
+.navbar-user-btn:focus-visible,
+.user-dropdown-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.navbar-user-btn .nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.navbar-user-btn .nav-chevron {
+  width: 16px;
+  height: 16px;
+}
+.navbar-user-btn .nav-label-icon {
+  gap: var(--space-2);
+}
+.nav-account-label {
+  max-inline-size: 12ch;
+}
+.user-dropdown {
+  width: 17.5rem;
+  max-width: calc(100vw - 3rem);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+.user-dropdown-identity {
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.user-dropdown-item {
+  min-height: 3rem;
+  padding: var(--space-3);
+  gap: var(--space-4);
+  overflow-wrap: anywhere;
+}
+.user-dropdown-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+@media (min-width: 960px) and (max-width: 1199px) {
+  .navbar-user-btn {
+    width: 3rem;
+    justify-content: center;
+  }
+  .navbar-user-btn .nav-account-label,
+  .navbar-user-btn .nav-chevron {
+    display: none;
+  }
 }

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { CheckCircle2, CircleDot, AlertCircle, Lock, Circle } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
 
   export type PathItemStatus =
@@ -49,15 +48,7 @@
     aria-current={isCurrent ? 'step' : undefined}
   >
     <div class="node-icon status-{status}" aria-hidden="true">
-      {#if status === 'stable'}
-        <CheckCircle2 size={16} />
-      {:else if status === 'current'}
-        <CircleDot size={16} />
-      {:else if status === 'review'}
-        <AlertCircle size={16} />
-      {:else}
-        <Circle size={14} />
-      {/if}
+      {String(step).padStart(2, '0')}
     </div>
 
     <div class="node-details">
@@ -71,7 +62,7 @@
 {:else}
   <div class="path-item is-locked">
     <div class="node-icon status-locked" aria-hidden="true">
-      <Lock size={14} />
+      {String(step).padStart(2, '0')}
     </div>
 
     <div class="node-details">
@@ -92,9 +83,9 @@
     text-align: left;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border);
+    padding: var(--space-2) 0;
+    background-color: transparent;
+    border: 0;
     border-radius: var(--radius-sm);
     transition:
       background-color var(--transition-fast),
@@ -111,8 +102,7 @@
   }
 
   .is-current {
-    border-color: var(--learning-current);
-    box-shadow: inset 2px 0 0 var(--learning-current);
+    color: var(--learning-current);
   }
 
   .is-locked {
@@ -123,8 +113,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border-radius: var(--radius-xs);
     background-color: var(--bg-inset);
     flex-shrink: 0;
@@ -160,7 +150,8 @@
 
   .node-title {
     display: flex;
-    align-items: center;
+    align-items: baseline;
+    flex-wrap: wrap;
     gap: var(--space-2);
   }
 
@@ -170,8 +161,8 @@
   }
 
   .char-label {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-family: inherit;
+    font-size: var(--text-lg);
     font-weight: 700;
     color: var(--text-primary);
   }

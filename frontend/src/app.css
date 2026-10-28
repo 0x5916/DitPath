@@ -1191,3 +1191,48 @@ summary:focus-visible,
 .ui-disclosure[open] > summary {
   margin-bottom: var(--space-3);
 }
+
+/* Approved welcome illustration: decorative colors are independent of status. */
+:root {
+  --welcome-forest: #2f6b50;
+  --welcome-radio: #418261;
+  --welcome-gold: #d8bc70;
+  --welcome-paper: #f3f2ed;
+  --welcome-ink: #252620;
+  --welcome-mint: #a9d3b5;
+  --welcome-wash: #283d31;
+}
+
+/* Presence follows the existing Home owner/history decision, including SSR. */
+.page-wrapper:has(.welcome) > :is(.navbar, .bottom-nav, .footer) {
+  display: none;
+}
+.page-content:has(.welcome) {
+  max-width: 80rem;
+  padding: max(env(safe-area-inset-top), 1.5rem) 2rem 2rem;
+}
+@media (max-width: 799px) {
+  .page-content:has(.welcome) {
+    padding: calc(env(safe-area-inset-top) + 1rem) 1.5rem calc(env(safe-area-inset-bottom) + 1rem);
+  }
+}
+
+[data-theme='light'] {
+  --welcome-wash: #e1e9df;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --welcome-wash: #e1e9df;
+  }
+}
+
+/* Lessons shares the application shell, with room for the course beside the action. */
+.page-content:has(.lessons-page) {
+  max-width: 73rem;
+  padding-inline: 1.5rem;
+}
+
+.page-content:has(.practice-page) {
+  max-width: 73rem;
+  padding-inline: 1.5rem;
+}

@@ -1,4 +1,12 @@
 <script lang="ts">
+  import { browser } from '$app/env';
+  import { page } from '$app/state';
+  const view = $derived(
+    browser && ['characters', 'history'].includes(page.url.searchParams.get('view') ?? '')
+      ? page.url.searchParams.get('view')
+      : 'overview'
+  );
+
   import LearningHistory from '#lib/components/learning/LearningHistory.svelte';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
   import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
@@ -147,24 +155,35 @@
   <title>{m.nav_progress()} · OpenCW</title>
 </svelte:head>
 
-<div class="page-narrow">
+<div class="progress-page">
   <div class="progress-container">
     <header class="progress-header">
       <h1 class="page-title">{m.nav_progress()}</h1>
-      <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.nav_learn()}</a>
     </header>
+    <nav class="progress-tabs" aria-label={m.nav_progress()}>
+      {#each ['overview', 'characters', 'history'] as tab (tab)}
+        <a
+          href={localizedHref(
+            `/morse/progress?view=${tab}${browser && page.url.searchParams.has('status') ? `&status=${encodeURIComponent(page.url.searchParams.get('status')!)}` : ''}`
+          )}
+          aria-current={view === tab ? 'page' : undefined}
+          >{tab === 'overview'
+            ? m.progress_tab_overview()
+            : tab === 'characters'
+              ? m.progress_tab_characters()
+              : m.progress_tab_history()}</a
+        >
+      {/each}
+    </nav>
 
-    {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2}<LearningOverview
+    {#if learning.snapshot && (learning.snapshot.knownCharacters.length >= 2 || view === 'characters')}<LearningOverview
         snapshot={learning.snapshot}
         details
+        progressView={view}
       />{/if}
     {#if learning.failed}<p role="alert">{m.progress_load_error()}</p>
       <button class="btn-ghost" onclick={() => learning.refresh()}>{m.progress_retry()}</button
       >{/if}
-
-    {#if learning.snapshot?.history.length}<LearningHistory
-        entries={learning.snapshot.history}
-      />{/if}
 
     <TrainingSyncStatus
       owner={trainingSyncState.owner}
@@ -187,36 +206,8 @@
         >
       </div>
     {:else if summary}
-      {#if reviewHistory.length || reviewHistoryError}
-        <section class="progress-section" aria-labelledby="review-history-heading">
-          <h2 id="review-history-heading" class="section-title">{m.review_history_heading()}</h2>
-          <p class="progress-subtitle">{m.review_local_only()}</p>
-          {#if reviewHistoryError}<p role="alert">{m.progress_load_error()}</p>
-            <button class="btn-ghost" onclick={loadProgress}>{m.progress_retry()}</button>{/if}
-          <ol class="history-list">
-            {#each reviewHistory as review (review.id)}
-              <li class="history-row">
-                <div class="session-summary">
-                  <strong
-                    >{review.purpose === 'coaching'
-                      ? m.review_title({ characters: review.targets.join(', ') })
-                      : m.review_return_title()}</strong
-                  ><time datetime={review.completedAt ?? review.startedAt}
-                    >{dateFormat.format(new Date(review.completedAt ?? review.startedAt))}</time
-                  ><span>{m.review_answer_count({ count: review.attempts.length })}</span>
-                </div>
-                <span
-                  >{review.status === 'completed'
-                    ? m.review_result_title()
-                    : m.review_unfinished()}</span
-                >
-              </li>
-            {/each}
-          </ol>
-        </section>
-      {/if}
-      {#if !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0}
-        <section class="progress-section" aria-labelledby="empty-heading">
+      {#if !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0 && !learning.snapshot?.history.length}
+        <section class="progress-section progress-empty" aria-labelledby="empty-heading">
           <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
           <p class="progress-subtitle">{m.progress_empty_description()}</p>
           <a class="btn-primary" href={localizedHref('/morse/learn')}
@@ -224,7 +215,7 @@
           >
         </section>
       {:else}
-        {#if !learning.snapshot?.checks.length && (summary.confusionPairs.length > 0 || summary.slowChars.length > 0)}
+        {#if view === 'overview' && !learning.snapshot?.checks.length && (summary.confusionPairs.length > 0 || summary.slowChars.length > 0)}
           <section class="progress-section" aria-label={m.progress_attention()}>
             <ConfusionList
               confusionPairs={summary.confusionPairs}
@@ -234,109 +225,227 @@
           </section>
         {/if}
 
-        <PracticeActivity
-          sessionCount={summary.sessionCount}
-          guidedSessionCount={summary.guidedSessionCount}
-          practiceSessionCount={summary.practiceSessionCount}
-          legacySessionCount={summary.legacySessionCount}
-          totalMinutes={summary.totalMinutes}
-          timedSessionCount={summary.timedSessionCount}
-          accuracyPercent={summary.accuracyPercent}
-        />
-
-        <details class="progress-section ui-disclosure">
-          <summary>{m.progress_mastery_heading()}</summary>
-          <p>{m.learning_legacy_hint()}</p>
-          <CharacterMasteryGrid masteryMap={summary.masteryMap} />
-        </details>
-
-        {#if history.length > 0}
-          <details class="progress-section ui-disclosure">
-            <summary>{m.progress_history_heading()}</summary>
-            <div class="history-heading">
-              <InfoTip
-                label={m.common_tip_label({ topic: m.progress_history_heading() })}
-                text={m.history_unknown_hint()}
-              />
-            </div>
-            <ol class="history-list" role="list">
-              {#each showHistory ? history : history.slice(0, 5) as session (session.id)}
-                {@const introduced = LESSONS[session.step - 1]?.split('').join(', ')}
-                <li class="history-row">
-                  <div class="session-summary">
-                    <div class="session-copy">
-                      <strong class="session-title">
-                        {#if session.mode === 'practice'}
-                          <Dumbbell size={18} class="practice-icon" aria-hidden="true" />
-                          {m.progress_history_practice_lesson({ step: session.step })}
-                        {:else if session.mode === 'legacy'}
-                          <History size={18} aria-hidden="true" />
-                          {m.progress_history_legacy_lesson({ step: session.step })}
-                        {:else}
-                          <Radio size={18} aria-hidden="true" />
-                          {introduced
-                            ? m.progress_history_lesson_characters({
-                                step: session.step,
-                                characters: introduced
-                              })
-                            : m.progress_history_lesson({ step: session.step })}
-                        {/if}
-                      </strong>
-                      <time datetime={sessionOccurredAt(session)}
-                        >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
-                      >
-                    </div>
-                    <span class="session-status" class:abandoned={session.status === 'abandoned'}>
-                      {#if session.status === 'abandoned'}
-                        <CircleMinus size={14} aria-hidden="true" />{m.history_abandoned()}
-                      {:else}
-                        <CircleCheck size={14} aria-hidden="true" />{m.history_completed()}
-                      {/if}
-                    </span>
-                  </div>
-                  <dl class="session-metrics">
-                    <div>
-                      <dt>{m.profile_cw_char_wpm()}</dt>
-                      <dd>{session.charWpm ?? m.progress_unmeasured()}</dd>
-                    </div>
-                    <div>
-                      <dt>{m.profile_cw_eff_wpm()}</dt>
-                      <dd>{session.effWpm ?? m.progress_unmeasured()}</dd>
-                    </div>
-                    <div>
-                      <dt>{m.profile_history_accuracy()}</dt>
-                      <dd>
-                        {session.accuracy == null
-                          ? m.progress_unmeasured()
-                          : percentFormat.format(session.accuracy)}
-                        {#if session.accuracy != null}
-                          <span class="accuracy-bar" aria-hidden="true">
-                            <span style:width={`${session.accuracy * 100}%`}></span>
-                          </span>
-                        {/if}
-                      </dd>
-                    </div>
-                  </dl>
-                </li>
-              {/each}
-            </ol>
-            {#if history.length > 5}
-              <button
-                type="button"
-                class="btn-ghost history-toggle"
-                aria-expanded={showHistory}
-                onclick={() => (showHistory = !showHistory)}
-                >{showHistory ? m.common_show_less() : m.progress_show_history()}</button
-              >
-            {/if}
+        {#if view === 'overview'}<PracticeActivity
+            progressPage
+            sessionCount={summary.sessionCount}
+            guidedSessionCount={summary.guidedSessionCount}
+            practiceSessionCount={summary.practiceSessionCount}
+            legacySessionCount={summary.legacySessionCount}
+            totalMinutes={summary.totalMinutes}
+            timedSessionCount={summary.timedSessionCount}
+            accuracyPercent={summary.accuracyPercent}
+          />
+        {/if}
+        {#if view === 'overview' && learning.snapshot?.knownCharacters.length}
+          <section class="recall-summary" aria-label={m.progress_tab_characters()}>
+            {#each ['not-met', 'met', 'stale'] as criterion (criterion)}
+              <a href={localizedHref(`/morse/progress?view=characters&status=${criterion}`)}>
+                <span
+                  >{criterion === 'met'
+                    ? m.learning_current_met()
+                    : criterion === 'not-met'
+                      ? m.learning_current_notmet()
+                      : m.learning_current_stale()}</span
+                >
+                <strong
+                  >{learning.snapshot.characters.filter(
+                    (c) =>
+                      learning.snapshot?.knownCharacters.includes(c.character) &&
+                      (criterion === 'stale'
+                        ? !['met', 'not-met'].includes(c.current.criterion)
+                        : c.current.criterion === criterion)
+                  ).length}</strong
+                >
+              </a>
+            {/each}
+          </section>
+        {/if}
+        {#if view === 'history'}<details class="progress-section ui-disclosure">
+            <summary>{m.progress_mastery_heading()}</summary>
+            <p>{m.learning_legacy_hint()}</p>
+            <CharacterMasteryGrid masteryMap={summary.masteryMap} />
           </details>
+
+          {#if history.length > 0}
+            <details class="progress-section ui-disclosure">
+              <summary>{m.progress_history_heading()}</summary>
+              <div class="history-heading">
+                <InfoTip
+                  label={m.common_tip_label({ topic: m.progress_history_heading() })}
+                  text={m.history_unknown_hint()}
+                />
+              </div>
+              <ol class="history-list" role="list">
+                {#each showHistory ? history : history.slice(0, 5) as session (session.id)}
+                  {@const introduced = LESSONS[session.step - 1]?.split('').join(', ')}
+                  <li class="history-row">
+                    <div class="session-summary">
+                      <div class="session-copy">
+                        <strong class="session-title">
+                          {#if session.mode === 'practice'}
+                            <Dumbbell size={18} class="practice-icon" aria-hidden="true" />
+                            {m.progress_history_practice_lesson({ step: session.step })}
+                          {:else if session.mode === 'legacy'}
+                            <History size={18} aria-hidden="true" />
+                            {m.progress_history_legacy_lesson({ step: session.step })}
+                          {:else}
+                            <Radio size={18} aria-hidden="true" />
+                            {introduced
+                              ? m.progress_history_lesson_characters({
+                                  step: session.step,
+                                  characters: introduced
+                                })
+                              : m.progress_history_lesson({ step: session.step })}
+                          {/if}
+                        </strong>
+                        <time datetime={sessionOccurredAt(session)}
+                          >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
+                        >
+                      </div>
+                      <span class="session-status" class:abandoned={session.status === 'abandoned'}>
+                        {#if session.status === 'abandoned'}
+                          <CircleMinus size={14} aria-hidden="true" />{m.history_abandoned()}
+                        {:else}
+                          <CircleCheck size={14} aria-hidden="true" />{m.history_completed()}
+                        {/if}
+                      </span>
+                    </div>
+                    <dl class="session-metrics">
+                      <div>
+                        <dt>{m.profile_cw_char_wpm()}</dt>
+                        <dd>{session.charWpm ?? m.progress_unmeasured()}</dd>
+                      </div>
+                      <div>
+                        <dt>{m.profile_cw_eff_wpm()}</dt>
+                        <dd>{session.effWpm ?? m.progress_unmeasured()}</dd>
+                      </div>
+                      <div>
+                        <dt>{m.profile_history_accuracy()}</dt>
+                        <dd>
+                          {session.accuracy == null
+                            ? m.progress_unmeasured()
+                            : percentFormat.format(session.accuracy)}
+                          {#if session.accuracy != null}
+                            <span class="accuracy-bar" aria-hidden="true">
+                              <span style:width={`${session.accuracy * 100}%`}></span>
+                            </span>
+                          {/if}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                {/each}
+              </ol>
+              {#if history.length > 5}
+                <button
+                  type="button"
+                  class="btn-ghost history-toggle"
+                  aria-expanded={showHistory}
+                  onclick={() => (showHistory = !showHistory)}
+                  >{showHistory ? m.common_show_less() : m.progress_show_history()}</button
+                >
+              {/if}
+            </details>
+          {/if}
         {/if}
       {/if}
+    {/if}
+    {#if view === 'history' && learning.snapshot?.history.length}<details
+        class="progress-section ui-disclosure"
+      >
+        <summary>{m.history_learning()}</summary>
+        <LearningHistory entries={learning.snapshot.history} />
+      </details>{/if}
+
+    {#if view === 'history' && (reviewHistory.length || reviewHistoryError)}
+      <details class="progress-section ui-disclosure" open={reviewHistoryError}>
+        <summary>{m.review_history_heading()}</summary>
+        <p class="progress-subtitle">{m.review_local_only()}</p>
+        {#if reviewHistoryError}<p role="alert">{m.progress_load_error()}</p>
+          <button class="btn-ghost" onclick={loadProgress}>{m.progress_retry()}</button>{/if}
+        <ol class="history-list">
+          {#each reviewHistory as review (review.id)}
+            <li class="history-row">
+              <div class="session-summary">
+                <strong
+                  >{review.purpose === 'coaching'
+                    ? m.review_title({ characters: review.targets.join(', ') })
+                    : m.review_return_title()}</strong
+                ><time datetime={review.completedAt ?? review.startedAt}
+                  >{dateFormat.format(new Date(review.completedAt ?? review.startedAt))}</time
+                ><span>{m.review_answer_count({ count: review.attempts.length })}</span>
+              </div>
+              <span
+                >{review.status === 'completed'
+                  ? m.review_result_title()
+                  : m.review_unfinished()}</span
+              >
+            </li>
+          {/each}
+        </ol>
+      </details>
     {/if}
   </div>
 </div>
 
 <style>
+  .recall-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+  }
+  .recall-summary a {
+    display: grid;
+    gap: var(--space-3);
+    min-height: 48px;
+    text-decoration: none;
+    color: var(--text-secondary);
+  }
+  .recall-summary strong {
+    color: var(--text-primary);
+    font-size: var(--text-xl);
+  }
+  @media (max-width: 639px) {
+    .recall-summary {
+      grid-template-columns: 1fr;
+    }
+    .recall-summary a {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  }
+
+  .progress-tabs {
+    display: flex;
+    gap: var(--space-4);
+  }
+  .progress-tabs a {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: var(--space-3);
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+  .progress-tabs a[aria-current] {
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  @media (max-width: 480px) {
+    .progress-tabs {
+      gap: 0;
+    }
+    .progress-tabs a {
+      flex: 1;
+      padding-inline: 4px;
+      font-size: var(--text-sm);
+    }
+  }
+
   .history-toggle {
     align-self: flex-start;
     min-height: var(--answer-target-min);
@@ -421,10 +530,45 @@
     }
   }
 
+  .progress-page {
+    max-width: 60rem;
+    margin-inline: auto;
+  }
+  .progress-header h1 {
+    font-size: 2rem;
+    margin: 0;
+  }
+  .progress-empty {
+    padding: var(--space-6);
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+  .progress-empty .btn-primary {
+    min-height: 3.25rem;
+    margin-top: var(--space-2);
+  }
+  .progress-container :global(.learning-history) {
+    margin-block: var(--space-4) 0;
+  }
+  .progress-container :global(.learning-history > h2) {
+    display: none;
+  }
+  @media (max-width: 639px) {
+    .progress-page {
+      padding-inline: var(--space-2);
+    }
+  }
+  @media (min-width: 960px) {
+    .progress-header h1 {
+      font-size: 2.5rem;
+    }
+  }
   .progress-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: var(--space-8);
     width: 100%;
     margin: 0 auto;
@@ -453,7 +597,7 @@
     flex-direction: column;
     gap: var(--space-3);
     width: 100%;
-    max-width: var(--max-width-narrow);
+    max-width: none;
   }
 
   .section-title {
@@ -476,6 +620,6 @@
   .loading-card {
     height: 16rem;
     width: 100%;
-    max-width: var(--max-width-narrow);
+    max-width: none;
   }
 </style>

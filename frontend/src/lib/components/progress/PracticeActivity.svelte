@@ -5,6 +5,7 @@
   import * as m from '#lib/paraglide/messages.js';
 
   let {
+    progressPage = false,
     sessionCount,
     guidedSessionCount,
     practiceSessionCount,
@@ -13,6 +14,7 @@
     accuracyPercent,
     timedSessionCount
   }: {
+    progressPage?: boolean;
     sessionCount: number;
     guidedSessionCount: number;
     practiceSessionCount: number;
@@ -27,7 +29,12 @@
   );
 </script>
 
-<div class="activity-ledger-card" role="region" aria-label={m.progress_activity_label()}>
+<div
+  class="activity-ledger-card"
+  class:progress-page={progressPage}
+  role="region"
+  aria-label={m.progress_activity_label()}
+>
   <div class="ledger-head">
     <p class="ledger-title">{m.progress_activity_title()}</p>
     <span class="ledger-period">{m.progress_activity_period()}</span>
@@ -83,6 +90,31 @@
 </div>
 
 <style>
+  .activity-ledger-card.progress-page {
+    max-width: none;
+    padding: var(--space-6);
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+  }
+  .progress-page .ledger-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .progress-page .ledger-title {
+    font-size: var(--text-lg);
+  }
+  .progress-page .metric-block {
+    justify-items: start;
+    text-align: start;
+  }
+  .progress-page .metric-label {
+    justify-content: flex-start;
+  }
+  .progress-page .session-label {
+    display: flex;
+  }
+
   .activity-ledger-card {
     display: flex;
     flex-direction: column;

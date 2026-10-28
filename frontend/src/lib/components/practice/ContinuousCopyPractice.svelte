@@ -250,7 +250,12 @@
 
 <svelte:window onkeydown={onPracticeKeydown} />
 
-<div class="continuous-copy-practice" role="region" aria-label={m.practice_copy_region()}>
+<div
+  class="continuous-copy-practice"
+  class:ready={!sessionStarted}
+  role="region"
+  aria-label={m.practice_copy_region()}
+>
   <div class="console-head">
     <label class="field"
       ><span class="label-text">{m.context_label()}</span><select
@@ -266,7 +271,6 @@
         >
       </select></label
     >
-    {#if context !== 'groups'}<p>{m.context_notice()}</p>{/if}
     {#if context === 'groups'}
       <label class="field">
         <span class="label-text">{m.trainer_current_lesson()}</span>
@@ -282,16 +286,13 @@
         </select>
       </label>
     {/if}
-    <p class="console-meta">
-      {m.practice_speed_summary({ character: settings.charWpm, effective: settings.effWpm })}
-    </p>
     <details class="character-details">
       <summary>{m.practice_character_count({ count: currentLessonChars.length })}</summary>
       <p>{currentLessonChars.join(' ')}</p>
     </details>
   </div>
 
-  <p class="session-state" aria-live="polite">{sessionStateText}</p>
+  {#if sessionStarted}<p class="session-state" aria-live="polite">{sessionStateText}</p>{/if}
   <div class="player-wrapper">
     {#key context}<MorsePlayer
         exposureSource={context === 'words'
@@ -309,6 +310,7 @@
         onBeforeSettingsInput={confirmReplaceExercise}
         onSettingsInput={() => regenerate()}
         showSettings
+        practiceLayout
         playTone={sessionStarted ? 'quiet' : 'primary'}
         showTransportExtras={transportLive}
         onStart={handleStart}
@@ -318,7 +320,7 @@
       />{/key}
   </div>
 
-  <div class="answer-section">
+  <div class="answer-section" class:hidden={!sessionStarted}>
     {#if sessionStarted}
       <label class="field">
         <span class="label-text">{m.trainer_answer_label()}</span>
@@ -411,24 +413,34 @@
 
 <style>
   .continuous-copy-practice {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-6);
     width: 100%;
+    isolation: isolate;
+  }
+  .continuous-copy-practice::before {
+    content: '';
+    grid-column: 1;
+    grid-row: 1 / 7;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    z-index: -1;
   }
   .console-head {
+    grid-column: 1;
+    grid-row: 1;
+    margin: var(--space-6) var(--space-6) 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-2) var(--space-4);
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
     align-items: center;
   }
   .console-head .field {
     grid-column: 1 / -1;
   }
-  .console-meta {
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--text-muted);
+  .console-head select {
+    min-height: 3.25rem;
   }
   .character-details {
     font-size: var(--text-sm);
@@ -445,15 +457,20 @@
     margin: 0 0 var(--space-2);
   }
   .session-state {
-    margin: 0;
+    grid-column: 1;
+    grid-row: 2;
+    margin-inline: var(--space-6);
+    margin-block: 0;
     font-size: var(--text-base);
     color: var(--text-secondary);
   }
   .player-wrapper {
-    display: flex;
-    justify-content: flex-start;
+    display: contents;
   }
   .answer-section {
+    grid-column: 1;
+    grid-row: 5;
+    margin: 0 var(--space-6) var(--space-6);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -509,5 +526,23 @@
     .action-row {
       flex-direction: column;
     }
+  }
+  .ready {
+    row-gap: 0;
+  }
+  .ready :global(.player-playhead) {
+    display: none;
+  }
+  .ready .console-head {
+    margin-bottom: var(--space-6);
+  }
+  .ready :global(.player-media-controls) {
+    margin-bottom: var(--space-6);
+  }
+  .ready :global(.player-settings-region) {
+    margin-top: var(--space-8);
+  }
+  .answer-section.hidden {
+    display: none;
   }
 </style>

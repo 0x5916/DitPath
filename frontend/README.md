@@ -74,6 +74,7 @@ docker run -p 3000:80 opencw-frontend
 - [Learning architecture](docs/learning.md): routes, domain/controller boundaries, storage, and UI acceptance.
 - [Learning policy pilot](docs/learning-policy.md): prospective assessment criteria, local coaching/screening scope, and activation gates.
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
+- [Approved design handoff](docs/design-handoff.md): current Penpot authority, implementation status, instant check entry, and design-to-code acceptance workflow.
 - [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.
 - [project.inlang/settings.json](project.inlang/settings.json) and [Paraglide options](scripts/paraglide-options.ts): locale/compiler configuration. SDK-generated inlang notes/cache and `src/lib/paraglide/` are not maintained documentation.

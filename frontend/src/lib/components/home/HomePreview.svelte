@@ -278,7 +278,7 @@
     text-align: center;
     border: 1px solid var(--border-control);
     border-radius: var(--radius-lg);
-    background-color: var(--bg-surface);
+    background-color: var(--bg-base);
     cursor: pointer;
   }
 

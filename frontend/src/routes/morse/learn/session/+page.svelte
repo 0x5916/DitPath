@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { consumeCheckStart } from '#lib/check-start-intent.ts';
+  let directCheckStart = $state(false);
   import {
     loadCheckpoint,
     saveCheckpoint,
@@ -403,6 +405,14 @@
       controller = ctrl;
       db = database;
       await ctrl.start();
+      if (
+        mixedPlan &&
+        beginReview &&
+        !destroyed &&
+        generation === initialization &&
+        !document.hidden
+      )
+        ctrl.play();
     } catch (err) {
       database?.close();
       if (!destroyed && generation === initialization && owner === getTrainingOwner()) {
@@ -417,6 +427,7 @@
   }
 
   onMount(() => {
+    directCheckStart = consumeCheckStart(page.url.pathname + page.url.search);
     const stopLearning = learning.start();
     void startSession(step);
     onVisibility = () => controller?.handleVisibilityChange(document.hidden);
@@ -702,7 +713,11 @@
   <main class="loading-stage review-setup">
     <MixedCheckPanel
       plan={mixedPlan}
-      onStart={() => startSession(step, true)}
+      autoStart={directCheckStart}
+      onStart={() => {
+        directCheckStart = false;
+        void startSession(step, true);
+      }}
       onFinish={handleExit}
     />
   </main>

@@ -1,8 +1,14 @@
 <script lang="ts">
+  import * as m from '#lib/paraglide/messages.js';
   import { Info } from '@lucide/svelte';
   import { onMount, tick, type Snippet } from 'svelte';
 
-  let { label, text, children }: { label: string; text: string; children?: Snippet } = $props();
+  let {
+    label,
+    text,
+    children,
+    heading = false
+  }: { label: string; text: string; children?: Snippet; heading?: boolean } = $props();
   const tooltipId = $props.id();
   let wrapper: HTMLSpanElement;
   let trigger: HTMLButtonElement;
@@ -47,6 +53,7 @@
 
   function escape(event: KeyboardEvent) {
     if (open && event.key === 'Escape') {
+      if (heading && pinned && panel?.contains(document.activeElement)) trigger.focus();
       if (event.currentTarget === trigger) {
         event.preventDefault();
         event.stopPropagation();
@@ -68,9 +75,9 @@
     const bounds = panel.getBoundingClientRect();
     left = Math.max(16, Math.min(anchor.left, window.innerWidth - bounds.width - 16));
     top =
-      anchor.bottom + bounds.height + 4 <= window.innerHeight - 16
-        ? anchor.bottom + 4
-        : Math.max(16, anchor.top - bounds.height - 4);
+      anchor.bottom + bounds.height + (heading ? 8 : 4) <= window.innerHeight - 16
+        ? anchor.bottom + (heading ? 8 : 4)
+        : Math.max(16, anchor.top - bounds.height - (heading ? 8 : 4));
   }
 
   $effect(() => {
@@ -94,7 +101,20 @@
 <svelte:document onpointerdown={outside} onkeydown={escape} />
 <svelte:window onresize={dismiss} />
 
-<span class="info-tip" bind:this={wrapper}>
+<span
+  class="info-tip"
+  class:heading
+  bind:this={wrapper}
+  onfocusout={(event) => {
+    if (
+      heading &&
+      pinned &&
+      event.relatedTarget instanceof Node &&
+      !wrapper.contains(event.relatedTarget)
+    )
+      dismiss();
+  }}
+>
   <button
     type="button"
     class="tip-trigger"
@@ -106,7 +126,7 @@
     onpointerleave={leave}
     onclick={toggle}
     onkeydown={(event) => {
-      if (event.key === 'Tab') dismiss();
+      if (event.key === 'Tab' && !(heading && pinned)) dismiss();
       else escape(event);
     }}
     onfocus={() => {
@@ -115,22 +135,38 @@
     }}
     onblur={() => {
       focused = false;
-      pinned = false;
+      if (!heading) pinned = false;
     }}
   >
-    {#if children}{@render children()}{:else}<Info size={16} aria-hidden="true" />{/if}
+    {#if children}{@render children()}{:else}<Info
+        size={heading ? 20 : 16}
+        aria-hidden="true"
+      />{/if}
   </button>
   {#if open}
     <span
       id={tooltipId}
-      role="tooltip"
+      role={heading && pinned ? 'dialog' : 'tooltip'}
+      aria-label={heading && pinned ? label : undefined}
       class="tip-panel"
       bind:this={panel}
       style:left={`${left}px`}
       style:top={`${top}px`}
       onpointerenter={enter}
-      onpointerleave={leave}>{text}</span
+      onpointerleave={leave}
     >
+      {text}
+      {#if heading && pinned}
+        <button
+          type="button"
+          class="tip-close"
+          onclick={() => {
+            trigger.focus();
+            dismiss();
+          }}>{m.overlay_close()}</button
+        >
+      {/if}
+    </span>
   {/if}
 </span>
 
@@ -155,6 +191,26 @@
     color: var(--text-muted);
     background: var(--tip-trigger-background, transparent);
     cursor: pointer;
+  }
+
+  .heading .tip-trigger {
+    justify-content: flex-start;
+    padding-left: 6px;
+  }
+  .tip-close {
+    display: block;
+    min-height: 48px;
+    margin-top: var(--space-2);
+    padding: 0 var(--space-3);
+    background: transparent;
+    border: 0;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+  }
+  .tip-close:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   .tip-trigger:hover,

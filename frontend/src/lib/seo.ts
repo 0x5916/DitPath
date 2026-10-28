@@ -10,7 +10,7 @@ export type SeoMetadata = {
 };
 
 export const SITE_NAME = 'OpenCW';
-export const GITHUB_URL = 'https://github.com/0x5916';
+export const GITHUB_URL = 'https://github.com/0x5916/Morse';
 export const DEFAULT_OG_IMAGE_PATH = '/og-image.png';
 
 // Indexable surfaces, derived from the one route list so a route cannot be

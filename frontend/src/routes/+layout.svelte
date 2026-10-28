@@ -42,7 +42,7 @@
     { path: '/morse/learn', label: m.nav_learn },
     { path: '/morse/practice', label: m.nav_practice },
     { path: '/morse/progress', label: m.nav_progress },
-    { path: '/more', label: m.nav_more }
+    { path: '/forum', label: m.nav_forum }
   ];
   const TAB_NAV = [
     { path: '/', label: m.nav_home, icon: House },
@@ -244,7 +244,6 @@
                 : undefined}>{item.label()}</a
             >
           {/each}
-          <div class="navbar-divider"></div>
           {#if $user}
             <Dropdown id="user-menu" label={$user.username}>
               {#snippet trigger()}

@@ -50,34 +50,18 @@
 {/snippet}
 
 {#snippet startLesson(lessonStep: number, characters: string, showInstruction = false)}
-  {#if embedded}
-    <div class="hero-start-row">
-      <span class={['hero-character', characters.length > 1 && 'has-multiple']}>
-        {characters.split('').join(', ')}
-      </span>
-      <h2 class="hero-title">{m.learn_path_lesson({ step: lessonStep })}</h2>
-      <button
-        type="button"
-        class="btn-cta hero-btn compact-start"
-        aria-label={m.learn_start_action({ step: lessonStep })}
-        onclick={() => onStart(lessonStep)}
-        ><Play size={18} /><span>{m.learn_start_short()}</span></button
-      >
-    </div>
-    {#if showInstruction}<p class="hero-desc compact-description">
-        {m.learn_new_description()}
-      </p>{/if}
-  {:else}
-    <h2 class="hero-title">
-      {m.home_lesson_title({ step: lessonStep, characters: characters.split('').join(', ') })}
-    </h2>
-    {#if showInstruction}<p class="hero-desc">{m.learn_new_description()}</p>{/if}
-    <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(lessonStep)}>
-        <Play size={18} /><span>{m.learn_start_action({ step: lessonStep })}</span>
-      </button>
-    </div>
-  {/if}
+  <div class="hero-eyebrow">
+    {showInstruction ? m.lessons_start_here() : m.learn_next_recommendation()}
+  </div>
+  <h2 class="hero-title">
+    {m.home_lesson_title({ step: lessonStep, characters: characters.split('').join(', ') })}
+  </h2>
+  {#if showInstruction}<p class="hero-desc">{m.learn_new_description()}</p>{/if}
+  <div class="hero-actions">
+    <button type="button" class="btn-cta hero-btn" onclick={() => onStart(lessonStep)}>
+      <Play size={18} /><span>{m.learn_start_action({ step: lessonStep })}</span>
+    </button>
+  </div>
 {/snippet}
 
 <div
@@ -214,22 +198,6 @@
     font-size: var(--text-lg);
   }
 
-  .hero-start-row {
-    display: grid;
-    grid-template-columns: var(--hero-character-width) minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--space-3);
-    width: 100%;
-  }
-
-  .hero-start-row .compact-start {
-    padding-inline: var(--space-4);
-  }
-
-  .hero-desc.compact-description {
-    margin-inline-start: calc(var(--hero-character-width) + var(--space-3));
-  }
-
   .hero-heading-copy {
     display: grid;
     gap: var(--space-1);
@@ -320,16 +288,31 @@
     width: 12rem;
     margin-top: var(--space-3);
   }
-  @media (max-width: 399px) {
-    .hero-start-row {
-      grid-template-columns: var(--hero-character-width) minmax(0, 1fr);
+  .is-embedded {
+    gap: var(--space-6);
+  }
+  .is-embedded .hero-title {
+    font-size: 2rem;
+  }
+  .is-embedded .hero-desc {
+    font-size: var(--text-base);
+    max-width: 36rem;
+  }
+  .is-embedded .hero-actions {
+    width: 100%;
+  }
+  .is-embedded .hero-btn {
+    min-height: 3.25rem;
+    width: 16.25rem;
+    max-width: 100%;
+  }
+  @media (max-width: 599px) {
+    .is-embedded .hero-title {
+      font-size: 1.625rem;
     }
-    .hero-start-row .compact-start {
-      grid-column: 1 / -1;
+    .hero-actions,
+    .is-embedded .hero-btn {
       width: 100%;
-    }
-    .hero-desc.compact-description {
-      margin-inline-start: 0;
     }
   }
 </style>

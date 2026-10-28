@@ -4,7 +4,15 @@
   import type { AudioEngine } from '#lib/audio/engine.ts';
   import { formatClock } from '#lib/format.ts';
   import { onDestroy, untrack } from 'svelte';
-  import { Play, Square, Pause, SlidersHorizontal, SkipForward, CircleAlert } from '@lucide/svelte';
+  import {
+    Play,
+    Square,
+    Pause,
+    SlidersHorizontal,
+    SkipForward,
+    CircleAlert,
+    ChevronRight
+  } from '@lucide/svelte';
   import {
     createPlaybackController,
     idlePlayback,
@@ -28,6 +36,7 @@
     reservePlayLabels?: string[];
     label?: string;
     showSettings?: boolean;
+    practiceLayout?: boolean;
     /* 'primary' keeps the play control accented; 'quiet' dresses it as a secondary
        action once the passage has already been played through once. */
     playTone?: 'primary' | 'quiet';
@@ -58,6 +67,7 @@
     reservePlayLabels = [],
     label = '',
     showSettings = false,
+    practiceLayout = false,
     playTone = 'primary',
     showTransportExtras = true,
     onBeforeSettingsInput = () => true,
@@ -142,6 +152,7 @@
 
   /** Measure the viewport/chrome/trigger and let the pure helper place the panel. */
   function placeSettingsPanel() {
+    if (practiceLayout) return;
     const panel = settingsPanelEl;
     const trigger = settingsEl?.querySelector<HTMLElement>('summary') ?? null;
     if (!panel || !trigger) return;
@@ -242,7 +253,11 @@
     if (!settingsOpen) return;
     function onDocumentClick(event: MouseEvent) {
       const target = event.target;
-      if (settingsDecisionPending || (target instanceof Element && target.closest('dialog')))
+      if (
+        practiceLayout ||
+        settingsDecisionPending ||
+        (target instanceof Element && target.closest('dialog'))
+      )
         return;
       if (settingsEl && target instanceof Node && !settingsEl.contains(target)) {
         settingsOpen = false;
@@ -330,7 +345,7 @@
   });
 </script>
 
-<div class="player-wrapper">
+<div class="player-wrapper" class:practice-layout={practiceLayout}>
   <!-- Safe-area probe: the placement script reads env(safe-area-inset-*) here. -->
   <div class="safe-area-probe" aria-hidden="true" bind:this={safeProbeEl}></div>
   {#if label}
@@ -408,90 +423,109 @@
         {/if}
       </div>
       {#if showSettings}
-        <details class="player-settings-menu" bind:this={settingsEl} bind:open={settingsOpen}>
-          <summary
-            class="player-settings-trigger"
-            aria-label={m.trainer_label_settings()}
-            title={m.trainer_label_settings()}
-          >
-            <SlidersHorizontal size={14} aria-hidden="true" />
-            <span>{m.trainer_label_settings()}</span>
-          </summary>
-          <div
-            class="player-settings-popover card-sm"
-            bind:this={settingsPanelEl}
-            style:top={settingsPlacement?.top}
-            style:left={settingsPlacement?.left}
-            style:width={settingsPlacement?.width}
-            style:max-height={settingsPlacement?.maxHeight}
-          >
-            <label class="player-settings-field">
-              <span class="label-text">{m.trainer_label_char_wpm()}</span>
-              <input
-                type="number"
-                value={charWpm}
-                min="5"
-                max="50"
-                class="input"
-                onchange={(event) => commitSetting('charWpm', event)}
-              />
-            </label>
-            <label class="player-settings-field">
-              <span class="label-text">{m.trainer_label_eff_wpm()}</span>
-              <input
-                type="number"
-                value={effWpm}
-                min="5"
-                max={settings.charWpm}
-                class="input"
-                onchange={(event) => commitSetting('effWpm', event)}
-              />
-            </label>
-            <label class="player-settings-field">
-              <span class="label-text">{m.trainer_label_freq()}</span>
-              <input
-                type="number"
-                value={freq}
-                min="300"
-                max="2000"
-                class="input"
-                onchange={(event) => commitSetting('freq', event)}
-              />
-            </label>
-            <label class="player-settings-field">
-              <span class="label-text">{m.player_volume()}</span>
-              <div class="player-volume-row">
-                <input
-                  type="range"
-                  value={volume}
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  class="player-volume-slider"
-                  onchange={(event) => commitSetting('volume', event)}
+        <div class="player-settings-region">
+          <details class="player-settings-menu" bind:this={settingsEl} bind:open={settingsOpen}>
+            <summary
+              class="player-settings-trigger"
+              aria-label={practiceLayout ? m.practice_audio_heading() : m.trainer_label_settings()}
+            >
+              {#if practiceLayout}
+                <span>{m.practice_audio_heading()}</span><ChevronRight
+                  size={20}
+                  aria-hidden="true"
                 />
-                <span class="player-volume-value">{Math.round(volume * 100)}%</span>
-              </div>
-            </label>
-            <label class="player-settings-field">
-              <span class="label-text">{m.trainer_label_start_delay()}</span>
-              <input
-                type="number"
-                value={startDelay}
-                min="0"
-                max="10"
-                step="0.5"
-                class="input"
-                onchange={(event) => commitSetting('startDelay', event)}
-              />
-            </label>
-            {#if !$user}
-              <div class="player-settings-auth-hint">
-                <GuestNotice />
-              </div>
-            {/if}
-          </div>
-        </details>
+              {:else}
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                <span>{m.trainer_label_settings()}</span>
+              {/if}
+            </summary>
+            <div
+              class="player-settings-popover card-sm"
+              bind:this={settingsPanelEl}
+              style:top={settingsPlacement?.top}
+              style:left={settingsPlacement?.left}
+              style:width={settingsPlacement?.width}
+              style:max-height={settingsPlacement?.maxHeight}
+            >
+              <label class="player-settings-field">
+                <span class="label-text">{m.trainer_label_char_wpm()}</span>
+                <input
+                  type="number"
+                  value={charWpm}
+                  min="5"
+                  max="50"
+                  class="input"
+                  onchange={(event) => commitSetting('charWpm', event)}
+                />
+              </label>
+              <label class="player-settings-field">
+                <span class="label-text">{m.trainer_label_eff_wpm()}</span>
+                <input
+                  type="number"
+                  value={effWpm}
+                  min="5"
+                  max={settings.charWpm}
+                  class="input"
+                  onchange={(event) => commitSetting('effWpm', event)}
+                />
+              </label>
+              <label class="player-settings-field">
+                <span class="label-text">{m.trainer_label_freq()}</span>
+                <input
+                  type="number"
+                  value={freq}
+                  min="300"
+                  max="2000"
+                  class="input"
+                  onchange={(event) => commitSetting('freq', event)}
+                />
+              </label>
+              <label class="player-settings-field">
+                <span class="label-text">{m.player_volume()}</span>
+                <div class="player-volume-row">
+                  <input
+                    type="range"
+                    value={volume}
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    class="player-volume-slider"
+                    onchange={(event) => commitSetting('volume', event)}
+                  />
+                  <span class="player-volume-value">{Math.round(volume * 100)}%</span>
+                </div>
+              </label>
+              <label class="player-settings-field">
+                <span class="label-text">{m.trainer_label_start_delay()}</span>
+                <input
+                  type="number"
+                  value={startDelay}
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  class="input"
+                  onchange={(event) => commitSetting('startDelay', event)}
+                />
+              </label>
+              {#if !$user}
+                <div class="player-settings-auth-hint">
+                  <GuestNotice />
+                </div>
+              {/if}
+            </div>
+          </details>
+          {#if practiceLayout}
+            <p class="audio-summary">
+              {m.practice_speed_summary({
+                character: settings.charWpm,
+                effective: settings.effWpm
+              })}<br />{m.practice_audio_summary({
+                frequency: freq,
+                volume: Math.round(volume * 100)
+              })}
+            </p>
+          {/if}
+        </div>
       {/if}
     </div>
   </div>
@@ -757,5 +791,80 @@
       font-size: var(--text-xs);
       letter-spacing: -0.01em;
     }
+  }
+
+  .player-settings-region {
+    display: contents;
+  }
+  .practice-layout,
+  .practice-layout .player-top,
+  .practice-layout .player-buttons {
+    display: contents;
+  }
+  .practice-layout .player-settings-region {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 7;
+    min-width: 0;
+  }
+  .audio-summary {
+    margin: var(--space-2) 0 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .practice-layout .player-settings-menu {
+    display: contents;
+    margin-left: 0;
+    position: static;
+  }
+  .practice-layout .player-settings-trigger {
+    width: fit-content;
+    justify-content: flex-start;
+    background: transparent;
+    min-height: 3rem;
+    border: 0;
+    padding-inline: 0;
+    color: var(--text-primary);
+    font-size: var(--text-xl);
+    font-weight: 600;
+    gap: var(--space-2);
+  }
+  .practice-layout .player-settings-menu[open] .player-settings-trigger :global(svg) {
+    transform: rotate(90deg);
+  }
+  .practice-layout .player-settings-trigger span {
+    display: inline;
+  }
+  .practice-layout .player-settings-popover {
+    order: 1;
+    position: static;
+    width: 100%;
+    max-height: none;
+    padding: var(--space-4) 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: var(--space-5);
+  }
+  .practice-layout .player-playhead {
+    grid-column: 1;
+    grid-row: 3;
+    margin-inline: var(--space-6);
+  }
+  .practice-layout .player-media-controls {
+    grid-column: 1;
+    grid-row: 4;
+    margin-inline: var(--space-6);
+    flex-wrap: wrap;
+  }
+  .practice-layout .player-play-btn {
+    min-height: 3.25rem;
+    min-width: min(100%, 16.25rem);
+  }
+  .practice-layout .player-error {
+    grid-column: 1;
+    grid-row: 6;
+    margin-inline: var(--space-6);
   }
 </style>

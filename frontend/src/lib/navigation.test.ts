@@ -10,18 +10,15 @@ describe('navigation destinations', () => {
     expect(navigationDestination(route)).toBe('/morse/learn');
     expect(navigationDestination(route, true)).toBe('/');
   });
-  it.each([
-    '/morse',
-    '/forum',
-    '/forum/[id]',
-    '/more',
-    '/settings',
-    '/profile',
-    '/login',
-    '/register',
-    '/about'
-  ])('keeps secondary destination %s under More', (route) => {
-    expect(navigationDestination(route)).toBe('/more');
+  it.each(['/morse', '/more', '/settings', '/profile', '/login', '/register', '/about'])(
+    'keeps secondary destination %s under More',
+    (route) => {
+      expect(navigationDestination(route)).toBeNull();
+      expect(navigationDestination(route, true)).toBe('/more');
+    }
+  );
+  it.each(['/forum', '/forum/[id]'])('exposes %s directly on desktop', (route) => {
+    expect(navigationDestination(route)).toBe('/forum');
     expect(navigationDestination(route, true)).toBe('/more');
   });
   it('does not invent a current destination for missing routes', () => {

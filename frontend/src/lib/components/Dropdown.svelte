@@ -191,7 +191,7 @@
   >
     <span class="nav-label-icon">
       {@render trigger()}
-      <ChevronDown class="nav-icon" aria-hidden="true" />
+      <ChevronDown class="nav-icon nav-chevron" aria-hidden="true" />
     </span>
   </button>
   {#if open}
@@ -206,6 +206,7 @@
       onmouseenter={onMenuMouseEnter}
       onmouseleave={onMenuMouseLeave}
     >
+      <div class="user-dropdown-identity" role="presentation">{label}</div>
       {@render menu()}
     </div>
   {/if}

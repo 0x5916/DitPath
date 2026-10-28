@@ -332,7 +332,7 @@
   {/if}
 {/snippet}
 
-<div class="page-narrow">
+<div class="lessons-page">
   <div class="learn-home-container">
     <header class="learn-header">
       <h1 class="page-title">{m.nav_learn()}</h1>
@@ -355,9 +355,7 @@
       {currentStep}
       {masteryMap}
       {suggestedStep}
-      displayStep={activeStep}
       ready={!loading && !errorMsg}
-      showPrevious={activeStep === currentStep && !courseComplete}
       current={currentLesson}
       requirements={lessonRequirements}
       onSelectStep={handleStartLesson}
@@ -370,18 +368,30 @@
 </div>
 
 <style>
-  .unlock-checks.with-start-row {
-    margin-inline-start: calc(
-      var(--lesson-character-width, var(--answer-target-min)) + var(--space-3)
-    );
+  .lessons-page {
+    width: 100%;
+    max-width: 70rem;
+    margin-inline: auto;
   }
-
-  @media (max-width: 399px) {
-    .unlock-checks.with-start-row {
-      margin-inline-start: 0;
-    }
+  .learn-home-container :global(.saved-sessions) {
+    margin-block: 0;
   }
-
+  .learn-home-container :global(.saved-sessions h2) {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+  }
+  .learn-home-container :global(.saved-sessions article) {
+    margin-top: var(--space-6);
+  }
+  .learn-home-container :global(.learning-overview h2) {
+    font-size: 2rem;
+  }
+  .learn-home-container :global(.body-text) {
+    margin-top: var(--space-10);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
   .unlock-checks summary {
     min-height: var(--answer-target-min);
     padding-block: var(--space-3);
@@ -486,6 +496,7 @@
   }
 
   .learn-header {
+    flex-direction: column;
     text-align: left;
     display: flex;
     align-items: baseline;
@@ -496,13 +507,18 @@
 
   .page-title {
     margin: 0;
-    font-size: var(--text-2xl);
+    font-size: 2rem;
     font-weight: 700;
     color: var(--text-primary);
   }
 
   .path-meta {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  @media (min-width: 960px) {
+    .page-title {
+      font-size: 2.5rem;
+    }
   }
 </style>
