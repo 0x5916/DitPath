@@ -8,6 +8,7 @@
     disabled?: boolean;
     expectedLength?: number;
     autoFocus?: boolean;
+    instruction?: string;
     value?: string;
     onReplay?: () => void;
     onSubmit: (text: string, mode: InputMode) => void;
@@ -17,6 +18,7 @@
     disabled = false,
     expectedLength = 1,
     autoFocus = true,
+    instruction,
     value = $bindable(''),
     onReplay = () => {},
     onSubmit = () => {}
@@ -112,7 +114,8 @@
     }}
   />
   <div class="input-instruction" id={`${inputId}-instruction`}>
-    {inputLength === 1 ? m.lesson_type_character() : m.lesson_type_group({ count: inputLength })}
+    {instruction ??
+      (inputLength === 1 ? m.lesson_type_character() : m.lesson_type_group({ count: inputLength }))}
   </div>
 </div>
 

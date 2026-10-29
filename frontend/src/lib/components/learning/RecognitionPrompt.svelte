@@ -74,7 +74,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<section class="recognition">
+<section class="recognition" class:assessment>
   {#if feedback}
     <header>
       <h1 tabindex="-1" class:correct={isCorrect} {@attach focusHeading}>
@@ -127,35 +127,47 @@
   {:else}
     <header>
       <h1 tabindex="-1" {@attach focusHeading}>
-        {firstRecall ? m.lesson_recall_start() : m.lesson_prompt_question()}
+        {assessment && phase !== 'answering'
+          ? m.check_listen()
+          : firstRecall
+            ? m.lesson_recall_start()
+            : m.lesson_prompt_question()}
       </h1>
       {#if firstRecall}<p>{m.lesson_recall_scored()}</p>{/if}
     </header>
-    <button
-      type="button"
-      class={phase === 'ready' ? 'btn-primary' : 'btn-ghost'}
-      aria-disabled={playing}
-      aria-busy={playing}
-      aria-keyshortcuts="Space"
-      onclick={play}
-    >
-      {#if playing}<Volume2 size={20} aria-hidden="true" /> {m.lesson_listening()}
-      {:else if phase === 'answering'}<RotateCcw size={20} aria-hidden="true" />
-        {m.lesson_replay_sound()}
-      {:else}<Play size={20} aria-hidden="true" /> {m.lesson_play_sound()}{/if}
-    </button>
-    {#if typed}
+    {#if !assessment || !playing}<button
+        type="button"
+        class={assessment ? 'btn-ghost' : phase === 'ready' ? 'btn-primary' : 'btn-ghost'}
+        aria-disabled={playing}
+        aria-busy={playing}
+        aria-keyshortcuts="Space"
+        onclick={play}
+      >
+        {#if playing}<Volume2 size={20} aria-hidden="true" /> {m.lesson_listening()}
+        {:else if phase === 'answering'}{#if !assessment}<RotateCcw
+              size={20}
+              aria-hidden="true"
+            />{/if}
+          {m.lesson_replay_sound()}
+        {:else}{#if !assessment}<Play size={20} aria-hidden="true" />{/if}
+          {m.lesson_play_sound()}{/if}
+      </button>{:else}<p class="playback-state" role="status">{m.check_playing()}</p>{/if}
+    {#if assessment && playing}<p class="playback-cue">{m.check_answer_after_sound()}</p>{/if}
+    {#if typed && (!assessment || phase === 'answering')}
       <AnswerInput
+        instruction={assessment ? m.check_type_character() : undefined}
         bind:value={draft}
         expectedLength={expected.length}
         disabled={phase !== 'answering'}
         {onSubmit}
         onReplay={play}
       />
-    {:else}
+    {:else if !typed}
       <CharacterGrid {options} large disabled={phase !== 'answering'} {onSelect} />
     {/if}
-    {#if audioError}<p class="notice" role="alert">{m.lesson_feedback_audio_error()}</p>{/if}
+    {#if audioError && !assessment}<p class="notice" role="alert">
+        {m.lesson_feedback_audio_error()}
+      </p>{/if}
     <p class="reassurance" role="status">
       {playing
         ? m.lesson_listening()
@@ -163,7 +175,14 @@
           ? ''
           : m.lesson_warmup_hint()}
     </p>
-    <footer><p>{phase === 'answering' ? m.lesson_hint_replay() : m.lesson_hint_play()}</p></footer>
+    {#if assessment && phase === 'ready'}<p>
+        {audioError ? m.lesson_feedback_audio_error() : m.check_audio_tap()}
+      </p>{/if}
+    {#if !assessment}<footer>
+        <p>{phase === 'answering' ? m.lesson_hint_replay() : m.lesson_hint_play()}</p>
+      </footer>{:else if phase === 'answering'}<p class="keyboard-hint">
+        {m.check_space_replay()}
+      </p>{/if}
   {/if}
 </section>
 
@@ -255,5 +274,44 @@
   footer {
     margin-top: auto;
     padding-top: var(--space-6);
+  }
+  .assessment {
+    min-height: auto;
+    gap: var(--space-8);
+    padding-block: 0;
+  }
+  .assessment header {
+    min-height: auto;
+    margin-bottom: var(--space-2);
+  }
+  .assessment .playback-state {
+    margin-top: var(--space-4);
+  }
+  .assessment .playback-cue {
+    margin-top: var(--space-4);
+    font-size: var(--text-sm);
+  }
+  .assessment button {
+    min-height: calc(var(--answer-target-min) + var(--space-1));
+    color: var(--accent);
+    font-weight: 600;
+    border-color: var(--border);
+  }
+  .assessment :global(.answer-input-container) {
+    gap: var(--space-6);
+  }
+  .assessment :global(.input-instruction) {
+    font-size: var(--text-sm);
+  }
+  .assessment .reassurance {
+    display: none;
+  }
+  .keyboard-hint {
+    font-size: var(--text-sm);
+  }
+  @media (any-pointer: coarse) {
+    .keyboard-hint {
+      display: none;
+    }
   }
 </style>

@@ -22,6 +22,8 @@
     onExitCancel?: () => void;
     onPauseToggle?: () => void;
     children?: Snippet;
+    pauseDetails?: Snippet;
+    showExitConfirm?: boolean;
   }
 
   let {
@@ -38,10 +40,11 @@
     onExitRequest = () => {},
     onExitCancel = () => {},
     onPauseToggle = () => {},
-    children
+    children,
+    pauseDetails,
+    showExitConfirm = $bindable(false)
   }: Props = $props();
 
-  let showExitConfirm = $state(false);
   let exitButton = $state<HTMLButtonElement | null>(null);
   let returnFocusTo = $state<HTMLElement | null>(null);
 
@@ -57,7 +60,8 @@
   function handleKeydown(event: KeyboardEvent) {
     if (showExitConfirm || !acceptsSessionEscape(event)) return;
     event.preventDefault();
-    handleExitClick();
+    if (assessment && !isPaused && !complete) onPauseToggle();
+    else handleExitClick();
   }
 
   function handleConfirmExit() {
@@ -73,36 +77,77 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class={['session-shell', complete && 'session-shell--complete']}>
+<div
+  class={['session-shell', complete && 'session-shell--complete', assessment && 'assessment']}
+  {@attach (shell) => {
+    if (!assessment || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    let frame = 0;
+    let visibleHeight = 0;
+    const updateViewport = () => {
+      const resized = visibleHeight !== viewport.height;
+      visibleHeight = viewport.height;
+      shell.style.setProperty('--session-height', `${viewport.height}px`);
+      shell.style.setProperty('--session-top', `${Math.max(0, viewport.offsetTop)}px`);
+      shell.style.setProperty(
+        '--session-stage-space',
+        viewport.height < 600 ? 'var(--space-6)' : 'calc(var(--space-8) * 3 + var(--space-2))'
+      );
+      if (resized) {
+        const active = document.activeElement;
+        if (active instanceof HTMLInputElement && shell.contains(active))
+          active
+            .closest('.answer-input-container')
+            ?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      }
+    };
+    const keepVisible = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updateViewport);
+    };
+    keepVisible();
+    viewport.addEventListener('resize', keepVisible);
+    viewport.addEventListener('scroll', keepVisible);
+    window.addEventListener('resize', keepVisible);
+    window.addEventListener('scroll', keepVisible);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener('resize', keepVisible);
+      viewport.removeEventListener('scroll', keepVisible);
+      window.removeEventListener('resize', keepVisible);
+      window.removeEventListener('scroll', keepVisible);
+    };
+  }}
+>
   <header class="session-header">
-    <button
-      type="button"
-      class="btn-icon"
-      aria-label={complete
-        ? m.lesson_result_finish()
-        : assessment
-          ? m.mixed_exit()
-          : review
-            ? m.review_exit()
-            : m.lesson_exit()}
-      title={complete
-        ? m.lesson_result_finish()
-        : assessment
-          ? m.mixed_exit()
-          : review
-            ? m.review_exit()
-            : m.lesson_exit()}
-      disabled={busy}
-      {@attach (button) => {
-        exitButton = button;
-        return () => {
-          exitButton = null;
-        };
-      }}
-      onclick={handleExitClick}
-    >
-      <ArrowLeft size={18} />
-    </button>
+    {#if !assessment}<button
+        type="button"
+        class="btn-icon"
+        aria-label={complete
+          ? m.lesson_result_finish()
+          : assessment
+            ? m.mixed_exit()
+            : review
+              ? m.review_exit()
+              : m.lesson_exit()}
+        title={complete
+          ? m.lesson_result_finish()
+          : assessment
+            ? m.mixed_exit()
+            : review
+              ? m.review_exit()
+              : m.lesson_exit()}
+        disabled={busy}
+        {@attach (button) => {
+          exitButton = button;
+          return () => {
+            exitButton = null;
+          };
+        }}
+        onclick={handleExitClick}
+      >
+        <ArrowLeft size={18} />
+      </button>{/if}
 
     <div class="session-progress-container">
       <SessionProgress
@@ -122,14 +167,18 @@
         type="button"
         class="btn-icon"
         aria-label={isPaused
-          ? m.lesson_resume()
+          ? assessment
+            ? m.check_resume()
+            : m.lesson_resume()
           : assessment
             ? m.mixed_pause()
             : review
               ? m.review_pause()
               : m.lesson_pause()}
         title={isPaused
-          ? m.lesson_resume()
+          ? assessment
+            ? m.check_resume()
+            : m.lesson_resume()
           : assessment
             ? m.mixed_pause()
             : review
@@ -153,13 +202,31 @@
       {#if children}
         {@render children()}
       {/if}
+      {#if assessment && isPaused}
+        {#if pauseDetails}{@render pauseDetails()}{/if}
+        <button type="button" class="btn-ghost" disabled={busy} onclick={handleExitClick}
+          >{m.mixed_exit()}</button
+        >
+        <p>{m.check_end_hint()}</p>
+      {/if}
     </div>
   </div>
 
   <ExitSessionDialog
     isOpen={showExitConfirm}
-    title={review ? m.review_leave_title() : undefined}
-    description={review ? m.review_leave_description() : undefined}
+    title={assessment ? m.check_end_title() : review ? m.review_leave_title() : undefined}
+    description={assessment
+      ? m.check_end_description()
+      : review
+        ? m.review_leave_description()
+        : undefined}
+    onSaveLeave={assessment && onSaveLeave
+      ? () => {
+          showExitConfirm = false;
+          onSaveLeave?.();
+        }
+      : undefined}
+    cancelLabel={assessment ? m.check_keep_checking() : undefined}
     confirmLabel={assessment ? m.mixed_exit() : review ? m.review_exit() : undefined}
     onConfirm={handleConfirmExit}
     onCancel={handleCancelExit}
@@ -169,6 +236,87 @@
 </div>
 
 <style>
+  .session-shell.assessment {
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    transform: translateY(var(--session-top, 0px));
+    height: var(--session-height, 100dvh);
+    min-height: 0;
+    overflow: clip;
+  }
+  .assessment .session-stage {
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .assessment .session-header {
+    gap: var(--space-2);
+    border-bottom: 0;
+  }
+  .assessment .session-progress-container {
+    margin: 0 auto 0 0;
+    justify-content: flex-start;
+    max-width: 5rem;
+    min-width: 4rem;
+  }
+  .assessment .session-content {
+    gap: var(--space-8);
+    margin: 0;
+  }
+  .assessment .session-stage {
+    align-items: flex-start;
+    padding: var(--session-stage-space, calc(var(--space-8) * 3 + var(--space-2))) var(--space-6)
+      var(--space-6);
+  }
+  .assessment .session-header {
+    padding: var(--space-5) max(var(--space-6), env(safe-area-inset-right, 0px)) var(--space-5)
+      max(var(--space-6), env(safe-area-inset-left, 0px));
+  }
+  .assessment .session-header .btn-ghost {
+    max-width: 50%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .assessment .session-header button {
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+  .assessment .session-header :global(.progress-readout) {
+    font-family: inherit;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  @media (min-width: 768px) {
+    .assessment .session-header {
+      padding-inline: max(calc(var(--space-6) * 2), env(safe-area-inset-left, 0px))
+        max(calc(var(--space-6) * 2), env(safe-area-inset-right, 0px));
+    }
+    .assessment .session-progress-container {
+      max-width: 10rem;
+    }
+  }
+  @media (max-height: 600px) {
+    .assessment .session-stage {
+      padding-top: var(--space-6);
+    }
+  }
+  .assessment .session-header :global(.session-progress) {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    width: 100%;
+    min-width: 4rem;
+    gap: var(--space-2);
+  }
+  .assessment .session-header :global(.progress-bar-track) {
+    flex: none;
+  }
+  .assessment .session-header :global(.progress-readout) {
+    font-size: var(--text-base);
+    text-align: left;
+  }
   .session-shell {
     container-type: inline-size;
     display: flex;

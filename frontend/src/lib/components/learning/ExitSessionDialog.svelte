@@ -6,6 +6,7 @@
     isOpen: boolean;
     onConfirm: () => void;
     onCancel: () => void;
+    onSaveLeave?: () => void;
     returnFocusTo?: HTMLElement | null;
     fallbackFocus?: HTMLElement | null;
     title?: string;
@@ -17,6 +18,7 @@
   let {
     isOpen = false,
     onConfirm = () => {},
+    onSaveLeave,
     onCancel = () => {},
     returnFocusTo = null,
     fallbackFocus = null,
@@ -93,6 +95,9 @@
     <button type="button" class="btn-primary" onclick={onCancel}
       >{cancelLabel ?? m.lesson_resume()}</button
     >
+    {#if onSaveLeave}<button type="button" class="btn-ghost" onclick={onSaveLeave}
+        >{m.session_save_leave()}</button
+      >{/if}
     <button type="button" class="btn-ghost" onclick={onConfirm}
       >{confirmLabel ?? m.lesson_exit()}</button
     >

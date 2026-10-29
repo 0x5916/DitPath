@@ -1,6 +1,5 @@
 <script lang="ts">
   import { consumeCheckStart } from '#lib/check-start-intent.ts';
-  let directCheckStart = $state(false);
   import {
     loadCheckpoint,
     saveCheckpoint,
@@ -13,7 +12,7 @@
   import { browser } from '$app/env';
   import { page } from '$app/state';
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import { createEvidenceAudioEngine } from '#lib/audio/evidence-engine.ts';
   import {
@@ -81,13 +80,16 @@
   let onVisibility: (() => void) | null = null;
   let initialization = 0;
   let destroyed = false;
+  let entryHidden = false;
   let sessionKey: string | null = null;
+  let updatingSessionUrl = false;
   let reviewPlan = $state.raw<ReviewPlan | null>(null);
   let reviewStarted = $state(false);
   let reviewUnavailable = $state(false);
   let reviewRound = $state(0);
   const reviewValue = $derived(browser ? page.url.searchParams.get('review') : null);
   let resumeAfterExit = $state(false);
+  let showCheckExitConfirm = $state(false);
   let sessionOwner: string | null = null;
   const controllerOwners = new WeakMap<GuidedSessionController, string>();
   let discardPersistence = false;
@@ -136,6 +138,8 @@
   }
 
   async function startSession(requestedStep: number, beginReview = false, continueSaved = true) {
+    entryHidden = document.hidden;
+    let entryAudio = consumeCheckStart(page.url.pathname + page.url.search);
     const requestedReview = reviewValue;
     const reviewRequest = parseReviewRequest(requestedReview);
     const requestedCheck = checkValue;
@@ -146,6 +150,7 @@
       (requestedReview !== null && !reviewRequest) ||
       (requestedCheck !== null && !checkTargets) ||
       (requestedReview !== null && requestedCheck !== null);
+    beginReview ||= requestedCheck !== null;
     reviewStarted = beginReview;
     answerDraft = '';
     const owner = getTrainingOwner();
@@ -161,6 +166,8 @@
     initializationError = false;
     pendingAction = null;
     pendingNavigation = null;
+    resumeAfterExit = false;
+    showCheckExitConfirm = false;
     let database: IDBDatabase | null = null;
     let pendingLease: (() => Promise<void>) | null = null;
     try {
@@ -314,10 +321,12 @@
           ownerKey: owner,
           currentOwner: getTrainingOwner,
           source: purpose,
+          base: entryAudio,
           sessionId: id,
           knownCharacters: known,
           repository: evidenceRepository
         });
+        entryAudio = undefined;
         const local = createEvidenceSessionRepositories(
           evidenceRepository,
           owner,
@@ -407,12 +416,39 @@
       await ctrl.start();
       if (
         mixedPlan &&
-        beginReview &&
+        !resume &&
         !destroyed &&
         generation === initialization &&
+        owner === getTrainingOwner()
+      ) {
+        if (ctrl.phase === 'idle' || !(await ctrl.flushPersistence())) {
+          initializationError = true;
+          return;
+        }
+        const url = new URL(page.url.href);
+        url.searchParams.set('resume', id);
+        updatingSessionUrl = true;
+        try {
+          bypassDestination = url.href;
+          await goto(url, { shallow: true, replace: true, reset: false });
+          await tick();
+          sessionKey = routeKey;
+        } finally {
+          updatingSessionUrl = false;
+        }
+      }
+      if (
+        mixedPlan &&
+        beginReview &&
+        !resume &&
+        owner === getTrainingOwner() &&
+        !destroyed &&
+        generation === initialization &&
+        !entryHidden &&
         !document.hidden
       )
         ctrl.play();
+      else if (mixedPlan && (document.hidden || entryHidden)) ctrl.pause();
     } catch (err) {
       database?.close();
       if (!destroyed && generation === initialization && owner === getTrainingOwner()) {
@@ -420,6 +456,7 @@
         console.error('Failed to initialize guided session:', err);
       }
     } finally {
+      void entryAudio?.dispose();
       await pendingLease?.();
       if (!destroyed && generation === initialization && owner === getTrainingOwner())
         initializing = false;
@@ -427,10 +464,12 @@
   }
 
   onMount(() => {
-    directCheckStart = consumeCheckStart(page.url.pathname + page.url.search);
     const stopLearning = learning.start();
     void startSession(step);
-    onVisibility = () => controller?.handleVisibilityChange(document.hidden);
+    onVisibility = () => {
+      if (document.hidden) entryHidden = true;
+      controller?.handleVisibilityChange(document.hidden);
+    };
     document.addEventListener('visibilitychange', onVisibility);
     const stopTraining = subscribeTrainingSync(() => {
       if (sessionOwner === null || sessionOwner === getTrainingOwner()) return;
@@ -438,6 +477,7 @@
       pendingAction = null;
       pendingNavigation = null;
       resumeAfterExit = false;
+      showCheckExitConfirm = false;
       sessionOwner = getTrainingOwner();
       const previousController = controller;
       const previousDb = db;
@@ -458,7 +498,7 @@
   afterNavigate(() => {
     bypassDestination = null;
     allowUnload = false;
-    if (sessionKey !== null && sessionKey !== routeKey) {
+    if (!updatingSessionUrl && sessionKey !== null && sessionKey !== routeKey) {
       reviewRound = 0;
       void startSession(step);
     }
@@ -546,7 +586,10 @@
     };
     pendingAction = null;
     pendingNavigation = pending;
-    void continueNavigation(pending);
+    if (mixedPlan && !['complete', 'abandoned'].includes(ctrl.phase)) {
+      handleExitRequest();
+      showCheckExitConfirm = true;
+    } else void continueNavigation(pending);
   });
 
   async function saveAndLeave() {
@@ -623,13 +666,15 @@
   }
 
   function handleExit() {
-    void leaveSession('exit');
+    if (pendingNavigation) void continueNavigation(pendingNavigation);
+    else void leaveSession('exit');
   }
 
   function handlePauseToggle() {
     if (!controller) return;
     if (controller.phase === 'paused') {
       controller.resume();
+      if (mixedPlan && controller.state.phase === 'ready') controller.play();
     } else {
       controller.pause();
     }
@@ -642,13 +687,17 @@
   }
 
   function handleExitCancel() {
+    pendingNavigation = null;
     if (resumeAfterExit) controller?.resume();
     resumeAfterExit = false;
   }
 
   function handleSubmitAnswer(text: string, mode: InputMode) {
     if (!controller) return;
-    if (controller.submitAnswer(text, mode)) answerDraft = '';
+    if (controller.submitAnswer(text, mode)) {
+      answerDraft = '';
+      if (mixedPlan && controller.phase === 'ready' && !document.hidden) controller.play();
+    }
   }
 
   function handleContinue() {
@@ -709,18 +758,6 @@
       >
     </div>
   </main>
-{:else if mixedPlan && !reviewStarted && !initializing}
-  <main class="loading-stage review-setup">
-    <MixedCheckPanel
-      plan={mixedPlan}
-      autoStart={directCheckStart}
-      onStart={() => {
-        directCheckStart = false;
-        void startSession(step, true);
-      }}
-      onFinish={handleExit}
-    />
-  </main>
 {:else if reviewPlan && !reviewStarted && !initializing}
   <main class="loading-stage review-setup">
     <ReviewPanel
@@ -766,7 +803,7 @@
         </p>
       {/if}
       {#if reviewPlan || mixedPlan}<TrainingSyncStatus
-          expanded
+          expanded={!mixedPlan || ['paused', 'complete'].includes(controller.phase)}
           owner={learningSyncState.owner}
           pending={learningSyncState.pending}
           error={learningSyncState.error}
@@ -781,6 +818,13 @@
         />{/if}
     {/if}
   {/snippet}
+
+  {#snippet checkRules()}<details class="ui-disclosure">
+      <summary>{m.check_how()}</summary>
+      <p>{m.mixed_setup({ count: mixedPlan?.prompts.length ?? 0 })}</p>
+      <p>{m.mixed_support_hint()}</p>
+      <p>{m.mixed_gap_hint()}</p>
+    </details>{/snippet}
 
   <SessionShell
     review={Boolean(reviewPlan || mixedPlan)}
@@ -797,10 +841,12 @@
     onExitRequest={handleExitRequest}
     onExitCancel={handleExitCancel}
     onPauseToggle={handlePauseToggle}
+    bind:showExitConfirm={showCheckExitConfirm}
+    pauseDetails={mixedPlan ? checkRules : undefined}
   >
     {#if controller.phase !== 'complete'}{@render storageStatus()}{/if}
     {#if controller.phase === 'paused' && !resumeAfterExit}
-      <div class="paused-banner">
+      <div class="paused-banner" class:check-paused={Boolean(mixedPlan)}>
         <Pause size={28} aria-hidden="true" />
         <h1
           tabindex="-1"
@@ -808,17 +854,16 @@
             heading.focus();
           }}
         >
-          {m.lesson_paused()}
+          {mixedPlan ? m.check_paused() : m.lesson_paused()}
         </h1>
         <p>{m.lesson_pause_hint()}</p>
-        <button type="button" class="btn-primary" onclick={() => controller?.resume()}>
-          {m.lesson_resume()}
+        <button type="button" class="btn-primary" onclick={handlePauseToggle}>
+          {mixedPlan ? m.check_resume() : m.lesson_resume()}
         </button>
       </div>
     {:else if controller.phase === 'complete' && controller.summary}
       {#if mixedPlan}<MixedCheckPanel
           plan={mixedPlan}
-          finished
           snapshot={learning.snapshot}
           onRepeatCheck={learning.snapshot &&
           learningRecommendationHref(
@@ -831,7 +876,6 @@
             null}
           busy={leaving || controller.persistenceStatus === 'saving'}
           {storageStatus}
-          onStart={() => {}}
           onFinish={handleExit}
         />
       {:else if reviewPlan}<ReviewPanel
@@ -889,7 +933,7 @@
         />
         {#if mixedPlan && controller.phase === 'answering'}<button
             type="button"
-            class="btn-ghost"
+            class="btn-ghost check-skip"
             onclick={() => handleSubmitAnswer('', 'keyboard')}>{m.mixed_skip()}</button
           >{/if}
       {/key}
@@ -912,6 +956,14 @@
 {/if}
 
 <style>
+  .check-skip {
+    min-width: 7rem;
+    min-height: calc(var(--answer-target-min) + var(--space-1));
+    color: var(--accent);
+    border-color: var(--border);
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
   .loading-stage {
     min-height: 100vh;
     min-height: 100dvh;
@@ -972,6 +1024,12 @@
     max-width: 30rem;
     min-height: min(36rem, calc(100dvh - 8rem));
     padding-block: var(--space-8);
+  }
+  .paused-banner.check-paused {
+    min-height: auto;
+  }
+  .paused-banner.check-paused button {
+    margin-top: var(--space-4);
   }
   .paused-banner h1 {
     margin: 0;

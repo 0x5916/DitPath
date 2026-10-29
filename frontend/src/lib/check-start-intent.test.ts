@@ -1,15 +1,46 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { armCheckStart, consumeCheckStart } from './check-start-intent';
-describe('explicit check start intent', () => {
-  it('permits only one matching navigation', () => {
-    armCheckStart('/en/morse/learn/session?check=KM', 100);
-    expect(consumeCheckStart('/en/morse/learn/session?check=KM', 101)).toBe(true);
-    expect(consumeCheckStart('/en/morse/learn/session?check=KM', 102)).toBe(false);
+import type { AudioEngine } from './audio/engine';
+const engine = () =>
+  ({
+    prepare: vi.fn().mockResolvedValue(undefined),
+    dispose: vi.fn().mockResolvedValue(undefined)
+  }) as unknown as AudioEngine;
+afterEach(() => {
+  consumeCheckStart('');
+  vi.useRealTimers();
+});
+describe('gesture audio transfer', () => {
+  it('prepares silently and transfers only once to the exact URL', () => {
+    const audio = engine();
+    armCheckStart('/en/session?check=KM', audio);
+    expect(audio.prepare).toHaveBeenCalledOnce();
+    expect(consumeCheckStart('/en/session?check=KM')).toBe(audio);
+    expect(consumeCheckStart('/en/session?check=KM')).toBeUndefined();
+    expect(audio.dispose).not.toHaveBeenCalled();
   });
-  it('rejects mismatched and expired navigation', () => {
-    armCheckStart('/check?targets=KM', 100);
-    expect(consumeCheckStart('/check?targets=K', 101)).toBe(false);
-    armCheckStart('/check?targets=KM', 100);
-    expect(consumeCheckStart('/check?targets=KM', 15100)).toBe(false);
+  it('disposes mismatched and replaced engines', () => {
+    const first = engine(),
+      second = engine();
+    armCheckStart('/check?targets=KM', first);
+    armCheckStart('/check?targets=K', second);
+    expect(first.dispose).toHaveBeenCalledOnce();
+    expect(consumeCheckStart('/different')).toBeUndefined();
+    expect(second.dispose).toHaveBeenCalledOnce();
+  });
+  it('closes unused audio after fifteen seconds', () => {
+    vi.useFakeTimers();
+    const audio = engine();
+    armCheckStart('/check', audio);
+    vi.advanceTimersByTime(15000);
+    expect(audio.dispose).toHaveBeenCalledOnce();
+    expect(consumeCheckStart('/check')).toBeUndefined();
+  });
+  it('leaves entry independent of a failed gesture unlock', async () => {
+    const audio = engine();
+    vi.mocked(audio.prepare!).mockRejectedValue(Error('blocked'));
+    armCheckStart('/check', audio);
+    await Promise.resolve();
+    expect(consumeCheckStart('/check')).toBe(audio);
   });
 });

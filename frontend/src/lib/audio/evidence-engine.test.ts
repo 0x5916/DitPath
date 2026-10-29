@@ -56,6 +56,19 @@ async function fixture() {
 }
 const plan = buildAudioPlan('K', { charWpm: 20, effWpm: 12 });
 describe('durable audio exposure', () => {
+  it('preserves silent gesture preparation until the first guarded sound', async () => {
+    const f = await fixture();
+    await f.base.prepare?.();
+    f.engine.play(plan);
+    expect(f.base.stop).not.toHaveBeenCalled();
+    expect(f.base.play).not.toHaveBeenCalled();
+    await f.engine.flush();
+    expect(f.base.play).toHaveBeenCalledOnce();
+    f.engine.play(plan);
+    expect(f.base.stop).toHaveBeenCalledOnce();
+    await f.engine.flush();
+    await f.engine.dispose();
+  });
   it('commits the guard before tones and the closure before end notification', async () => {
     const f = await fixture();
     let release!: () => void;

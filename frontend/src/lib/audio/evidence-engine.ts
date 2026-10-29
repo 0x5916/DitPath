@@ -173,7 +173,7 @@ export function createEvidenceAudioEngine(options: Options): EvidenceAudioEngine
     presentations.set(presentation.id, presentation);
     active = true;
     // Silencing and AudioContext unlock happen synchronously on the initiating gesture.
-    const stopped = base.stop({ notify: false });
+    const stopped = base.isActive() ? base.stop({ notify: false }) : Promise.resolve();
     const prepared = base.prepare?.() ?? Promise.resolve();
     void prepared.catch(() => {});
     void enqueue(async () => {

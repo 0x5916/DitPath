@@ -61,14 +61,17 @@
   );
   function prepareCheck(event: MouseEvent) {
     if (
-      checkTargets &&
+      (event.currentTarget as HTMLAnchorElement).search.includes('check=') &&
       event.button === 0 &&
       !event.metaKey &&
       !event.ctrlKey &&
       !event.shiftKey &&
       !event.altKey
     )
-      armCheckStart(nextHref);
+      armCheckStart(
+        (event.currentTarget as HTMLAnchorElement).pathname +
+          (event.currentTarget as HTMLAnchorElement).search
+      );
   }
   const known = $derived(
     snapshot.characters.filter((c) => snapshot.knownCharacters.includes(c.character))
@@ -112,10 +115,19 @@
         >
       {:else}
         <a class="btn-primary" href={nextHref} onclick={prepareCheck}
-          >{checkTargets ? m.mixed_start() : recommendationTitle(primary)}</a
+          >{checkTargets
+            ? m.mixed_targets({ characters: checkTargets.split('').join(', ') })
+            : recommendationTitle(primary)}</a
         >
       {/if}
-    </div>{/if}
+    </div>
+    {#if checkTargets}<details class="ui-disclosure">
+        <summary>{m.check_how()}</summary>
+        <p>{m.mixed_setup({ count: promptCount })}</p>
+        <p>{m.mixed_support_hint()}</p>
+        <p>{m.mixed_gap_hint()}</p>
+      </details>{/if}
+  {/if}
   {#if !compact && snapshot.coverage === 'partial'}<p role="status">
       {m.learning_coverage_partial()}
     </p>
@@ -124,6 +136,11 @@
     </p>{/if}
   {#if details}
     <div class="character-content" hidden={progressView !== null && progressView !== 'characters'}>
+      <details class="ui-disclosure">
+        <summary>{m.check_how()}</summary>
+        <p>{m.mixed_support_hint()}</p>
+        <p>{m.mixed_gap_hint()}</p>
+      </details>
       <h2>{m.progress_character_records()}</h2>
       <p class="record-count" aria-live="polite">
         {m.progress_record_count({ count: filtered.length })}
@@ -227,6 +244,7 @@
                     </p>{/if}
                   <a
                     class="link"
+                    onclick={prepareCheck}
                     href={localizedHref(
                       `/morse/learn/session?check=${encodeURIComponent(character.character)}`
                     )}>{m.learning_check({ character: character.character })}</a
