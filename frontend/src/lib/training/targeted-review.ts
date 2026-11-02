@@ -16,8 +16,18 @@ const curriculum = LESSONS.join('').split('');
 const DAY = 86_400_000;
 
 /** URL intent is validated again against the owner's actual recorded characters. */
-export function parseReviewRequest(value: string | null): ReviewRequest | null {
-  if (value === 'return') return { purpose: 'return-screening', targets: [] };
+export function parseReviewRequest(
+  value: string | null,
+  targetsValue: string | null = null
+): ReviewRequest | null {
+  if (value === 'return') {
+    if (targetsValue === null) return { purpose: 'return-screening', targets: [] };
+    if (!targetsValue || targetsValue.length > 8) return null;
+    const targets = [...new Set(targetsValue.toUpperCase().split(''))];
+    return targets.length === targetsValue.length && targets.every((ch) => curriculum.includes(ch))
+      ? { purpose: 'return-screening', targets }
+      : null;
+  }
   if (!value || value.length > 2) return null;
   const targets = [...new Set(value.toUpperCase().split(''))];
   return targets.length === 2 && targets.every((ch) => curriculum.includes(ch))
@@ -83,7 +93,18 @@ export function buildReviewPlan(
       random
     );
   } else {
-    const sample = shuffled(knownCharacters, random).slice(0, 8);
+    const requested = request.targets;
+    if (
+      requested.length < 1 ||
+      requested.length > 8 ||
+      new Set(requested).size !== requested.length ||
+      requested.some((ch) => !knownCharacters.includes(ch))
+    )
+      throw new Error('Screening targets must be recorded characters');
+    // Screening samples only the supplied previously attained characters. The
+    // session route resolves the legacy no-target link from attainment first;
+    // unattained recorded exposure never fabricates a screening source.
+    const sample = shuffled(requested, random).slice(0, 8);
     selected = shuffled(
       Array.from({ length: 8 }, (_, i) => sample[i % sample.length]),
       random

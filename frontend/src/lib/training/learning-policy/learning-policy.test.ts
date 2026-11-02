@@ -479,6 +479,100 @@ describe('review timing and recommendation', () => {
       }).primary
     ).toMatchObject({ reason: 'return-screening', targets: ['K', 'M'] });
   });
+  it('screens stale attained characters independently of a recent response', () => {
+    const input = recommendationInput();
+    const result = recommendNext({
+      ...input,
+      characters: input.characters.map((item) => ({
+        ...item,
+        lastAssessedAt: item.character === 'K' ? add(now, -30 * day) : add(now, -day)
+      }))
+    });
+    expect(result.primary).toMatchObject({ reason: 'return-screening', targets: ['K'] });
+  });
+  it('does not sample merely exposed characters and orders the oldest evidence first', () => {
+    const input = recommendationInput();
+    const exposed = projectCharacterEvidence([], [], { ...context(), character: 'R' });
+    const result = recommendNext({
+      ...input,
+      characters: [
+        ...input.characters.map((item) => ({
+          ...item,
+          lastAssessedAt: item.character === 'K' ? add(now, -60 * day) : add(now, -20 * day)
+        })),
+        {
+          character: 'R',
+          evidence: exposed,
+          readiness: null,
+          lastAssessedAt: add(now, -90 * day)
+        }
+      ]
+    });
+    expect(result.primary).toMatchObject({
+      reason: 'return-screening',
+      targets: ['K', 'M']
+    });
+    expect(result.primary.targets).not.toContain('R');
+  });
+  it('screens after 14, 30 and 60 days and caps the sample at eight attained characters', () => {
+    const input = recommendationInput();
+    const characters = ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T', 'L', 'E'].map(
+      (character, index) => {
+        const item = {
+          ...award('proficiency', add(now, -(index + 1) * day)),
+          character,
+          key: `award-${character}`
+        };
+        return {
+          character,
+          evidence: projectCharacterEvidence([], [item], { ...context(), character }),
+          readiness: null,
+          lastAssessedAt: add(now, -(15 + index) * day)
+        };
+      }
+    );
+    for (const elapsed of [14 * day + 1, 30 * day, 60 * day]) {
+      expect(
+        recommendNext({
+          ...input,
+          characters: characters.map((item) => ({
+            ...item,
+            lastAssessedAt: add(now, -elapsed)
+          }))
+        }).primary
+      ).toMatchObject({
+        reason: 'return-screening',
+        targets: ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T']
+      });
+    }
+    expect(
+      recommendNext({
+        ...input,
+        characters: characters.map((item) => ({
+          ...item,
+          lastAssessedAt: add(now, -14 * day)
+        }))
+      }).primary.reason
+    ).not.toBe('return-screening');
+  });
+  it('never falls back to screening without attained proficiency', () => {
+    const input = recommendationInput();
+    const unattained = input.characters.map((item) => ({
+      ...item,
+      evidence: projectCharacterEvidence([], [], { ...context(), character: item.character }),
+      lastAssessedAt: add(now, -90 * day)
+    }));
+    expect(recommendNext({ ...input, characters: unattained }).primary.reason).toBe(
+      'check-current'
+    );
+    expect(
+      recommendNext({
+        ...input,
+        characters: unattained.map((item) => ({ ...item, lastAssessedAt: null })),
+        latestWholeCheck: null
+      }).primary.reason
+    ).toBe('calibrate');
+  });
   it('keeps a new-lesson alternative after completing one due check', () => {
     const input = recommendationInput();
     const exposure = add(now, -day);

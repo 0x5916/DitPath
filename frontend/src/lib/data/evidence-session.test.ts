@@ -177,7 +177,7 @@ it.each(['coaching', 'screening'] as const)(
     const plan = buildReviewPlan(
       {
         purpose: purpose === 'screening' ? 'return-screening' : 'coaching',
-        targets: purpose === 'screening' ? [] : ['K', 'M']
+        targets: purpose === 'screening' ? ['K'] : ['K', 'M']
       },
       ['K', 'M'],
       { charWpm: 20, effWpm: 12, freqHz: 600 }
@@ -211,7 +211,7 @@ it.each(['coaching', 'screening'] as const)(
     expect(record).toMatchObject({
       purpose,
       feedback: 'immediate',
-      targets: expect.arrayContaining(['K', 'M'])
+      targets: purpose === 'screening' ? ['K'] : expect.arrayContaining(['K', 'M'])
     });
     expect((record.prompts as { role: string }[]).every((p) => p.role === 'target')).toBe(true);
     expect(record.review_cycle_ids).toBeUndefined();

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceRecord } from './learning-evidence';
-import { projectLearningSnapshot, activeLearningProfile } from './learning-snapshot';
+import {
+  projectLearningSnapshot,
+  activeLearningProfile,
+  learningRecommendationHref,
+  returnScreeningTargets
+} from './learning-snapshot';
 import { buildMixedCheck } from '../training/learning-policy/mixed-plan';
 import { exposureBeforeProbe, wireBounds } from '../learning-evidence/exposure';
 const ownerKey = 'unclaimed',
@@ -210,6 +215,52 @@ describe('unified learning projection', () => {
         nowIso: iso(base + day)
       }).recommendation.primary.reason
     ).toBe('load-history');
+  });
+  it('preserves return-screening targets in the session link', () => {
+    const records = [...check('one', base), ...check('two', base + day)];
+    const snapshot = project(records, base + 30 * day);
+    expect(snapshot.recommendation.primary).toMatchObject({
+      reason: 'return-screening',
+      targets: ['K', 'M']
+    });
+    expect(learningRecommendationHref(snapshot.recommendation.primary)).toBe(
+      '/morse/learn/session?review=return&targets=KM'
+    );
+  });
+  it('validates screening targets against attainment and recorded characters', () => {
+    const records = [...check('one', base), ...check('two', base + day)];
+    records.push(
+      record('exposed-r', 'exposure-open', {
+        presentation_id: 'exposed-r',
+        characters: ['R'],
+        source: 'reference',
+        started_at: bounds(base)
+      })
+    );
+    const snapshot = project(records, base + 30 * day);
+    expect(snapshot.knownCharacters).toEqual(['K', 'M', 'R']);
+    expect(returnScreeningTargets(snapshot, null)).toEqual(['K', 'M']);
+    expect(returnScreeningTargets(snapshot, ['M', 'K'])).toEqual(['M', 'K']);
+    expect(returnScreeningTargets(snapshot, ['R'])).toBeNull();
+    expect(returnScreeningTargets(snapshot, ['K', 'Z'])).toBeNull();
+    expect(returnScreeningTargets(snapshot, ['K', 'K'])).toBeNull();
+    const unattained = projectLearningSnapshot([], {
+      ownerKey,
+      profile,
+      nowIso: iso(base + 30 * day),
+      knownCharacters: ['K', 'M']
+    });
+    // Recorded exposure without attainment is not a screening source.
+    expect(returnScreeningTargets(unattained, null)).toEqual([]);
+    expect(returnScreeningTargets(unattained, ['K'])).toBeNull();
+    const empty = projectLearningSnapshot([], {
+      ownerKey,
+      profile,
+      nowIso: iso(base + 30 * day),
+      knownCharacters: []
+    });
+    expect(returnScreeningTargets(empty, null)).toEqual([]);
+    expect(returnScreeningTargets(empty, ['K'])).toBeNull();
   });
   it('rounds sub-millisecond upper bounds outwards and excludes only the probe itself', () => {
     expect(

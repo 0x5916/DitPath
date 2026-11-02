@@ -1,0 +1,38 @@
+{
+  "policyVersion": "learning-policy-1.0",
+  "description": "Shared return-screening contract: eight first-listen prompts sampling up to eight previously attained characters. Repeated prompts are expected below eight.",
+  "cases": [
+    {
+      "id": "one-attained",
+      "introducedCharacters": ["K", "M", "R", "S"],
+      "attainedCharacters": ["K"],
+      "targets": ["K"],
+      "expectedPrompts": 8,
+      "expectedDistinct": 1
+    },
+    {
+      "id": "two-attained",
+      "introducedCharacters": ["K", "M", "R", "S"],
+      "attainedCharacters": ["K", "M"],
+      "targets": ["K", "M"],
+      "expectedPrompts": 8,
+      "expectedDistinct": 2
+    },
+    {
+      "id": "three-attained",
+      "introducedCharacters": ["K", "M", "R", "S", "U"],
+      "attainedCharacters": ["K", "M", "R"],
+      "targets": ["K", "M", "R"],
+      "expectedPrompts": 8,
+      "expectedDistinct": 3
+    },
+    {
+      "id": "eight-attained",
+      "introducedCharacters": ["K", "M", "R", "S", "U", "A", "P", "T"],
+      "attainedCharacters": ["K", "M", "R", "S", "U", "A", "P", "T"],
+      "targets": ["K", "M", "R", "S", "U", "A", "P", "T"],
+      "expectedPrompts": 8,
+      "expectedDistinct": 8
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   buildReviewPlan,
@@ -51,17 +52,57 @@ describe('targeted coaching plan', () => {
     expect(known).toEqual(['K', 'M', 'R']);
     expect(() => buildReviewPlan(request, known, { ...settings, effWpm: 30 })).toThrow();
   });
-  it('screens eight prompts across up to eight known characters, no unexplored letters', () => {
-    for (const known of [['K'], ['K', 'M'], ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T', 'L']]) {
-      const plan = buildReviewPlan({ purpose: 'return-screening', targets: [] }, known, settings);
+  it('screens eight prompts across up to eight attained characters, no unexplored letters', () => {
+    for (const targets of [
+      ['K'],
+      ['K', 'M'],
+      ['K', 'M', 'R'],
+      ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T', 'L']
+    ]) {
+      const known = [...targets];
+      const plan = buildReviewPlan(
+        { purpose: 'return-screening', targets: targets.slice(0, 8) },
+        known,
+        settings
+      );
       expect(plan.prompts).toHaveLength(8);
       expect(plan.prompts.every((p) => known.includes(p.spec.expectedText) && !p.isScored)).toBe(
         true
       );
       expect(new Set(plan.prompts.map((p) => p.spec.expectedText)).size).toBe(
-        Math.min(8, known.length)
+        Math.min(8, targets.length)
       );
     }
+    expect(() =>
+      buildReviewPlan({ purpose: 'return-screening', targets: [] }, ['K'], settings)
+    ).toThrow('Screening targets');
+  });
+  it('samples only supplied attained screening targets and cycles fewer than eight', () => {
+    const known = ['K', 'M', 'R', 'S', 'U', 'A'];
+    for (const targets of [['K'], ['K', 'R'], ['K', 'R', 'S', 'U', 'A', 'M']]) {
+      const plan = buildReviewPlan({ purpose: 'return-screening', targets }, known, settings);
+      expect(plan.prompts).toHaveLength(8);
+      expect(new Set(plan.prompts.map((p) => p.spec.expectedText))).toEqual(new Set(targets));
+      expect(plan.targets).toEqual(targets);
+    }
+    expect(() =>
+      buildReviewPlan({ purpose: 'return-screening', targets: ['K', 'Z'] }, known, settings)
+    ).toThrow();
+    expect(() =>
+      buildReviewPlan({ purpose: 'return-screening', targets: ['K', 'K'] }, known, settings)
+    ).toThrow();
+  });
+  it('parses and validates explicit screening targets without bypassing the curriculum', () => {
+    expect(parseReviewRequest('return')).toEqual({
+      purpose: 'return-screening',
+      targets: []
+    });
+    expect(parseReviewRequest('return', 'KR')).toEqual({
+      purpose: 'return-screening',
+      targets: ['K', 'R']
+    });
+    for (const value of ['', 'KK', 'K!', 'KRSMUAPTLX'])
+      expect(parseReviewRequest('return', value)).toBeNull();
   });
   it('keeps replay assistance visible without making correctness disappear', () => {
     const attempts = [
@@ -117,4 +158,38 @@ describe('return invitation', () => {
       )
     ).toBe(false);
   });
+});
+
+describe('shared return-screening contract', () => {
+  const fixture = JSON.parse(
+    readFileSync(new URL('../../../testdata/return-screening-v1.json', import.meta.url), 'utf8')
+  ) as {
+    policyVersion: string;
+    cases: {
+      id: string;
+      introducedCharacters: string[];
+      attainedCharacters: string[];
+      targets: string[];
+      expectedPrompts: number;
+      expectedDistinct: number;
+    }[];
+  };
+  for (const vector of fixture.cases)
+    it(vector.id, () => {
+      const plan = buildReviewPlan(
+        { purpose: 'return-screening', targets: vector.targets },
+        vector.introducedCharacters,
+        settings
+      );
+      expect(fixture.policyVersion).toBe('learning-policy-1.0');
+      expect(plan.prompts).toHaveLength(vector.expectedPrompts);
+      expect(plan.targets).toEqual(vector.targets);
+      expect(new Set(plan.prompts.map((prompt) => prompt.spec.expectedText))).toEqual(
+        new Set(vector.targets)
+      );
+      expect(new Set(plan.prompts.map((prompt) => prompt.spec.expectedText)).size).toBe(
+        vector.expectedDistinct
+      );
+      expect(vector.targets.every((ch) => vector.attainedCharacters.includes(ch))).toBe(true);
+    });
 });

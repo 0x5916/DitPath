@@ -355,8 +355,18 @@ func validateV1(raw json.RawMessage, intake bool) (Record, *Rejection) {
 						return bad("INVALID_RECORD", "Coaching must balance pair practice and available anchors")
 					}
 				}
-			} else if len(prompts) != 8 || len(symbols) != min(8, len(taught)) {
-				return bad("INVALID_RECORD", "Screening must sample up to eight distinct taught characters in eight prompts")
+			} else {
+				// Screening samples only the plan's declared source scope. Fewer than
+				// eight previously attained characters are cycled across the eight
+				// first-listen prompts; repetition is expected and never certifies.
+				if len(prompts) != 8 || len(targets) < 1 || len(targets) > 8 || len(symbols) != len(targets) {
+					return bad("INVALID_RECORD", "Screening must sample one to eight declared target characters in eight prompts")
+				}
+				for _, ch := range targets {
+					if !symbols[ch] {
+						return bad("INVALID_RECORD", "Screening targets must match the sampled prompts")
+					}
+				}
 			}
 		}
 		r.SessionID = data["session_id"].(string)

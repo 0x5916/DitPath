@@ -189,7 +189,7 @@ describe('local learning pilot storage', () => {
   it('keeps correct after replay separate and returns the real screening purpose', async () => {
     let n = 0;
     const screening = buildReviewPlan(
-      { purpose: 'return-screening', targets: [] },
+      { purpose: 'return-screening', targets: ['K', 'M'] },
       ['K', 'M'],
       settings,
       () => 0.25,

@@ -507,6 +507,39 @@ export async function loadLearningSnapshot(
   }
   return projectLearningSnapshot(records, { ...options, knownCharacters: known });
 }
+/**
+ * Return screening uses only previously attained characters in the current
+ * owner/profile scope, oldest compatible assessment first. An explicit target
+ * list must match that evidence. The legacy no-target entry resolves to the
+ * same attained set; recorded exposure alone cannot supply screening evidence.
+ */
+export function returnScreeningTargets(
+  snapshot: Pick<LearningSnapshot, 'characters' | 'knownCharacters'>,
+  requested: readonly string[] | null
+): string[] | null {
+  const known = new Set(snapshot.knownCharacters);
+  const attained = snapshot.characters
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.proficiency !== null && known.has(item.character))
+    .sort(
+      (a, b) =>
+        (a.item.lastAssessedAt ? timestamp(a.item.lastAssessedAt) : -Infinity) -
+          (b.item.lastAssessedAt ? timestamp(b.item.lastAssessedAt) : -Infinity) ||
+        a.index - b.index
+    )
+    .map(({ item }) => item.character);
+  if (requested !== null) {
+    if (
+      !requested.length ||
+      requested.length > 8 ||
+      new Set(requested).size !== requested.length ||
+      requested.some((character) => !known.has(character) || !attained.includes(character))
+    )
+      return null;
+    return [...requested];
+  }
+  return attained.slice(0, 8);
+}
 export function learningRecommendationHref(
   recommendation: Recommendation,
   knownCharacters: readonly string[] = []
@@ -515,7 +548,12 @@ export function learningRecommendationHref(
   if (recommendation.reason === 'load-history') return '/settings#learning-evidence';
   if (recommendation.reason === 'new-lesson')
     return `/morse/learn/session?step=${recommendation.lesson ?? 1}`;
-  if (recommendation.reason === 'return-screening') return '/morse/learn/session?review=return';
+  if (recommendation.reason === 'return-screening') {
+    const screening = targets.slice(0, 8);
+    return screening.length
+      ? `/morse/learn/session?review=return&targets=${encodeURIComponent(screening.join(''))}`
+      : '/morse/learn/session?review=return';
+  }
   if (recommendation.reason === 'repair') {
     if (targets.length < 2) {
       const partner = knownCharacters.find((c) => !targets.includes(c));
