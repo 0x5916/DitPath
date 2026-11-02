@@ -92,6 +92,25 @@ describe('Home dashboard data', () => {
     expect(other.knownCharacters).toEqual([]);
   });
 
+  it('preserves historical unlocks from attempts outside the current window', async () => {
+    const repository = createAttemptRepository(db);
+    const old = '2026-08-01T00:00:00.000Z';
+    for (const character of ['K', 'M'])
+      for (let index = 0; index < 12; index++)
+        await repository.saveAttempt({
+          ...attempt,
+          id: `${character}-${index}`,
+          sessionId: `old-session-${index % 2}`,
+          targetCharacter: character,
+          enteredText: character,
+          createdAt: old
+        });
+    const result = await loadHomeDashboard(db, 'unclaimed', now);
+    expect(result.guidance.currentStep).toBe(2);
+    expect(result.guidance.unlockedStep).toBe(2);
+    expect(result.guidance.masteryMap.get('K')?.totalAttempts).toBe(0);
+  });
+
   it('loads recent guided evidence into both guidance and activity', async () => {
     await createAttemptRepository(db).saveAttempt(attempt);
     const result = await loadHomeDashboard(db, 'unclaimed', now);

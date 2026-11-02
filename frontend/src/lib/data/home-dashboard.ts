@@ -29,7 +29,9 @@ export async function loadHomeDashboard(db: IDBDatabase, owner: string, nowIso: 
       history.some(
         (session) => (session.completedPromptCount ?? 0) > 0 || session.status === 'completed'
       ),
-    guidance: deriveCourseGuidance(recentAttempts, nowIso),
+    guidance: deriveCourseGuidance(recentAttempts, nowIso, undefined, {
+      history: allAttempts
+    }),
     unfinishedSession,
     summary: summarizeProgress(recentAttempts, recentSessions, nowIso)
   };

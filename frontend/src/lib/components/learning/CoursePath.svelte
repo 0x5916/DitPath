@@ -3,10 +3,13 @@
   import { LESSONS } from '../../training/sequence';
   import CoursePathItem, { type PathItemStatus } from './CoursePathItem.svelte';
   import type { CharacterMastery } from '../../training/v2/types';
+  import { deriveCoursePathItemStatus } from '../../training/v2/course-guidance';
   import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     currentStep: number;
+    /** Highest lesson whose unlock history is recorded; never decreased by review. */
+    unlockedStep?: number;
     current: Snippet;
     requirements?: Snippet;
     ready?: boolean;
@@ -17,6 +20,7 @@
 
   let {
     currentStep = 1,
+    unlockedStep = currentStep,
     current,
     requirements,
     ready = true,
@@ -29,26 +33,12 @@
   let nearbyStart = $derived(Math.max(1, Math.min(currentStep - 1, LESSONS.length - 2)));
 
   function getItemStatus(step: number, chars: string): PathItemStatus {
-    if (step > currentStep) {
-      if (suggestedStep && step <= suggestedStep) {
-        return 'legacy-unverified';
-      }
-      return 'locked';
-    }
-
-    if (step === currentStep) {
-      return 'current';
-    }
-
-    // Check if any character introduced at this step is due for review
-    const charList = chars.split('');
-    const anyReviewDue = charList.some((c) => masteryMap.get(c)?.status === 'review');
-    if (anyReviewDue) return 'review';
-
-    const allStable = charList.every((c) => masteryMap.get(c)?.status === 'stable');
-    if (allStable) return 'stable';
-
-    return 'available';
+    return deriveCoursePathItemStatus(step, chars, {
+      currentStep,
+      unlockedStep,
+      masteryMap,
+      suggestedStep
+    });
   }
 </script>
 

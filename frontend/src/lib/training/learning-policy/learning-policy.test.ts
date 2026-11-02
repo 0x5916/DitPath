@@ -353,16 +353,27 @@ describe('review timing and recommendation', () => {
     expect(result.rung).toBe(0);
     expect(result.dueAt).toBe(add(now, day));
   });
-  it('does not postpone the due time on early success or early failure', () => {
+  it('shortens an early failure due time without resetting the rung', () => {
     const future = { ...origin, rung: 2, dueAt: add(now, 3 * day) };
-    expect(reconcileReview(future, [fixture('pass').check], now).state.dueAt).toBe(future.dueAt);
-    expect(reconcileReview(future, [fixture('fail', now, { k: 8 }).check], now).state.dueAt).toBe(
-      add(now, day)
-    );
+    const success = reconcileReview(future, [fixture('pass').check], now).state;
+    expect(success).toMatchObject({ dueAt: future.dueAt, rung: 2, cycleId: future.cycleId });
+    const failure = reconcileReview(future, [fixture('fail', now, { k: 8 }).check], now).state;
+    expect(failure).toMatchObject({ dueAt: add(now, day), rung: 2, cycleId: future.cycleId });
     const nearer = { ...future, dueAt: add(now, 3_600_000) };
-    expect(reconcileReview(nearer, [fixture('fail', now, { k: 8 }).check], now).state.dueAt).toBe(
-      nearer.dueAt
-    );
+    expect(
+      reconcileReview(nearer, [fixture('fail', now, { k: 8 }).check], now).state
+    ).toMatchObject({ dueAt: nearer.dueAt, rung: 2 });
+  });
+
+  it('preserves a higher rung on early failure and still resets on a due failure', () => {
+    const future = { ...origin, rung: 3, dueAt: add(now, 3 * day) };
+    const early = reconcileReview(future, [fixture('early', now, { k: 8 }).check], now).state;
+    expect(early.rung).toBe(3);
+    expect(early.dueAt).toBe(add(now, day));
+    const due = { ...future, dueAt: add(now, -2 * day) };
+    const failure = reconcileReview(due, [fixture('due', now, { k: 8 }).check], now).state;
+    expect(failure.rung).toBe(0);
+    expect(failure.dueAt).toBe(add(now, day));
   });
   it('withholds credit for overlapping checks or unknown clock bounds', () => {
     const a = fixture('a', now, { cycle: origin.cycleId }).check;

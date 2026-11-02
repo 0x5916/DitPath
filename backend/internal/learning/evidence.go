@@ -410,8 +410,10 @@ func ReconcileReview(initial ReviewState, input []EvaluatedCheck, nowISO string)
 		state.AppliedCheckIDs = append(state.AppliedCheckIDs, check.ID)
 		recovery := ms(*check.CompletedAt) + dayMS
 		if latest < due {
+			// An early check may shorten the next due date, but only a
+			// qualifying due failure resets the rung. Early success leaves
+			// the schedule alone.
 			if !passesTarget(check, state.Character) {
-				state.Rung = 0
 				state.DueAt = iso(min(due, recovery))
 			}
 			continue

@@ -113,8 +113,10 @@ export function reconcileReview(
     state = { ...state, appliedCheckIds: [...state.appliedCheckIds, check.id] };
     const recovery = timestamp(check.completedAt!) + P.reviewIntervalsMs[0];
     if (latest < due) {
+      // An early check may shorten the next due date, but only a qualifying
+      // due failure resets the rung. Early success leaves the schedule alone.
       if (!passesTarget(check, state.character))
-        state = { ...state, rung: 0, dueAt: at(Math.min(due, recovery)) };
+        state = { ...state, dueAt: at(Math.min(due, recovery)) };
       continue;
     }
     // An obsolete cycle cannot earn a second positive interval transition.

@@ -20077,7 +20077,7 @@
           "character": "K",
           "policyVersion": "learning-policy-1.0",
           "attainedAt": "2026-10-22T12:00:00.000Z",
-          "rung": 0,
+          "rung": 3,
           "dueAt": "2026-10-31T12:00:00.000Z",
           "cycleId": "[\"[\\\"account:parity\\\",\\\"{\\\\\\\"audioCondition\\\\\\\":\\\\\\\"clean\\\\\\\",\\\\\\\"charWpm\\\\\\\":20,\\\\\\\"id\\\\\\\":\\\\\\\"clean20\\\\\\\",\\\\\\\"responseSupport\\\\\\\":\\\\\\\"open\\\\\\\",\\\\\\\"task\\\\\\\":\\\\\\\"single-character\\\\\\\"}\\\",\\\"K\\\",\\\"proficiency\\\",\\\"learning-policy-1.0\\\"]\",\"initial-review\"]",
           "appliedCheckIds": ["review"]
