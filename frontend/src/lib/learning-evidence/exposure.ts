@@ -1,5 +1,5 @@
 import type { EvidenceRecord } from '../data/learning-evidence';
-import type { TimeBounds } from '../training/learning-policy/types';
+import type { Observation, TimeBounds } from '../training/learning-policy/types';
 export type WireBounds = TimeBounds;
 /** Round wire precision outwards so sub-millisecond server times cannot invent a gap. */
 export function wireBounds(value: unknown): WireBounds | null {
@@ -22,6 +22,35 @@ export function wireBounds(value: unknown): WireBounds | null {
     source: b.source as WireBounds['source']
   };
 }
+/**
+ * Delivery validity is reconstructed from the immutable guard/closure pair.
+ * The observation's raw audio flag never proves that a first tone was delivered:
+ * a missing guard, missing closure, unresolved bounds, or a stopped action all
+ * remain unsupported. A completed closure may still carry an interrupted or
+ * invalid delivery flag from the capture engine.
+ */
+export function deliveryValidity(
+  records: readonly EvidenceRecord[],
+  observation: Pick<Observation, 'presentationId' | 'audioValid'>,
+  character: string
+): boolean | null {
+  const guard = records.find(
+    (record) =>
+      record.kind === 'exposure-open' && record.presentation_id === observation.presentationId
+  );
+  if (!guard) return null;
+  const close = records.find(
+    (record) => record.kind === 'exposure-close' && record.open_id === guard.id
+  );
+  if (close?.end_reason === 'stopped') return false;
+  if (close?.end_reason !== 'completed') return null;
+  const end = wireBounds((close.last_exposure as Record<string, unknown> | undefined)?.[character]);
+  if (!end) return null;
+  return observation.audioValid === true || observation.audioValid === false
+    ? observation.audioValid
+    : null;
+}
+
 /** Uses all recorded modes. An unresolved action prevents a precise later gap. */
 export function priorExposure(
   records: readonly EvidenceRecord[],

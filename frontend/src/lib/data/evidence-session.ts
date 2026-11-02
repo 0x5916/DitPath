@@ -6,7 +6,7 @@ import { type LearningEvidenceRepository, type EvidenceRecord } from './learning
 import type { GoalProfile } from '../training/learning-policy/types';
 import type { AttemptEvent, Prompt, TrainingSessionRecord } from '../training/v2/types';
 import { evaluateCheck } from '../training/learning-policy/assessment';
-import { checkPlanFromWire, observationFromWire } from './learning-snapshot';
+import { checkPlanFromWire, observationsForCheck } from './learning-snapshot';
 
 export interface LearningSessionPlan {
   purpose: 'coaching' | 'screening' | 'mixed-check';
@@ -134,13 +134,15 @@ export function createEvidenceSessionRepositories(
         );
       const plan = frozen.get(`plan_${session.id}`)!;
       const check = metadata.purpose === 'mixed-check' ? checkPlanFromWire(plan, ownerKey) : null;
-      const complete = check
-        ? evaluateCheck(
-            check,
-            observations.map((r) => observationFromWire(r, ownerKey)),
-            endedAt ?? null
-          ).complete
-        : true;
+      // A local completed check must satisfy the same delivery and evidence rules
+      // as the projection; raw audio_valid alone cannot support completion.
+      const complete =
+        metadata.purpose !== 'mixed-check'
+          ? true
+          : check
+            ? evaluateCheck(check, observationsForCheck(records, check, ownerKey), endedAt ?? null)
+                .complete
+            : false;
       terminal = envelope(key, 'terminal', {
         session_id: session.id,
         status: status === 'completed' && !complete ? 'incomplete' : status,

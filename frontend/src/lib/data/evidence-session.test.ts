@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { createLearningEvidenceRepository, openLearningEvidenceDb } from './learning-evidence';
+import {
+  createLearningEvidenceRepository,
+  openLearningEvidenceDb,
+  type EvidenceRecord
+} from './learning-evidence';
 import { createEvidenceSessionRepositories } from './evidence-session';
 import { createEvidenceAudioEngine } from '../audio/evidence-engine';
 import type { AudioEngine, AudioEngineEvent } from '../audio/engine';
@@ -169,6 +173,176 @@ describe('prospective session capture through controller ports', () => {
   });
 });
 
+const startedAt = '2026-10-20T00:00:00.000Z';
+const endedAt = '2026-10-20T00:10:00.000Z';
+const bounds = (time: string) => ({ earliest: time, latest: time, source: 'wall-clock-bounded' });
+async function finalizeFixture(breakEvidence: (records: EvidenceRecord[]) => void) {
+  const db = await openLearningEvidenceDb(new IDBFactory());
+  databases.push(db);
+  const owner = 'account:a',
+    repo = createLearningEvidenceRepository(db, owner),
+    profile = activeLearningProfile(20);
+  const built = buildMixedCheck({
+    ownerKey: owner,
+    targets: ['K', 'M'],
+    knownCharacters: ['K', 'M'],
+    profile,
+    effWpm: 12,
+    freqHz: 600,
+    startedAt,
+    checkId: 'mixed'
+  });
+  const audio = {
+    flush: async () => {},
+    presentation: () => null
+  } as unknown as import('../audio/evidence-engine').EvidenceAudioEngine;
+  const ports = createEvidenceSessionRepositories(
+    repo,
+    owner,
+    {
+      purpose: 'mixed-check',
+      targets: ['K', 'M'],
+      knownCharacters: ['K', 'M'],
+      prompts: built.prompts,
+      profile
+    },
+    audio
+  );
+  await ports.sessionRepo.saveSession({
+    schemaVersion: 1,
+    id: 'mixed',
+    mode: 'guided',
+    step: 1,
+    status: 'in-progress',
+    startedAt,
+    promptCount: built.prompts.length,
+    completedPromptCount: 0,
+    charWpm: 20,
+    effWpm: 12,
+    freqHz: 600
+  });
+  const records: EvidenceRecord[] = [];
+  for (const [index, prompt] of built.prompts.entries()) {
+    const presentation = `tone_${index}`,
+      open = `open_${presentation}`,
+      at = new Date(Date.parse(startedAt) + (index + 1) * 1000).toISOString(),
+      character = prompt.spec.expectedText;
+    records.push({
+      id: open,
+      kind: 'exposure-open',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: startedAt,
+      session_id: 'mixed',
+      presentation_id: presentation,
+      characters: [character],
+      source: 'mixed-check',
+      started_at: bounds(at)
+    });
+    records.push({
+      id: `close_${presentation}`,
+      kind: 'exposure-close',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: at,
+      open_id: open,
+      end_reason: 'completed',
+      last_exposure: { [character]: bounds(at) }
+    });
+    records.push({
+      id: `answer_${index}`,
+      kind: 'observation',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: at,
+      session_id: 'mixed',
+      prompt_id: prompt.id,
+      presentation_id: presentation,
+      first_response: character,
+      final_response: character,
+      skipped: false,
+      replay_count_before_response: 0,
+      help_before_response: false,
+      audio_valid: true,
+      interruption_invalidated: false,
+      response_interface: 'keyboard',
+      first_presented_at: bounds(at),
+      prior_exposure: null
+    });
+  }
+  breakEvidence(records);
+  await repo.append(records);
+  await ports.sessionRepo.updateSessionProgress(
+    'mixed',
+    built.prompts.length,
+    'completed',
+    endedAt
+  );
+  return { repo, records };
+}
+it.each([
+  ['valid completion', () => {}, 'completed'],
+  [
+    'missing closure',
+    (records: EvidenceRecord[]) => {
+      records.splice(
+        records.findIndex((r) => r.kind === 'exposure-close'),
+        1
+      );
+    },
+    'incomplete'
+  ],
+  [
+    'stopped playback',
+    (records: EvidenceRecord[]) => {
+      records.find((r) => r.kind === 'exposure-close')!.end_reason = 'stopped';
+    },
+    'incomplete'
+  ],
+  [
+    'invalid audio',
+    (records: EvidenceRecord[]) => {
+      records.find((r) => r.kind === 'observation')!.audio_valid = false;
+    },
+    'incomplete'
+  ],
+  [
+    'unresolved guard bounds',
+    (records: EvidenceRecord[]) => {
+      records.find((r) => r.kind === 'exposure-open')!.started_at = null;
+      records.find((r) => r.kind === 'exposure-close')!.last_exposure = {};
+    },
+    'incomplete'
+  ],
+  [
+    'missing guard',
+    (records: EvidenceRecord[]) => {
+      records.splice(
+        records.findIndex((r) => r.kind === 'exposure-open'),
+        1
+      );
+    },
+    'incomplete'
+  ]
+])(
+  'derives terminal status from evaluated delivery evidence: %s',
+  async (_, breakEvidence, status) => {
+    const f = await finalizeFixture(breakEvidence);
+    const records = await f.repo.all();
+    expect(records.find((r) => r.kind === 'terminal')).toMatchObject({
+      status,
+      observation_ids: records
+        .filter((r) => r.kind === 'observation')
+        .map((r) => r.id)
+        .sort()
+    });
+    expect(
+      projectLearningSnapshot(records, {
+        ownerKey: 'account:a',
+        profile: activeLearningProfile(20),
+        coverage: 'local-only',
+        nowIso: '2026-10-21T00:00:00Z'
+      }).checks[0].complete
+    ).toBe(status === 'completed');
+  }
+);
 it.each(['coaching', 'screening'] as const)(
   'captures %s plans with API-compatible purpose and prompt roles',
   async (purpose) => {

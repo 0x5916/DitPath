@@ -1,4 +1,8 @@
-import { learningHistory, type LearningHistoryEntry } from './learning-history';
+import {
+  learningHistory,
+  terminalManifestMatches,
+  type LearningHistoryEntry
+} from './learning-history';
 /** One owner-scoped prospective projection for Home, Lessons, Progress and Results. */
 import {
   createLearningEvidenceRepository,
@@ -8,7 +12,12 @@ import {
 import { createAttemptRepository } from './attempt-repository';
 import { openTrainingDb } from './training-db';
 import { readClientCwSettings } from '../cwSync';
-import { priorExposure, exposureBeforeProbe, wireBounds } from '../learning-evidence/exposure';
+import {
+  priorExposure,
+  exposureBeforeProbe,
+  deliveryValidity,
+  wireBounds
+} from '../learning-evidence/exposure';
 import { LESSONS } from '../training/sequence';
 import { recordedCharacters } from '../training/targeted-review';
 import { evaluateCheck, profileKey } from '../training/learning-policy/assessment';
@@ -69,6 +78,8 @@ export interface LearningSnapshotOptions {
   coverage?: LearningSnapshot['coverage'];
   records?: readonly EvidenceRecord[];
   knownCharacters?: readonly string[];
+  /** Terminal local rejections stay in the ledger but must not project claims. */
+  excludedRecordIds?: readonly string[];
 }
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
@@ -137,6 +148,38 @@ export function checkPlanFromWire(record: EvidenceRecord, ownerKey: string): Che
     feedback: record.feedback as 'after-check',
     reviewCycleIds: object(record.review_cycle_ids) as Record<string, string>
   };
+}
+/**
+ * One evaluation path for local finalization, Results, Progress and Home.
+ * Delivery validity follows the guard/closure pair; the raw observation flag is
+ * only an interruption marker after a recorded, completed delivery.
+ */
+export function observationsForCheck(
+  records: readonly EvidenceRecord[],
+  plan: CheckPlan,
+  ownerKey: string
+): Observation[] {
+  return records
+    .filter((record) => record.kind === 'observation' && record.session_id === plan.id)
+    .map((record) => {
+      const observation = observationFromWire(record, ownerKey);
+      const character = plan.prompts.find(
+        (prompt) => prompt.id === observation.promptId
+      )?.character;
+      return {
+        ...observation,
+        audioValid: character ? deliveryValidity(records, observation, character) : null,
+        priorExposure:
+          character && observation.firstPresentedAt
+            ? exposureBeforeProbe(
+                records,
+                character,
+                observation.presentationId,
+                observation.firstPresentedAt
+              )
+            : null
+      };
+    });
 }
 export function observationFromWire(record: EvidenceRecord, ownerKey: string): Observation {
   const nullableText = (value: unknown) => (typeof value === 'string' ? value : null);
@@ -233,7 +276,7 @@ function selectedAward(evidence: CharacterEvidence, kind: Attainment['kind']): A
 }
 
 export function projectLearningSnapshot(
-  records: readonly EvidenceRecord[],
+  sourceRecords: readonly EvidenceRecord[],
   options: LearningSnapshotOptions
 ): LearningSnapshot {
   const nowIso = options.nowIso ?? new Date().toISOString(),
@@ -242,41 +285,16 @@ export function projectLearningSnapshot(
     scope = profileKey(profile),
     coverage =
       options.coverage ?? (options.ownerKey.startsWith('account:') ? 'partial' : 'local-only');
+  const excluded = new Set(options.excludedRecordIds ?? []),
+    records = excluded.size
+      ? sourceRecords.filter((record) => !excluded.has(record.id))
+      : sourceRecords;
   const checks: EvaluatedCheck[] = [],
     issues: string[] = [];
   for (const record of records) {
     const plan = checkPlanFromWire(record, options.ownerKey);
     if (!plan) continue;
-    const observations = records
-      .filter((r) => r.kind === 'observation' && r.session_id === plan.id)
-      .map((r) => {
-        const observation = observationFromWire(r, options.ownerKey);
-        const character = plan.prompts.find((p) => p.id === observation.promptId)?.character;
-        const guard = records.find(
-          (r) => r.kind === 'exposure-open' && r.presentation_id === observation.presentationId
-        );
-        const close =
-          guard && records.find((r) => r.kind === 'exposure-close' && r.open_id === guard.id);
-        const end = character ? wireBounds(object(close?.last_exposure)[character]) : null;
-        const delivery =
-          close?.end_reason === 'completed' && end
-            ? observation.audioValid
-            : close?.end_reason === 'stopped'
-              ? false
-              : null;
-        return {
-          ...observation,
-          audioValid: delivery,
-          priorExposure: character
-            ? exposureBeforeProbe(
-                records,
-                character,
-                observation.presentationId,
-                observation.firstPresentedAt
-              )
-            : null
-        };
-      });
+    const observations = observationsForCheck(records, plan, options.ownerKey);
     const terminal = records.find((r) => r.kind === 'terminal' && r.session_id === plan.id);
     const check = evaluateCheck(
       plan,
@@ -286,8 +304,10 @@ export function projectLearningSnapshot(
     // A terminal manifest must match the complete observation set before certification.
     if (
       terminal?.status === 'completed' &&
-      canonical([...strings(terminal.observation_ids)].sort()) !==
-        canonical(observations.map((o) => o.id).sort())
+      !terminalManifestMatches(
+        terminal.observation_ids,
+        observations.map((observation) => observation.id)
+      )
     ) {
       checks.push({
         ...check,
@@ -341,8 +361,15 @@ export function projectLearningSnapshot(
               r.kind === 'observation' &&
               r.session_id === plan.session_id &&
               promptIds.has(text(r.prompt_id)) &&
-              r.audio_valid === true &&
-              r.interruption_invalidated === false
+              r.interruption_invalidated === false &&
+              deliveryValidity(
+                records,
+                {
+                  presentationId: text(r.presentation_id),
+                  audioValid: typeof r.audio_valid === 'boolean' ? r.audio_valid : null
+                },
+                character
+              ) === true
           )
           .map(() => text(terminal.ended_at));
       });
@@ -463,7 +490,9 @@ export function projectLearningSnapshot(
     hasProspectiveEvidence: records.some((r) => r.kind === 'plan') || claims.length > 0,
     characters,
     checks,
-    history: learningHistory(records),
+    history: learningHistory(sourceRecords, {
+      excludedRecordIds: excluded.size ? [...excluded] : undefined
+    }),
     recommendation,
     frontierStep: Math.min(attained + 1, LESSONS.length),
     courseComplete: attained === LESSONS.length,
@@ -480,10 +509,15 @@ export async function loadLearningSnapshot(
   options: LearningSnapshotOptions
 ): Promise<LearningSnapshot> {
   let records = options.records;
+  let excludedRecordIds = options.excludedRecordIds;
   if (!records) {
     const db = await openLearningEvidenceDb();
     try {
-      records = await createLearningEvidenceRepository(db, options.ownerKey).all();
+      const repository = createLearningEvidenceRepository(db, options.ownerKey);
+      [records, excludedRecordIds] = await Promise.all([
+        repository.all(),
+        repository.rejectedIds()
+      ]);
     } finally {
       db.close();
     }
@@ -505,7 +539,11 @@ export async function loadLearningSnapshot(
       db?.close();
     }
   }
-  return projectLearningSnapshot(records, { ...options, knownCharacters: known });
+  return projectLearningSnapshot(records, {
+    ...options,
+    knownCharacters: known,
+    excludedRecordIds
+  });
 }
 /**
  * Return screening uses only previously attained characters in the current

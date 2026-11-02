@@ -7,6 +7,7 @@ import {
   type EvidenceRecord
 } from '../data/learning-evidence';
 import { reqToPromise } from '../data/training-db';
+import { activeLearningProfile, projectLearningSnapshot } from '../data/learning-snapshot';
 import { synchronizeLearningEvidence } from './sync';
 const dbs: IDBDatabase[] = [];
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));
@@ -409,6 +410,151 @@ describe('prospective evidence repository and synchronization', () => {
         request: async () => Response.json({ changes: [], next_cursor: 'empty', has_more: true })
       })
     ).rejects.toThrow('STALLED');
+  });
+
+  it('reconciles a permanently rejected terminal as rejected evidence after reload', async () => {
+    const { db, repo } = await fixture(),
+      profile = activeLearningProfile(20),
+      nowIso = '2026-10-28T00:00:00.000Z';
+    const session = (id: string) => {
+      const presentation = `tone_${id}`,
+        prompt = `prompt_${id}`,
+        at = `2026-10-27T00:00:0${id === 'a' ? 1 : 2}.000Z`,
+        plan: EvidenceRecord = {
+          id: `plan_${id}`,
+          kind: 'plan',
+          policy_version: 'learning-policy-1.0',
+          recorded_at: at,
+          session_id: id,
+          purpose: 'screening',
+          profile: {
+            id: profile.id,
+            task: profile.task,
+            char_wpm: 20,
+            audio_condition: 'clean',
+            response_support: 'open'
+          },
+          started_at: at,
+          targets: ['K'],
+          prompts: [{ id: prompt, character: 'K' }],
+          feedback: 'immediate',
+          char_wpm: 20,
+          eff_wpm: 12
+        },
+        observation: EvidenceRecord = {
+          id: `answer_${id}`,
+          kind: 'observation',
+          policy_version: 'learning-policy-1.0',
+          recorded_at: at,
+          session_id: id,
+          prompt_id: prompt,
+          presentation_id: presentation,
+          first_response: 'K',
+          final_response: 'K',
+          skipped: false,
+          replay_count_before_response: 0,
+          help_before_response: false,
+          audio_valid: true,
+          interruption_invalidated: false,
+          response_interface: 'keyboard',
+          first_presented_at: {
+            earliest: at,
+            latest: at,
+            source: 'wall-clock-bounded'
+          }
+        },
+        open: EvidenceRecord = {
+          id: `open_${id}`,
+          kind: 'exposure-open',
+          policy_version: 'learning-policy-1.0',
+          recorded_at: at,
+          session_id: id,
+          presentation_id: presentation,
+          characters: ['K'],
+          source: 'screening',
+          started_at: { earliest: at, latest: at, source: 'wall-clock-bounded' }
+        },
+        close: EvidenceRecord = {
+          id: `close_${id}`,
+          kind: 'exposure-close',
+          policy_version: 'learning-policy-1.0',
+          recorded_at: at,
+          open_id: open.id,
+          end_reason: 'completed',
+          last_exposure: { K: { earliest: at, latest: at, source: 'wall-clock-bounded' } }
+        },
+        terminal: EvidenceRecord = {
+          id: `end_${id}`,
+          kind: 'terminal',
+          policy_version: 'learning-policy-1.0',
+          recorded_at: at,
+          session_id: id,
+          status: 'completed',
+          ended_at: at,
+          observation_ids: [observation.id]
+        };
+      return { plan, observation, open, close, terminal };
+    };
+    const a = session('a'),
+      b = session('b');
+    await repo.append([
+      a.plan,
+      a.open,
+      a.close,
+      a.observation,
+      a.terminal,
+      b.plan,
+      b.open,
+      b.close,
+      b.observation,
+      b.terminal
+    ]);
+    await synchronizeLearningEvidence({
+      repository: repo,
+      isCurrent: () => true,
+      request: async (path) =>
+        path.endsWith('/batch')
+          ? Response.json({
+              acknowledged_ids: [
+                a.plan.id,
+                a.open.id,
+                a.close.id,
+                a.observation.id,
+                b.plan.id,
+                b.open.id,
+                b.close.id,
+                b.observation.id,
+                b.terminal.id
+              ],
+              rejected_records: [
+                {
+                  id: a.terminal.id,
+                  error_code: 'ID_CONFLICT',
+                  message: 'conflict',
+                  retryable: false
+                }
+              ]
+            })
+          : Response.json({ changes: [], next_cursor: 'c1', has_more: false })
+    });
+    const reloaded = createLearningEvidenceRepository(db, 'account:a');
+    expect(await reloaded.rejectedIds()).toEqual([a.terminal.id]);
+    const snapshot = projectLearningSnapshot(await reloaded.all(), {
+      ownerKey: 'account:a',
+      profile,
+      knownCharacters: ['K'],
+      nowIso,
+      excludedRecordIds: await reloaded.rejectedIds()
+    });
+    expect(snapshot.history.find((entry) => entry.id === 'a')).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected'
+    });
+    expect(snapshot.history.find((entry) => entry.id === 'b')).toMatchObject({
+      status: 'completed',
+      evidenceStatus: 'complete'
+    });
   });
 });
 
