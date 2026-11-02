@@ -38,6 +38,16 @@ go test -race -p 1 ./internal/authlimits ./internal/utils ./internal/middlewares
 
 The [email-verification](internal/handlers/v1/email_verification_test.go), [refresh-rotation](internal/handlers/v1/auth_test.go), and [registered auth-route integration tests](internal/server/auth_limits_test.go) require `OPENCW_TEST_DATABASE_DSN` pointing to an already-migrated, disposable PostgreSQL database with the current indexes. They use isolated fixtures and no live email calls. An unset DSN skips database cases; skips do not satisfy the [email race](docs/email-verification-race-spec.md#acceptance-tests) or [auth resource-limit](docs/auth-resource-limits-spec.md#acceptance-tests) acceptance gates.
 
+[test-postgres.sh](scripts/test-postgres.sh) creates that database as a throwaway container instead of borrowing a development one. It uses a unique name, a random password, an ephemeral loopback port, and tmpfs storage; bootstraps the schema through `TestHistoryMigrationPreservesData`; verifies that the DSN reached that container; and removes the container on exit.
+
+```bash
+backend/scripts/test-postgres.sh            # go test -count=1 -p 1 ./...
+backend/scripts/test-postgres.sh --verbose  # pass/skip counts
+backend/scripts/test-postgres.sh --race     # documented race subset
+```
+
+Pass `--keep` only when investigating a failure. Never point `OPENCW_TEST_DATABASE_DSN` at a database whose data must survive.
+
 The [password reservation tests](internal/utils/password_test.go) include lifecycle/cancellation checks, injected concurrency workers, and a real Argon2 round-trip control. [Limiter](internal/authlimits/limiter_test.go) and [source](internal/authlimits/source_test.go) unit tests use isolated policies and clocks; real-router tests verify shared registration/login/password-change work, no rejected-request side effects, response precedence, existing outcomes, and CORS. The packet also requires existing backend regressions and the relevant [frontend verification](../frontend/README.md) for localized error mappings. Record command exit codes and pass/skip counts; test source presence alone is not acceptance evidence.
 
 [V1 API](API.md) covers authentication, settings, training, legacy progress, and forum routes, including V1-only session history and change downloads. [Training synchronization](docs/training-events-v2.md) defines schema-1/schema-2 events, signed download checkpoints, snapshots, settings, and the three temporary V2 aliases. The [approved cross-device specification](docs/training-history-v1-spec.md) records implemented storage, bootstrap, and [frontend synchronization](../frontend/docs/learning.md); V2 removal still requires its compatibility/release gate. [Session validation](internal/common/training_sessions.go), [strict event validation](internal/handlers/v2/training_strict.go), [request schemas](internal/common/input.go), [response schemas](internal/common/response.go), and [router registration](internal/server/router.go) define the wire contracts.
