@@ -827,6 +827,8 @@
           owner={learningSyncState.owner}
           pending={learningSyncState.pending}
           error={learningSyncState.error}
+          rejected={learningSyncState.rejected}
+          blocked={learningSyncState.blocked}
           syncing={learningSyncState.syncing}
           synced={learningSyncState.synced}
         />{:else}<TrainingSyncStatus

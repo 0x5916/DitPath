@@ -482,6 +482,8 @@
   "history_synced": "已在你的设备之间同步",
   "history_sync_pending": "已保存在此设备。{count} 项更改等待同步。",
   "history_sync_error": "已保存在此设备。部分历史记录无法同步，已保存的记录会保留。",
+  "history_sync_rejected": "部分历史记录无法同步。永久拒绝的记录：{count} 条。",
+  "history_sync_blocked": "因证据被拒绝而受阻的记录：{count} 条。",
   "history_syncing": "正在同步历史记录…",
   "history_sync_now": "立即同步",
   "history_import": "导入此设备的历史记录",

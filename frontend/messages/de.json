@@ -482,6 +482,8 @@
   "history_synced": "Auf deinen Geräten synchronisiert",
   "history_sync_pending": "Auf diesem Gerät gespeichert. {count} Änderungen warten auf die Synchronisierung.",
   "history_sync_error": "Auf diesem Gerät gespeichert. Ein Teil des Verlaufs konnte nicht synchronisiert werden; deine gespeicherten Einträge bleiben erhalten.",
+  "history_sync_rejected": "Ein Teil des Verlaufs konnte nicht synchronisiert werden. Dauerhaft abgelehnte Einträge: {count}.",
+  "history_sync_blocked": "Durch abgelehnte Nachweise blockierte Einträge: {count}.",
   "history_syncing": "Verlauf wird synchronisiert…",
   "history_sync_now": "Jetzt synchronisieren",
   "history_import": "Verlauf von diesem Gerät importieren",

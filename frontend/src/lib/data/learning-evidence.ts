@@ -33,6 +33,8 @@ interface Row {
 interface Pending extends Row {
   error?: string;
   permanent?: boolean;
+  /** Terminal record whose permanent rejection made this dependent impossible to submit. */
+  blockedBy?: string;
 }
 interface Meta {
   owner: string;
@@ -220,6 +222,89 @@ export function openLearningEvidenceDb(
     request.onblocked = () => fail(new Error('Evidence storage is blocked by another tab'));
   });
 }
+const stringList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+/** Direct upload dependencies defined by the additive evidence contract. */
+function dependencyIds(
+  record: EvidenceRecord,
+  recordsById: ReadonlyMap<string, Row>,
+  plansBySession: ReadonlyMap<string, string[]>
+): string[] {
+  const session = typeof record.session_id === 'string' ? record.session_id : '';
+  switch (record.kind) {
+    case 'exposure-open':
+      // A session-scoped guard is capture evidence for a specific plan. The
+      // server enforces the same dependency, so a permanently rejected plan
+      // must terminalize its guards instead of retrying them forever.
+      return session ? [...(plansBySession.get(session) ?? [])] : [];
+    case 'observation': {
+      const dependencies = session ? [...(plansBySession.get(session) ?? [])] : [];
+      const presentation = typeof record.presentation_id === 'string' ? record.presentation_id : '';
+      if (presentation)
+        for (const row of recordsById.values())
+          if (row.record.kind === 'exposure-open' && row.record.presentation_id === presentation)
+            dependencies.push(row.id);
+      return dependencies;
+    }
+    case 'exposure-close':
+      return typeof record.open_id === 'string' ? [record.open_id] : [];
+    case 'terminal':
+      return [
+        ...(session ? (plansBySession.get(session) ?? []) : []),
+        ...stringList(record.observation_ids)
+      ];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Marks pending dependents of permanently rejected records as terminal.
+ * They remain in the outbox with their original evidence for diagnosis, but
+ * are no longer retryable and no longer count as pending upload work.
+ */
+async function blockDependentRejections(
+  stores: Record<string, IDBObjectStore>,
+  owner: string
+): Promise<void> {
+  const records = await reqToPromise<Row[]>(stores.records.index('owner').getAll(owner));
+  const outbox = (await reqToPromise<Pending[]>(stores.outbox.getAll())).filter(
+    (row) => row.owner === owner
+  );
+  const permanent = new Set(outbox.filter((row) => row.permanent).map((row) => row.id));
+  if (!permanent.size) return;
+  const recordsById = new Map(records.map((row) => [row.id, row]));
+  const plansBySession = new Map<string, string[]>();
+  for (const row of records)
+    if (row.record.kind === 'plan' && typeof row.record.session_id === 'string') {
+      const plans = plansBySession.get(row.record.session_id);
+      if (plans) plans.push(row.id);
+      else plansBySession.set(row.record.session_id, [row.id]);
+    }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const row of outbox) {
+      if (row.permanent) continue;
+      const blockedBy = dependencyIds(row.record, recordsById, plansBySession).find((id) =>
+        permanent.has(id)
+      );
+      if (!blockedBy) continue;
+      const blocked: Pending = {
+        ...row,
+        error: 'EVIDENCE_DEPENDENCY_REJECTED',
+        permanent: true,
+        blockedBy
+      };
+      await reqToPromise(stores.outbox.put(blocked));
+      Object.assign(row, blocked);
+      permanent.add(row.id);
+      changed = true;
+    }
+  }
+}
+
 export function createLearningEvidenceRepository(db: IDBDatabase, owner: string) {
   if (!owner.trim()) throw new Error('Evidence requires an owner');
   const rows = <T>(store: IDBObjectStore) => reqToPromise<T[]>(store.index('owner').getAll(owner));
@@ -368,12 +453,23 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       );
     },
     async pending(): Promise<EvidenceRecord[]> {
-      return transaction(db, 'readonly', async (s) =>
-        (await rows<Pending>(s.outbox))
+      return transaction(db, 'readwrite', async (s) => {
+        await blockDependentRejections(s, owner);
+        return (await rows<Pending>(s.outbox))
           .filter((r) => !r.permanent)
           .sort((a, b) => a.order - b.order)
-          .map((r) => r.record)
-      );
+          .map((r) => r.record);
+      });
+    },
+    /** Terminal evidence IDs kept locally but never retried. */
+    async rejectedIds(): Promise<string[]> {
+      return transaction(db, 'readwrite', async (s) => {
+        await blockDependentRejections(s, owner);
+        return (await rows<Pending>(s.outbox))
+          .filter((r) => r.permanent)
+          .sort((a, b) => a.order - b.order)
+          .map((r) => r.id);
+      });
     },
     async acknowledge(ids: readonly string[]) {
       await transaction(db, 'readwrite', async (s) => {
@@ -384,7 +480,11 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
     async reject(id: string, error: string, permanent: boolean) {
       await transaction(db, 'readwrite', async (s) => {
         const row = await reqToPromise<Pending | undefined>(s.outbox.get([owner, id]));
-        if (row) await reqToPromise(s.outbox.put({ ...row, error, permanent }));
+        // A permanent rejection is terminal. A later retryable or concurrent
+        // response must never downgrade it and restart an endless upload loop.
+        if (!row || row.permanent) return;
+        await reqToPromise(s.outbox.put({ ...row, error, permanent }));
+        if (permanent) await blockDependentRejections(s, owner);
       });
     },
     async applyPage(
@@ -449,9 +549,18 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       });
     },
     async getSyncStatus() {
-      return transaction(db, 'readonly', async (s) => {
-        const pending = await rows<Pending>(s.outbox);
-        return { pending: pending.length, error: pending.find((r) => r.error)?.error ?? null };
+      return transaction(db, 'readwrite', async (s) => {
+        await blockDependentRejections(s, owner);
+        const outbox = await rows<Pending>(s.outbox);
+        const retryable = outbox.filter((r) => !r.permanent);
+        const rejected = outbox.filter((r) => r.permanent && !r.blockedBy);
+        const blocked = outbox.filter((r) => r.permanent && r.blockedBy);
+        return {
+          pending: retryable.length,
+          rejected: rejected.length,
+          blocked: blocked.length,
+          error: retryable.find((r) => r.error)?.error ?? null
+        };
       });
     }
   };

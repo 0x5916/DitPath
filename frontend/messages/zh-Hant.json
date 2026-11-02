@@ -482,6 +482,8 @@
   "history_synced": "已在你的裝置之間同步",
   "history_sync_pending": "已儲存在此裝置。{count} 項變更等待同步。",
   "history_sync_error": "已儲存在此裝置。部分歷史紀錄無法同步，已儲存的紀錄會保留。",
+  "history_sync_rejected": "部分歷史紀錄無法同步。永久拒絕的紀錄：{count} 筆。",
+  "history_sync_blocked": "因證據被拒絕而受阻的紀錄：{count} 筆。",
   "history_syncing": "正在同步歷史紀錄…",
   "history_sync_now": "立即同步",
   "history_import": "匯入此裝置的歷史紀錄",

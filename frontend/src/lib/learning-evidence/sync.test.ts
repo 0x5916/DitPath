@@ -128,6 +128,278 @@ describe('prospective evidence repository and synchronization', () => {
     });
     expect(await repo.getCursor()).toBe('new');
   });
+  it('terminalizes a permanent rejection and its dependency chain without retrying', async () => {
+    const { repo } = await fixture();
+    const plan: EvidenceRecord = {
+      id: 'plan',
+      kind: 'plan',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:00.000Z',
+      session_id: 's1'
+    };
+    const observation: EvidenceRecord = {
+      id: 'observation',
+      kind: 'observation',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:01.000Z',
+      session_id: 's1',
+      presentation_id: 'p1'
+    };
+    const terminal: EvidenceRecord = {
+      id: 'terminal',
+      kind: 'terminal',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:02.000Z',
+      session_id: 's1',
+      observation_ids: ['observation']
+    };
+    await repo.append([plan, observation, terminal]);
+    let batches = 0;
+    await synchronizeLearningEvidence({
+      repository: repo,
+      isCurrent: () => true,
+      request: async (path) => {
+        if (path.endsWith('/batch')) {
+          batches++;
+          return Response.json({
+            acknowledged_ids: [],
+            rejected_records: [
+              {
+                id: 'plan',
+                error_code: 'ID_CONFLICT',
+                message: 'conflict',
+                retryable: false
+              },
+              {
+                id: 'observation',
+                error_code: 'MISSING_EVIDENCE_DEPENDENCY',
+                message: 'missing',
+                retryable: true
+              },
+              {
+                id: 'terminal',
+                error_code: 'MISSING_EVIDENCE_DEPENDENCY',
+                message: 'missing',
+                retryable: true
+              }
+            ]
+          });
+        }
+        return Response.json({ changes: [], next_cursor: 'c1', has_more: false });
+      }
+    });
+    expect(batches).toBe(1);
+    expect(await repo.pending()).toEqual([]);
+    expect(await repo.getSyncStatus()).toEqual({
+      pending: 0,
+      rejected: 1,
+      blocked: 2,
+      error: null
+    });
+    expect((await repo.all()).map((record) => record.id)).toEqual([
+      'plan',
+      'observation',
+      'terminal'
+    ]);
+    // A late retryable response cannot revive terminal work.
+    await repo.reject('observation', 'MISSING_EVIDENCE_DEPENDENCY', false);
+    expect(await repo.getSyncStatus()).toMatchObject({ pending: 0, blocked: 2 });
+    expect(await repo.rejectedIds()).toEqual(['plan', 'observation', 'terminal']);
+  });
+
+  it('terminalizes session-scoped exposure guards and closures when their plan is rejected', async () => {
+    const { db, repo } = await fixture();
+    const plan: EvidenceRecord = {
+      id: 'plan',
+      kind: 'plan',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:00.000Z',
+      session_id: 's1',
+      purpose: 'screening'
+    };
+    const records: EvidenceRecord[] = [plan];
+    for (let index = 0; index < 8; index++) {
+      const open = `open-${index}`;
+      records.push({
+        id: open,
+        kind: 'exposure-open',
+        policy_version: 'learning-policy-1.0',
+        recorded_at: `2026-10-27T00:00:0${index + 1}.000Z`,
+        session_id: 's1',
+        presentation_id: `tone-${index}`,
+        characters: ['K'],
+        source: 'screening',
+        started_at: null
+      });
+      records.push({
+        id: `close-${index}`,
+        kind: 'exposure-close',
+        policy_version: 'learning-policy-1.0',
+        recorded_at: `2026-10-27T00:00:1${index}.000Z`,
+        open_id: open,
+        end_reason: 'completed',
+        last_exposure: { K: null }
+      });
+    }
+    await repo.append(records);
+    let batches = 0;
+    await synchronizeLearningEvidence({
+      repository: repo,
+      isCurrent: () => true,
+      request: async (path) => {
+        if (path.endsWith('/batch')) {
+          batches++;
+          return Response.json({
+            acknowledged_ids: [],
+            rejected_records: [
+              {
+                id: 'plan',
+                error_code: 'INVALID_RECORD',
+                message: 'invalid plan',
+                retryable: false
+              },
+              ...records.slice(1).map((record) => ({
+                id: record.id,
+                error_code: 'MISSING_EVIDENCE_DEPENDENCY',
+                message: 'missing plan',
+                retryable: true
+              }))
+            ]
+          });
+        }
+        return Response.json({ changes: [], next_cursor: 'c1', has_more: false });
+      }
+    });
+    expect(batches).toBe(1);
+    expect(await repo.pending()).toEqual([]);
+    expect(await repo.getSyncStatus()).toEqual({
+      pending: 0,
+      rejected: 1,
+      blocked: 16,
+      error: null
+    });
+    // Reloading the same ledger cannot revive the terminal dependency chain.
+    const reloaded = createLearningEvidenceRepository(db, 'account:a');
+    expect(await reloaded.pending()).toEqual([]);
+    expect(await reloaded.getSyncStatus()).toMatchObject({
+      pending: 0,
+      rejected: 1,
+      blocked: 16
+    });
+    const independent: EvidenceRecord = { ...record, id: 'independent-after-rejection' };
+    await reloaded.append([independent]);
+    await synchronizeLearningEvidence({
+      repository: reloaded,
+      isCurrent: () => true,
+      request: async (path) =>
+        path.endsWith('/batch')
+          ? Response.json({
+              acknowledged_ids: ['independent-after-rejection'],
+              rejected_records: []
+            })
+          : Response.json({ changes: [], next_cursor: 'c2', has_more: false })
+    });
+    expect(await reloaded.pending()).toEqual([]);
+    expect(await reloaded.getSyncStatus()).toEqual({
+      pending: 0,
+      rejected: 1,
+      blocked: 16,
+      error: null
+    });
+  });
+
+  it('keeps independent valid evidence synchronizing after a permanent rejection', async () => {
+    const { repo } = await fixture();
+    const plan: EvidenceRecord = {
+      id: 'plan',
+      kind: 'plan',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:00.000Z',
+      session_id: 's1'
+    };
+    const independent: EvidenceRecord = {
+      ...record,
+      id: 'independent'
+    };
+    await repo.append([plan, independent]);
+    await synchronizeLearningEvidence({
+      repository: repo,
+      isCurrent: () => true,
+      request: async (path) =>
+        path.endsWith('/batch')
+          ? Response.json({
+              acknowledged_ids: ['independent'],
+              rejected_records: [
+                { id: 'plan', error_code: 'INVALID_RECORD', message: 'bad', retryable: false }
+              ]
+            })
+          : Response.json({ changes: [], next_cursor: 'c2', has_more: false })
+    });
+    expect(await repo.pending()).toEqual([]);
+    expect(await repo.getSyncStatus()).toEqual({
+      pending: 0,
+      rejected: 1,
+      blocked: 0,
+      error: null
+    });
+    expect((await repo.all()).map((record) => record.id)).toEqual(['plan', 'independent']);
+  });
+
+  it('retains a genuinely retryable failure instead of suppressing it', async () => {
+    const { repo } = await fixture();
+    await repo.append([record]);
+    await expect(
+      synchronizeLearningEvidence({
+        repository: repo,
+        isCurrent: () => true,
+        request: async (path) =>
+          path.endsWith('/batch')
+            ? Response.json({
+                acknowledged_ids: [],
+                rejected_records: [
+                  {
+                    id: 'open',
+                    error_code: 'MISSING_EVIDENCE_DEPENDENCY',
+                    message: 'retry',
+                    retryable: true
+                  }
+                ]
+              })
+            : Response.json({ changes: [], next_cursor: 'c3', has_more: false })
+      })
+    ).rejects.toMatchObject({ code: 'MISSING_EVIDENCE_DEPENDENCY' });
+    expect(await repo.pending()).toHaveLength(1);
+    expect(await repo.getSyncStatus()).toEqual({
+      pending: 1,
+      rejected: 0,
+      blocked: 0,
+      error: 'MISSING_EVIDENCE_DEPENDENCY'
+    });
+  });
+
+  it('blocks dependents appended after the dependency was rejected', async () => {
+    const { repo } = await fixture();
+    await repo.append([record]);
+    await repo.reject('open', 'INVALID_RECORD', true);
+    const close: EvidenceRecord = {
+      id: 'close',
+      kind: 'exposure-close',
+      policy_version: 'learning-policy-1.0',
+      recorded_at: '2026-10-27T00:00:03.000Z',
+      open_id: 'open',
+      end_reason: 'completed',
+      last_exposure: {}
+    };
+    await repo.append([close]);
+    expect(await repo.pending()).toEqual([]);
+    expect(await repo.getSyncStatus()).toEqual({
+      pending: 0,
+      rejected: 1,
+      blocked: 1,
+      error: null
+    });
+  });
+
   it('rejects a non-advancing continuation', async () => {
     const { repo } = await fixture();
     await expect(

@@ -8,6 +8,10 @@ import { EvidenceSyncError, synchronizeLearningEvidence } from './learning-evide
 export interface LearningSyncSnapshot {
   owner: string;
   pending: number;
+  /** Permanently rejected records retained locally for diagnosis. */
+  rejected: number;
+  /** Pending records whose permanently rejected dependency makes upload impossible. */
+  blocked: number;
   syncing: boolean;
   synced: boolean;
   unavailable: boolean;
@@ -17,6 +21,8 @@ export interface LearningSyncSnapshot {
 class State implements LearningSyncSnapshot {
   owner = $state('unclaimed');
   pending = $state(0);
+  rejected = $state(0);
+  blocked = $state(0);
   syncing = $state(false);
   synced = $state(false);
   unavailable = $state(false);
@@ -28,6 +34,8 @@ const listeners = new SvelteSet<(state: LearningSyncSnapshot) => void>();
 const snapshot = (): LearningSyncSnapshot => ({
   owner: learningSyncState.owner,
   pending: learningSyncState.pending,
+  rejected: learningSyncState.rejected,
+  blocked: learningSyncState.blocked,
   syncing: learningSyncState.syncing,
   synced: learningSyncState.synced,
   unavailable: learningSyncState.unavailable,
@@ -172,6 +180,8 @@ export function initializeLearningSync(): () => void {
     publish({
       owner: expected,
       pending: 0,
+      rejected: 0,
+      blocked: 0,
       syncing: false,
       synced: false,
       error: null,

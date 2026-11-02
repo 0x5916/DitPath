@@ -482,6 +482,8 @@
   "history_synced": "端末間で同期済み",
   "history_sync_pending": "この端末に保存済み。{count} 件の変更が同期待ちです。",
   "history_sync_error": "この端末に保存済み。一部の履歴を同期できませんでしたが、保存した記録は保持されています。",
+  "history_sync_rejected": "一部の履歴を同期できませんでした。恒久的に拒否された記録：{count} 件。",
+  "history_sync_blocked": "拒否された証拠によってブロックされた記録：{count} 件。",
   "history_syncing": "履歴を同期中…",
   "history_sync_now": "今すぐ同期",
   "history_import": "この端末の履歴を取り込む",

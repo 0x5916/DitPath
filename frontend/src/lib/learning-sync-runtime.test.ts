@@ -72,6 +72,56 @@ describe('learning evidence sync lifecycle', () => {
     expect(runtime.learningSyncState.synced).toBe(false);
     expect(auth.request).toHaveBeenCalledOnce();
   });
+  it('treats permanent evidence rejection as terminal and keeps coverage usable', async () => {
+    const { openLearningEvidenceDb, createLearningEvidenceRepository } =
+      await import('./data/learning-evidence');
+    const db = await openLearningEvidenceDb(window.indexedDB);
+    const repository = createLearningEvidenceRepository(db, 'account:a');
+    const recorded_at = '2026-10-27T00:00:00.000Z';
+    await repository.append([
+      {
+        id: 'plan',
+        kind: 'plan',
+        policy_version: 'learning-policy-1.0',
+        recorded_at,
+        session_id: 's1'
+      },
+      {
+        id: 'observation',
+        kind: 'observation',
+        policy_version: 'learning-policy-1.0',
+        recorded_at,
+        session_id: 's1'
+      }
+    ]);
+    db.close();
+    auth.request.mockImplementation(async (path: string) =>
+      path.endsWith('/batch')
+        ? Response.json({
+            acknowledged_ids: [],
+            rejected_records: [
+              { id: 'plan', error_code: 'ID_CONFLICT', message: 'bad', retryable: false },
+              {
+                id: 'observation',
+                error_code: 'MISSING_EVIDENCE_DEPENDENCY',
+                message: 'missing',
+                retryable: true
+              }
+            ]
+          })
+        : Response.json({ changes: [], next_cursor: 'cp', has_more: false })
+    );
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(runtime.learningSyncState.rejected).toBe(1));
+    expect(runtime.learningSyncState).toMatchObject({
+      rejected: 1,
+      blocked: 1,
+      error: null,
+      synced: true
+    });
+    expect(runtime.learningEvidenceCoverage('account:a')).toBe('complete');
+  });
+
   it('clears old-owner state and fences a late response', async () => {
     let release!: (r: Response) => void;
     auth.request.mockImplementationOnce(() => new Promise<Response>((r) => (release = r)));

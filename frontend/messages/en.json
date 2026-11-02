@@ -482,6 +482,8 @@
   "history_synced": "Synced across your devices",
   "history_sync_pending": "Saved on this device. {count} changes are waiting to sync.",
   "history_sync_error": "Saved on this device. Some history could not sync; your saved records are retained.",
+  "history_sync_rejected": "Some history could not sync. Permanently rejected records: {count}.",
+  "history_sync_blocked": "Records blocked by rejected evidence: {count}.",
   "history_syncing": "Synchronizing history…",
   "history_sync_now": "Sync now",
   "history_import": "Import history from this device",
