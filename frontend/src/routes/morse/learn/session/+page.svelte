@@ -765,6 +765,7 @@
       <h1>{m.review_history_heading()}</h1>
       <p>{m.review_unavailable()}</p>
       <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
+      <a class="btn-ghost" href={localizedHref('/morse')}>{m.review_unavailable_familiarize()}</a>
     </div>
   </main>
 {:else if initializationError}
@@ -826,9 +827,9 @@
           expanded={!mixedPlan || ['paused', 'complete'].includes(controller.phase)}
           owner={learningSyncState.owner}
           pending={learningSyncState.pending}
-          error={learningSyncState.error}
           rejected={learningSyncState.rejected}
           blocked={learningSyncState.blocked}
+          error={learningSyncState.error}
           syncing={learningSyncState.syncing}
           synced={learningSyncState.synced}
         />{:else}<TrainingSyncStatus

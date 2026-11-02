@@ -755,7 +755,12 @@
 
   .player-volume-slider {
     width: 100%;
+    /* Native range tracks are short; the 44px box keeps the whole row a
+       comfortable pointer and touch target without enlarging the thumb. */
+    min-height: var(--answer-target-min);
+    margin: 0;
     accent-color: var(--accent);
+    cursor: pointer;
   }
 
   .player-volume-value {
@@ -812,6 +817,11 @@
     margin: var(--space-2) 0 0;
     color: var(--text-secondary);
     line-height: 1.6;
+  }
+  /* While the controls are open they show every value themselves; the compact
+     summary underneath would only repeat them. */
+  .practice-layout .player-settings-menu[open] + .audio-summary {
+    display: none;
   }
   .practice-layout .player-settings-menu {
     display: contents;

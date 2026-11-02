@@ -506,7 +506,7 @@ body {
 .btn-primary,
 .btn-ghost {
   gap: 0.4rem;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   padding: 0 var(--space-4);
   font-size: var(--text-sm);
 }
@@ -531,7 +531,7 @@ body {
 /* Compact variant used by the settings save/verification buttons (auto width
    on desktop, full width on phones). */
 .settings-btn-compact {
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding: 0 0.9rem;
   font-size: var(--text-sm);
   width: auto;

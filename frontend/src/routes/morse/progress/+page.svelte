@@ -176,7 +176,7 @@
       {/each}
     </nav>
 
-    {#if learning.snapshot && (learning.snapshot.knownCharacters.length >= 2 || view === 'characters')}<LearningOverview
+    {#if learning.snapshot && (view === 'characters' || (view === 'overview' && learning.snapshot.knownCharacters.length >= 2) || (view === 'history' && learning.snapshot.coverage === 'partial'))}<LearningOverview
         snapshot={learning.snapshot}
         details
         progressView={view}
@@ -206,7 +206,7 @@
         >
       </div>
     {:else if summary}
-      {#if !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0 && !learning.snapshot?.history.length}
+      {#if view !== 'characters' && !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0 && !learning.snapshot?.history.length}
         <section class="progress-section progress-empty" aria-labelledby="empty-heading">
           <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
           <p class="progress-subtitle">{m.progress_empty_description()}</p>
@@ -260,21 +260,18 @@
             {/each}
           </section>
         {/if}
-        {#if view === 'history'}<details class="progress-section ui-disclosure">
-            <summary>{m.progress_mastery_heading()}</summary>
-            <p>{m.learning_legacy_hint()}</p>
-            <CharacterMasteryGrid masteryMap={summary.masteryMap} />
-          </details>
-
-          {#if history.length > 0}
-            <details class="progress-section ui-disclosure">
-              <summary>{m.progress_history_heading()}</summary>
-              <div class="history-heading">
-                <InfoTip
-                  label={m.common_tip_label({ topic: m.progress_history_heading() })}
-                  text={m.history_unknown_hint()}
-                />
-              </div>
+        {#if view === 'history'}
+          <section class="progress-section" aria-labelledby="recent-sessions-heading">
+            <div class="section-heading">
+              <h2 id="recent-sessions-heading" class="section-title">
+                {m.progress_history_heading()}
+              </h2>
+              <InfoTip
+                label={m.common_tip_label({ topic: m.progress_history_heading() })}
+                text={m.history_unknown_hint()}
+              />
+            </div>
+            {#if history.length > 0}
               <ol class="history-list" role="list">
                 {#each showHistory ? history : history.slice(0, 5) as session (session.id)}
                   {@const introduced = LESSONS[session.step - 1]?.split('').join(', ')}
@@ -345,8 +342,16 @@
                   >{showHistory ? m.common_show_less() : m.progress_show_history()}</button
                 >
               {/if}
-            </details>
-          {/if}
+            {:else}
+              <p class="progress-subtitle">{m.progress_empty_description()}</p>
+            {/if}
+          </section>
+
+          <details class="progress-section ui-disclosure">
+            <summary>{m.progress_mastery_heading()}</summary>
+            <p>{m.learning_legacy_hint()}</p>
+            <CharacterMasteryGrid masteryMap={summary.masteryMap} />
+          </details>
         {/if}
       {/if}
     {/if}
@@ -611,10 +616,10 @@
     display: block;
   }
 
-  .history-heading {
+  .section-heading {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: var(--space-2);
   }
 
   .loading-card {

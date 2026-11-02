@@ -97,7 +97,9 @@
     {unclaimedCount}
     {importing}
   />
-  <p class="field-hint">{m.review_local_only()}</p>
+  <p class="field-hint">
+    {owner === 'unclaimed' ? m.review_local_only() : m.review_local_legacy()}
+  </p>
   <details class="cache-options">
     <summary>{m.settings_data_title()}</summary>
     <p class="field-hint">{m.settings_data_description()}</p>
