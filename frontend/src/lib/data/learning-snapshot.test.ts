@@ -302,6 +302,53 @@ describe('unified learning projection', () => {
     });
   });
 
+  it.each([
+    ['open', (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-open')!.id],
+    ['close', (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-close')!.id]
+  ])(
+    'keeps History and the authoritative check agreed on rejected exposure %s',
+    (_name, rejectedId) => {
+      const records = check('one', base);
+      const snapshot = projectLearningSnapshot(records, {
+        ownerKey,
+        profile,
+        nowIso: iso(base + 60000),
+        knownCharacters: ['K', 'M'],
+        excludedRecordIds: [rejectedId(records)]
+      });
+      expect(snapshot.checks[0]).toMatchObject({ complete: false });
+      expect(snapshot.history[0]).toMatchObject({
+        status: 'incomplete',
+        recordedStatus: 'completed',
+        evidenceStatus: 'rejected'
+      });
+    }
+  );
+
+  it('does not let a rejected exposure in one session invalidate another session', () => {
+    const first = check('one', base),
+      second = check('two', base + day),
+      rejectedClose = second.find((entry) => entry.kind === 'exposure-close')!,
+      snapshot = projectLearningSnapshot([...first, ...second], {
+        ownerKey,
+        profile,
+        nowIso: iso(base + day + 60000),
+        knownCharacters: ['K', 'M'],
+        excludedRecordIds: [rejectedClose.id]
+      });
+    expect(snapshot.checks.find((entry) => entry.id === 'one')).toMatchObject({ complete: true });
+    expect(snapshot.checks.find((entry) => entry.id === 'two')).toMatchObject({ complete: false });
+    expect(snapshot.history.find((entry) => entry.id === 'one')).toMatchObject({
+      status: 'completed',
+      evidenceStatus: 'complete'
+    });
+    expect(snapshot.history.find((entry) => entry.id === 'two')).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected'
+    });
+  });
+
   it('uses the same manifest rule as History when a terminal manifest is malformed', () => {
     const records = check('dup', base),
       terminal = records.find((entry) => entry.id === 'end_dup')!,

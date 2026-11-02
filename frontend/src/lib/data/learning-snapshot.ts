@@ -514,10 +514,10 @@ export async function loadLearningSnapshot(
     const db = await openLearningEvidenceDb();
     try {
       const repository = createLearningEvidenceRepository(db, options.ownerKey);
-      [records, excludedRecordIds] = await Promise.all([
-        repository.all(),
-        repository.rejectedIds()
-      ]);
+      // Read rejections after records so a rejection committed during the read
+      // cannot be missed; the next snapshot catches any later rejection.
+      records = await repository.all();
+      excludedRecordIds = await repository.rejectedIds();
     } finally {
       db.close();
     }

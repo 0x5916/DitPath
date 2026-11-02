@@ -1,5 +1,5 @@
 import type { EvidenceRecord } from './learning-evidence';
-import { deliveryValidity } from '../learning-evidence/exposure';
+import { deliveryEvidence, deliveryValidity } from '../learning-evidence/exposure';
 import { canonical } from '../training/learning-policy/policy';
 
 export type HistoryStatus = 'in-progress' | 'completed' | 'incomplete' | 'abandoned';
@@ -74,14 +74,8 @@ function deliveryCompleteness(
   for (const prompt of prompts) {
     const observation = byPrompt.get(prompt.id);
     if (!observation) return 'missing';
-    const guard = records.find(
-      (record) =>
-        record.kind === 'exposure-open' && record.presentation_id === observation.presentation_id
-    );
+    const { guard, close } = deliveryEvidence(records, String(observation.presentation_id ?? ''));
     if (!guard) return 'unresolved';
-    const close = records.find(
-      (record) => record.kind === 'exposure-close' && record.open_id === guard.id
-    );
     if (close?.end_reason === 'stopped') return 'stopped';
     if (!close) return 'unresolved';
     if (close.end_reason !== 'completed') return 'unresolved';
@@ -101,21 +95,40 @@ function deliveryCompleteness(
   return status;
 }
 
+/**
+ * A rejected guard or closure invalidates only the observations that point at
+ * that delivery pair. Rejections elsewhere in the ledger must not condemn an
+ * otherwise independent session.
+ */
+function rejectedDeliveryEvidence(
+  records: readonly EvidenceRecord[],
+  observation: EvidenceRecord,
+  excluded: ReadonlySet<string>
+): boolean {
+  const { guard, close } = deliveryEvidence(records, String(observation.presentation_id ?? ''));
+  return Boolean((guard && excluded.has(guard.id)) || (close && excluded.has(close.id)));
+}
+
 /** Available raw history stays distinct from qualification and from legacy activity. */
 export function learningHistory(
   records: readonly EvidenceRecord[],
   options: LearningHistoryOptions = {}
 ): LearningHistoryEntry[] {
   const excluded = new Set(options.excludedRecordIds ?? []);
+  // Keep the full ledger for recorded status and diagnostics; only active
+  // records may prove delivery or contribute to the delivery-derived counts.
+  const activeRecords = excluded.size
+    ? records.filter((record) => !excluded.has(record.id))
+    : records;
   const observations = new Map<string, EvidenceRecord[]>(),
     terminals = new Map<string, EvidenceRecord>();
   const closed = new Set(
-    records
+    activeRecords
       .filter((r) => r.kind === 'exposure-close' && r.end_reason === 'completed')
       .map((r) => r.open_id)
   );
   const delivered = new Set(
-    records
+    activeRecords
       .filter((r) => r.kind === 'exposure-open' && closed.has(r.id))
       .map((r) => r.presentation_id)
   );
@@ -144,13 +157,17 @@ export function learningHistory(
       const answers = observations.get(id) ?? [];
       const recordedStatus = (terminal?.status ?? 'in-progress') as HistoryStatus;
       const rejected =
-        excluded.has(plan.id) ||
-        (terminal !== undefined && excluded.has(terminal.id)) ||
-        answers.some((answer) => excluded.has(answer.id));
+        excluded.size > 0 &&
+        (excluded.has(plan.id) ||
+          (terminal !== undefined && excluded.has(terminal.id)) ||
+          answers.some(
+            (answer) =>
+              excluded.has(answer.id) || rejectedDeliveryEvidence(records, answer, excluded)
+          ));
       const evidenceStatus: HistoryEvidenceStatus = rejected
         ? 'rejected'
         : terminal?.status === 'completed'
-          ? deliveryCompleteness(records, prompts, answers, terminal)
+          ? deliveryCompleteness(activeRecords, prompts, answers, terminal)
           : null;
       const status: HistoryStatus = rejected
         ? 'incomplete'

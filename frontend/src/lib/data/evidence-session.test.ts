@@ -176,7 +176,10 @@ describe('prospective session capture through controller ports', () => {
 const startedAt = '2026-10-20T00:00:00.000Z';
 const endedAt = '2026-10-20T00:10:00.000Z';
 const bounds = (time: string) => ({ earliest: time, latest: time, source: 'wall-clock-bounded' });
-async function finalizeFixture(breakEvidence: (records: EvidenceRecord[]) => void) {
+async function finalizeFixture(
+  breakEvidence: (records: EvidenceRecord[]) => void,
+  rejectBeforeFinalize?: (records: EvidenceRecord[]) => string | readonly string[]
+) {
   const db = await openLearningEvidenceDb(new IDBFactory());
   databases.push(db);
   const owner = 'account:a',
@@ -269,13 +272,18 @@ async function finalizeFixture(breakEvidence: (records: EvidenceRecord[]) => voi
   }
   breakEvidence(records);
   await repo.append(records);
+  if (rejectBeforeFinalize) {
+    const rejected = rejectBeforeFinalize(records);
+    for (const id of typeof rejected === 'string' ? [rejected] : rejected)
+      await repo.reject(id, 'INVALID_RECORD', true);
+  }
   await ports.sessionRepo.updateSessionProgress(
     'mixed',
     built.prompts.length,
     'completed',
     endedAt
   );
-  return { repo, records };
+  return { db, repo, records };
 }
 it.each([
   ['valid completion', () => {}, 'completed'],
@@ -343,6 +351,54 @@ it.each([
     ).toBe(status === 'completed');
   }
 );
+it.each([
+  [
+    'exposure-open',
+    (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-open')!.id
+  ],
+  [
+    'exposure-close',
+    (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-close')!.id
+  ],
+  ['observation', (records: EvidenceRecord[]) => records.find((r) => r.kind === 'observation')!.id]
+])('finalizes conservatively when a %s is permanently rejected', async (_name, rejectedId) => {
+  const f = await finalizeFixture(() => {}, rejectedId);
+  const records = await f.repo.all(),
+    excludedRecordIds = await f.repo.rejectedIds(),
+    observations = records.filter((r) => r.kind === 'observation');
+  expect(records.find((r) => r.kind === 'terminal')).toMatchObject({
+    status: 'incomplete',
+    observation_ids: observations.map((r) => r.id).sort()
+  });
+  const snapshot = projectLearningSnapshot(records, {
+    ownerKey: 'account:a',
+    profile: activeLearningProfile(20),
+    coverage: 'local-only',
+    nowIso: '2026-10-21T00:00:00Z',
+    excludedRecordIds
+  });
+  expect(snapshot.checks[0]).toMatchObject({ complete: false });
+  expect(snapshot.history[0]).toMatchObject({
+    status: 'incomplete',
+    recordedStatus: 'incomplete',
+    evidenceStatus: 'rejected'
+  });
+
+  const reloaded = createLearningEvidenceRepository(f.db, 'account:a');
+  const reloadedSnapshot = projectLearningSnapshot(await reloaded.all(), {
+    ownerKey: 'account:a',
+    profile: activeLearningProfile(20),
+    coverage: 'local-only',
+    nowIso: '2026-10-21T00:00:00Z',
+    excludedRecordIds: await reloaded.rejectedIds()
+  });
+  expect(reloadedSnapshot.checks[0]).toMatchObject({ complete: false });
+  expect(reloadedSnapshot.history[0]).toMatchObject({
+    status: 'incomplete',
+    recordedStatus: 'incomplete',
+    evidenceStatus: 'rejected'
+  });
+});
 it.each(['coaching', 'screening'] as const)(
   'captures %s plans with API-compatible purpose and prompt roles',
   async (purpose) => {

@@ -98,6 +98,67 @@ describe('learning history evaluates reconstructed delivery evidence', () => {
     });
   });
 
+  it.each([
+    ['open', 'open-a'],
+    ['close', 'close-a']
+  ])('does not treat a rejected exposure %s as delivery proof', (_name, rejectedId) => {
+    const first = observation('a', 'p1'),
+      second = observation('b', 'p2');
+    const [entry] = learningHistory(
+      [plan, ...guard('a', {}), ...guard('b', {}), first, second, completed(first, second)],
+      { excludedRecordIds: [rejectedId] }
+    );
+    expect(entry).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected',
+      answered: 2,
+      correct: 2
+    });
+    expect(entry.responses).toHaveLength(2);
+  });
+
+  it('ignores rejected exposure evidence that is not attached to an observation', () => {
+    const first = observation('a', 'p1'),
+      second = observation('b', 'p2'),
+      unrelatedOpen = {
+        ...envelope,
+        id: 'open-other',
+        kind: 'exposure-open' as const,
+        session_id: 'other',
+        presentation_id: 'tone-other',
+        characters: ['K'],
+        source: 'screening',
+        started_at: bounds(envelope.recorded_at)
+      },
+      unrelatedClose = {
+        ...envelope,
+        id: 'close-other',
+        kind: 'exposure-close' as const,
+        open_id: 'open-other',
+        end_reason: 'completed',
+        last_exposure: { K: bounds(envelope.recorded_at) }
+      };
+    const [entry] = learningHistory(
+      [
+        plan,
+        ...guard('a', {}),
+        ...guard('b', {}),
+        first,
+        second,
+        completed(first, second),
+        unrelatedOpen,
+        unrelatedClose
+      ],
+      { excludedRecordIds: [unrelatedOpen.id, unrelatedClose.id] }
+    );
+    expect(entry).toMatchObject({
+      status: 'completed',
+      recordedStatus: 'completed',
+      evidenceStatus: 'complete'
+    });
+  });
+
   it('marks a legacy completed terminal as incomplete when a planned answer is missing', () => {
     const first = observation('a', 'p1');
     const [entry] = learningHistory([plan, ...guard('a', {}), first, completed(first)]);
@@ -139,6 +200,22 @@ describe('learning history evaluates reconstructed delivery evidence', () => {
     expect(terminalManifestMatches(null, ['a'])).toBe(false);
     expect(terminalManifestMatches('a', ['a'])).toBe(false);
     expect(terminalManifestMatches([1], [])).toBe(true);
+  });
+
+  it('presents a permanently rejected observation as rejected evidence', () => {
+    const first = observation('a', 'p1'),
+      second = observation('b', 'p2'),
+      [entry] = learningHistory(
+        [plan, ...guard('a', {}), ...guard('b', {}), first, second, completed(first, second)],
+        { excludedRecordIds: [first.id] }
+      );
+    expect(entry).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected',
+      answered: 2,
+      correct: 2
+    });
   });
 
   it('presents a permanently rejected terminal as rejected evidence, not active work', () => {

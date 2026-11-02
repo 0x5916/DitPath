@@ -128,7 +128,13 @@ export function createEvidenceSessionRepositories(
     const key = `end_${session.id}`;
     let terminal = frozen.get(key);
     if (!terminal) {
+      // Read rejections after records so a rejection committed during the read
+      // cannot be missed. Later rejections are picked up by the next projection.
       const records = await repo.all(),
+        excluded = new Set(await repo.rejectedIds()),
+        activeRecords = excluded.size
+          ? records.filter((record) => !excluded.has(record.id))
+          : records,
         observations = records.filter(
           (r) => r.kind === 'observation' && r.session_id === session!.id
         );
@@ -139,9 +145,12 @@ export function createEvidenceSessionRepositories(
       const complete =
         metadata.purpose !== 'mixed-check'
           ? true
-          : check
-            ? evaluateCheck(check, observationsForCheck(records, check, ownerKey), endedAt ?? null)
-                .complete
+          : check && !excluded.has(plan.id)
+            ? evaluateCheck(
+                check,
+                observationsForCheck(activeRecords, check, ownerKey),
+                endedAt ?? null
+              ).complete
             : false;
       terminal = envelope(key, 'terminal', {
         session_id: session.id,
