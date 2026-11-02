@@ -49,7 +49,59 @@ const kinds: EvidenceKind[] = [
   'milestone-correction'
 ];
 let processId: string | null = null;
-export const captureProcessId = () => (processId ??= crypto.randomUUID());
+let previousProcessId: string | null | undefined;
+const PROCESS_KEY = 'opencw:learning-evidence-process';
+const SHUTDOWN_KEY = 'opencw:learning-evidence-shutdown';
+const sessionStorageSafe = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage ?? null;
+  } catch {
+    return null;
+  }
+};
+/**
+ * Session storage survives a reload in the same tab, but browsers also clone
+ * it when duplicating a tab or opening a window. The stored id is therefore an
+ * ownership hint, not proof that the previous document is dead. A clean
+ * non-BFCache unload writes a separate marker so a normal reload can be
+ * distinguished from a live cloned sibling.
+ */
+export const previousCaptureProcessId = () => {
+  if (previousProcessId === undefined)
+    previousProcessId = sessionStorageSafe()?.getItem(PROCESS_KEY) ?? null;
+  return previousProcessId;
+};
+/**
+ * Records that a document completed a normal unload. The marker is scoped to
+ * the process id so a later clone (which inherits stale session storage) can
+ * never mistake itself for the document that wrote it.
+ */
+export const markCaptureCleanShutdown = (process = captureProcessId()) => {
+  try {
+    sessionStorageSafe()?.setItem(SHUTDOWN_KEY, process);
+  } catch {
+    /* Private browsing or an unavailable session store. */
+  }
+};
+export const previousCaptureWasClean = (process: string) => {
+  try {
+    return sessionStorageSafe()?.getItem(SHUTDOWN_KEY) === process;
+  } catch {
+    return false;
+  }
+};
+export const captureProcessId = () => {
+  if (processId) return processId;
+  previousProcessId = sessionStorageSafe()?.getItem(PROCESS_KEY) ?? null;
+  processId = crypto.randomUUID();
+  try {
+    sessionStorageSafe()?.setItem(PROCESS_KEY, processId);
+  } catch {
+    /* Private browsing or an unavailable session store. */
+  }
+  return processId;
+};
 const serverOnly = (kind: EvidenceKind) => kind === 'milestone' || kind === 'milestone-correction';
 
 export function isEvidenceRecord(value: unknown): value is EvidenceRecord {
