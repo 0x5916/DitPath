@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceRecord } from './learning-evidence';
-import { projectLearningSnapshot, activeLearningProfile } from './learning-snapshot';
+import {
+  projectLearningSnapshot,
+  activeLearningProfile,
+  learningRecommendationHref,
+  returnScreeningTargets
+} from './learning-snapshot';
 import { buildMixedCheck } from '../training/learning-policy/mixed-plan';
 import { exposureBeforeProbe, wireBounds } from '../learning-evidence/exposure';
 const ownerKey = 'unclaimed',
@@ -210,6 +215,314 @@ describe('unified learning projection', () => {
         nowIso: iso(base + day)
       }).recommendation.primary.reason
     ).toBe('load-history');
+  });
+  it('preserves return-screening targets in the session link', () => {
+    const records = [...check('one', base), ...check('two', base + day)];
+    const snapshot = project(records, base + 30 * day);
+    expect(snapshot.recommendation.primary).toMatchObject({
+      reason: 'return-screening',
+      targets: ['K', 'M']
+    });
+    expect(learningRecommendationHref(snapshot.recommendation.primary)).toBe(
+      '/morse/learn/session?review=return&targets=KM'
+    );
+  });
+  it('validates screening targets against attainment and recorded characters', () => {
+    const records = [...check('one', base), ...check('two', base + day)];
+    records.push(
+      record('exposed-r', 'exposure-open', {
+        presentation_id: 'exposed-r',
+        characters: ['R'],
+        source: 'reference',
+        started_at: bounds(base)
+      })
+    );
+    const snapshot = project(records, base + 30 * day);
+    expect(snapshot.knownCharacters).toEqual(['K', 'M', 'R']);
+    expect(returnScreeningTargets(snapshot, null)).toEqual(['K', 'M']);
+    expect(returnScreeningTargets(snapshot, ['M', 'K'])).toEqual(['M', 'K']);
+    expect(returnScreeningTargets(snapshot, ['R'])).toBeNull();
+    expect(returnScreeningTargets(snapshot, ['K', 'Z'])).toBeNull();
+    expect(returnScreeningTargets(snapshot, ['K', 'K'])).toBeNull();
+    const unattained = projectLearningSnapshot([], {
+      ownerKey,
+      profile,
+      nowIso: iso(base + 30 * day),
+      knownCharacters: ['K', 'M']
+    });
+    // Recorded exposure without attainment is not a screening source.
+    expect(returnScreeningTargets(unattained, null)).toEqual([]);
+    expect(returnScreeningTargets(unattained, ['K'])).toBeNull();
+    const empty = projectLearningSnapshot([], {
+      ownerKey,
+      profile,
+      nowIso: iso(base + 30 * day),
+      knownCharacters: []
+    });
+    expect(returnScreeningTargets(empty, null)).toEqual([]);
+    expect(returnScreeningTargets(empty, ['K'])).toBeNull();
+  });
+  it('does not project permanently rejected records as learning evidence', () => {
+    const first = check('one', base),
+      second = check('two', base + day),
+      records = [...first, ...second];
+    expect(project(records, base + day + 60000).characters[0].proficiency).not.toBeNull();
+    const excluded = projectLearningSnapshot(records, {
+      ownerKey,
+      profile,
+      nowIso: iso(base + day + 60000),
+      knownCharacters: ['K', 'M'],
+      excludedRecordIds: second.map((entry) => entry.id)
+    });
+    expect(excluded.characters[0].proficiency).toBeNull();
+    expect(excluded.characters[0].current.criterion).toBe('met');
+  });
+
+  it('presents a rejected terminal as rejected evidence and leaves independent checks unaffected', () => {
+    const first = check('one', base),
+      second = check('two', base + day),
+      snapshot = projectLearningSnapshot([...first, ...second], {
+        ownerKey,
+        profile,
+        nowIso: iso(base + day + 60000),
+        knownCharacters: ['K', 'M'],
+        excludedRecordIds: ['end_two']
+      });
+    expect(snapshot.history.find((entry) => entry.id === 'two')).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected'
+    });
+    expect(snapshot.history.find((entry) => entry.id === 'one')).toMatchObject({
+      status: 'completed',
+      evidenceStatus: 'complete'
+    });
+    expect(snapshot.checks.find((entry) => entry.id === 'two')).toMatchObject({
+      complete: false
+    });
+  });
+
+  it.each([
+    ['open', (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-open')!.id],
+    ['close', (records: EvidenceRecord[]) => records.find((r) => r.kind === 'exposure-close')!.id]
+  ])(
+    'keeps History and the authoritative check agreed on rejected exposure %s',
+    (_name, rejectedId) => {
+      const records = check('one', base);
+      const snapshot = projectLearningSnapshot(records, {
+        ownerKey,
+        profile,
+        nowIso: iso(base + 60000),
+        knownCharacters: ['K', 'M'],
+        excludedRecordIds: [rejectedId(records)]
+      });
+      expect(snapshot.checks[0]).toMatchObject({ complete: false });
+      expect(snapshot.history[0]).toMatchObject({
+        status: 'incomplete',
+        recordedStatus: 'completed',
+        evidenceStatus: 'rejected'
+      });
+    }
+  );
+
+  it('does not let a rejected exposure in one session invalidate another session', () => {
+    const first = check('one', base),
+      second = check('two', base + day),
+      rejectedClose = second.find((entry) => entry.kind === 'exposure-close')!,
+      snapshot = projectLearningSnapshot([...first, ...second], {
+        ownerKey,
+        profile,
+        nowIso: iso(base + day + 60000),
+        knownCharacters: ['K', 'M'],
+        excludedRecordIds: [rejectedClose.id]
+      });
+    expect(snapshot.checks.find((entry) => entry.id === 'one')).toMatchObject({ complete: true });
+    expect(snapshot.checks.find((entry) => entry.id === 'two')).toMatchObject({ complete: false });
+    expect(snapshot.history.find((entry) => entry.id === 'one')).toMatchObject({
+      status: 'completed',
+      evidenceStatus: 'complete'
+    });
+    expect(snapshot.history.find((entry) => entry.id === 'two')).toMatchObject({
+      status: 'incomplete',
+      recordedStatus: 'completed',
+      evidenceStatus: 'rejected'
+    });
+  });
+
+  it('uses the same manifest rule as History when a terminal manifest is malformed', () => {
+    const records = check('dup', base),
+      terminal = records.find((entry) => entry.id === 'end_dup')!,
+      firstId = String((terminal.observation_ids as string[])[0]);
+    terminal.observation_ids = [firstId, firstId];
+    const snapshot = project(records);
+    expect(snapshot.checks[0]).toMatchObject({ complete: false });
+    expect(snapshot.checks[0].issues).toContain('terminal-manifest-mismatch');
+    expect(snapshot.history[0]).toMatchObject({
+      status: 'incomplete',
+      evidenceStatus: 'missing'
+    });
+  });
+
+  it.each([
+    [
+      'missing closure',
+      (records: EvidenceRecord[]) => {
+        records.splice(
+          records.findIndex((entry) => entry.kind === 'exposure-close'),
+          1
+        );
+      }
+    ],
+    [
+      'stopped closure',
+      (records: EvidenceRecord[]) => {
+        records.find((entry) => entry.kind === 'exposure-close')!.end_reason = 'stopped';
+      }
+    ],
+    [
+      'recovered closure',
+      (records: EvidenceRecord[]) => {
+        records.find((entry) => entry.kind === 'exposure-close')!.end_reason = 'recovery';
+      }
+    ]
+  ])('does not refresh screening freshness on %s', (_name, breakEvidence) => {
+    const plan = record('plan_screen', 'plan', {
+      session_id: 'screen',
+      purpose: 'screening',
+      profile: {
+        id: profile.id,
+        task: profile.task,
+        char_wpm: 20,
+        audio_condition: 'clean',
+        response_support: 'open'
+      },
+      started_at: iso(base),
+      targets: ['K'],
+      prompts: [{ id: 'sp', character: 'K' }],
+      fresh_order: true,
+      feedback: 'immediate',
+      char_wpm: 20,
+      eff_wpm: 12
+    });
+    const open = record('open_screen', 'exposure-open', {
+      session_id: 'screen',
+      presentation_id: 'tone',
+      characters: ['K'],
+      source: 'screening',
+      started_at: bounds(base)
+    });
+    const close = record('close_screen', 'exposure-close', {
+      open_id: 'open_screen',
+      end_reason: 'completed',
+      last_exposure: { K: bounds(base + 1000) }
+    });
+    const observation = record('answer_screen', 'observation', {
+      session_id: 'screen',
+      prompt_id: 'sp',
+      presentation_id: 'tone',
+      first_response: 'K',
+      final_response: 'K',
+      skipped: false,
+      replay_count_before_response: 0,
+      help_before_response: false,
+      audio_valid: true,
+      interruption_invalidated: false,
+      response_interface: 'keyboard',
+      first_presented_at: bounds(base + 500)
+    });
+    const terminal = record('end_screen', 'terminal', {
+      session_id: 'screen',
+      status: 'completed',
+      ended_at: iso(base + 60000),
+      observation_ids: [observation.id]
+    });
+    const records = [plan, open, close, observation, terminal];
+    breakEvidence(records);
+    const snapshot = project(records);
+    expect(snapshot.characters.find((entry) => entry.character === 'K')?.lastAssessedAt).toBeNull();
+  });
+
+  it('keeps a valid screening assessment fresh while granting no proficiency', () => {
+    const plan = record('plan_screen', 'plan', {
+      session_id: 'screen',
+      purpose: 'screening',
+      profile: {
+        id: profile.id,
+        task: profile.task,
+        char_wpm: 20,
+        audio_condition: 'clean',
+        response_support: 'open'
+      },
+      started_at: iso(base),
+      targets: ['K'],
+      prompts: [{ id: 'sp', character: 'K' }],
+      fresh_order: true,
+      feedback: 'immediate',
+      char_wpm: 20,
+      eff_wpm: 12
+    });
+    const open = record('open_screen', 'exposure-open', {
+      session_id: 'screen',
+      presentation_id: 'tone',
+      characters: ['K'],
+      source: 'screening',
+      started_at: bounds(base)
+    });
+    const close = record('close_screen', 'exposure-close', {
+      open_id: 'open_screen',
+      end_reason: 'completed',
+      last_exposure: { K: bounds(base + 1000) }
+    });
+    const observation = record('answer_screen', 'observation', {
+      session_id: 'screen',
+      prompt_id: 'sp',
+      presentation_id: 'tone',
+      first_response: 'K',
+      final_response: 'K',
+      skipped: false,
+      replay_count_before_response: 0,
+      help_before_response: false,
+      audio_valid: true,
+      interruption_invalidated: false,
+      response_interface: 'keyboard',
+      first_presented_at: bounds(base + 500)
+    });
+    const terminal = record('end_screen', 'terminal', {
+      session_id: 'screen',
+      status: 'completed',
+      ended_at: iso(base + 60000),
+      observation_ids: [observation.id]
+    });
+    const snapshot = project([plan, open, close, observation, terminal]);
+    const character = snapshot.characters.find((entry) => entry.character === 'K');
+    expect(character?.lastAssessedAt).toBe(iso(base + 60000));
+    expect(character?.proficiency).toBeNull();
+    expect(character?.reviewState).toBeNull();
+  });
+
+  it('uses a recovered closure as a conservative exposure bound for later gaps', () => {
+    const earlier = base,
+      recoveredAt = base + 3_600_000;
+    const records = [
+      record('recovered', 'exposure-open', {
+        presentation_id: 'recovered',
+        characters: ['K'],
+        source: 'reference',
+        started_at: bounds(earlier)
+      }),
+      record('recovered-close', 'exposure-close', {
+        open_id: 'recovered',
+        end_reason: 'recovery',
+        last_exposure: { K: bounds(recoveredAt) }
+      })
+    ];
+    const cold = recoveredAt + 20 * 3_600_000 + 1,
+      warm = recoveredAt + 19 * 3_600_000;
+    const coldPrior = exposureBeforeProbe(records, 'K', 'cold', bounds(cold)),
+      warmPrior = exposureBeforeProbe(records, 'K', 'warm', bounds(warm));
+    expect(Date.parse(coldPrior!.latest)).toBe(recoveredAt);
+    expect(cold - Date.parse(coldPrior!.latest)).toBeGreaterThanOrEqual(20 * 3_600_000);
+    expect(warm - Date.parse(warmPrior!.latest)).toBeLessThan(20 * 3_600_000);
   });
   it('rounds sub-millisecond upper bounds outwards and excludes only the probe itself', () => {
     expect(

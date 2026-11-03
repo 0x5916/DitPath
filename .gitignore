@@ -14,3 +14,7 @@ backups/
 
 # Live PostgreSQL data directory (bind mount target when POSTGRES_DATA_PATH is unset)
 /data/postgres/
+
+# Local MCP install
+.penpot-mcp/
+.playwright-mcp/

@@ -427,6 +427,7 @@
     position: relative;
     display: inline-flex;
     align-items: center;
+    min-height: 2.75rem;
     padding: 0.15rem 0 0.45rem;
     color: var(--text-secondary);
     font-size: var(--text-sm);
@@ -435,12 +436,13 @@
     text-decoration: none;
   }
 
-  /* A short label like "All" is only as wide as its text. This overlay grows
-     the pointer target without moving the chip or stretching the active rule. */
+  /* A short label like "All" is only as wide as its text. The link is already
+     44px tall; this overlay grows only the horizontal pointer target without
+     moving the chip or stretching the active rule. */
   .filter-link::after {
     content: '';
     position: absolute;
-    inset: -0.3rem -0.45rem;
+    inset: 0 -0.45rem;
   }
 
   .filter-link:hover {
@@ -564,7 +566,6 @@
     }
 
     .filter-link {
-      min-height: 2.75rem;
       padding: 0.25rem 0.3rem;
     }
 

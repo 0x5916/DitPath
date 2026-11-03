@@ -1,8 +1,28 @@
 import type { EvidenceRecord } from './learning-evidence';
+import { deliveryEvidence, deliveryValidity } from '../learning-evidence/exposure';
+import { canonical } from '../training/learning-policy/policy';
+
+export type HistoryStatus = 'in-progress' | 'completed' | 'incomplete' | 'abandoned';
+/**
+ * The terminal manifest is an immutable historical record. Delivery
+ * completeness is reconstructed separately so an old `completed` label cannot
+ * hide missing, stopped, invalid or unresolved exposure evidence.
+ */
+export type HistoryEvidenceStatus =
+  'complete' | 'missing' | 'stopped' | 'invalid' | 'unresolved' | 'rejected' | null;
+export interface LearningHistoryOptions {
+  /** Permanently rejected evidence stays visible for diagnosis, never as active work. */
+  excludedRecordIds?: readonly string[];
+}
+
 export interface LearningHistoryEntry {
   id: string;
   purpose: 'coaching' | 'screening' | 'mixed-check';
-  status: 'in-progress' | 'completed' | 'incomplete' | 'abandoned';
+  /** Evaluated presentation status; use this for learner-facing labels. */
+  status: HistoryStatus;
+  /** The terminal status exactly as stored, retained for diagnosis. */
+  recordedStatus: HistoryStatus;
+  evidenceStatus: HistoryEvidenceStatus;
   at: string;
   targets: string[];
   charWpm: number;
@@ -16,17 +36,99 @@ export interface LearningHistoryEntry {
   responses: { id: string; expected: string; answer: string | null }[];
   milestones: { id: string; character: string; kind: string; corrected: boolean }[];
 }
+
+/**
+ * Canonical terminal manifest rule shared by History and the authoritative
+ * projection. Missing/non-array manifests are empty; duplicate, extra, or
+ * missing ids never match, while reordered complete ids do.
+ */
+export function terminalManifestMatches(
+  manifest: unknown,
+  observationIds: readonly string[]
+): boolean {
+  const ids = Array.isArray(manifest)
+    ? manifest.filter((id): id is string => typeof id === 'string')
+    : [];
+  return canonical([...ids].sort()) === canonical([...observationIds].sort());
+}
+function deliveryCompleteness(
+  records: readonly EvidenceRecord[],
+  prompts: readonly { id: string; character: string }[],
+  observations: readonly EvidenceRecord[],
+  terminal: EvidenceRecord
+): HistoryEvidenceStatus {
+  const byPrompt = new Map<string, EvidenceRecord>();
+  for (const observation of observations) {
+    const promptId = typeof observation.prompt_id === 'string' ? observation.prompt_id : '';
+    if (!promptId || byPrompt.has(promptId)) return 'invalid';
+    byPrompt.set(promptId, observation);
+  }
+  if (
+    !terminalManifestMatches(
+      terminal.observation_ids,
+      observations.map((item) => item.id)
+    )
+  )
+    return 'missing';
+  let status: HistoryEvidenceStatus = 'complete';
+  for (const prompt of prompts) {
+    const observation = byPrompt.get(prompt.id);
+    if (!observation) return 'missing';
+    const { guard, close } = deliveryEvidence(records, String(observation.presentation_id ?? ''));
+    if (!guard) return 'unresolved';
+    if (close?.end_reason === 'stopped') return 'stopped';
+    if (!close) return 'unresolved';
+    if (close.end_reason !== 'completed') return 'unresolved';
+    if (observation.interruption_invalidated === true) return 'invalid';
+    if (observation.audio_valid === false) return 'invalid';
+    const delivery = deliveryValidity(
+      records,
+      {
+        presentationId: String(observation.presentation_id ?? ''),
+        audioValid: typeof observation.audio_valid === 'boolean' ? observation.audio_valid : null
+      },
+      prompt.character
+    );
+    if (delivery === false) return 'invalid';
+    if (delivery !== true && status === 'complete') status = 'unresolved';
+  }
+  return status;
+}
+
+/**
+ * A rejected guard or closure invalidates only the observations that point at
+ * that delivery pair. Rejections elsewhere in the ledger must not condemn an
+ * otherwise independent session.
+ */
+function rejectedDeliveryEvidence(
+  records: readonly EvidenceRecord[],
+  observation: EvidenceRecord,
+  excluded: ReadonlySet<string>
+): boolean {
+  const { guard, close } = deliveryEvidence(records, String(observation.presentation_id ?? ''));
+  return Boolean((guard && excluded.has(guard.id)) || (close && excluded.has(close.id)));
+}
+
 /** Available raw history stays distinct from qualification and from legacy activity. */
-export function learningHistory(records: readonly EvidenceRecord[]): LearningHistoryEntry[] {
+export function learningHistory(
+  records: readonly EvidenceRecord[],
+  options: LearningHistoryOptions = {}
+): LearningHistoryEntry[] {
+  const excluded = new Set(options.excludedRecordIds ?? []);
+  // Keep the full ledger for recorded status and diagnostics; only active
+  // records may prove delivery or contribute to the delivery-derived counts.
+  const activeRecords = excluded.size
+    ? records.filter((record) => !excluded.has(record.id))
+    : records;
   const observations = new Map<string, EvidenceRecord[]>(),
     terminals = new Map<string, EvidenceRecord>();
   const closed = new Set(
-    records
+    activeRecords
       .filter((r) => r.kind === 'exposure-close' && r.end_reason === 'completed')
       .map((r) => r.open_id)
   );
   const delivered = new Set(
-    records
+    activeRecords
       .filter((r) => r.kind === 'exposure-open' && closed.has(r.id))
       .map((r) => r.presentation_id)
   );
@@ -53,6 +155,25 @@ export function learningHistory(records: readonly EvidenceRecord[]): LearningHis
         terminal = terminals.get(id);
       const prompts = plan.prompts as { id: string; character: string }[];
       const answers = observations.get(id) ?? [];
+      const recordedStatus = (terminal?.status ?? 'in-progress') as HistoryStatus;
+      const rejected =
+        excluded.size > 0 &&
+        (excluded.has(plan.id) ||
+          (terminal !== undefined && excluded.has(terminal.id)) ||
+          answers.some(
+            (answer) =>
+              excluded.has(answer.id) || rejectedDeliveryEvidence(records, answer, excluded)
+          ));
+      const evidenceStatus: HistoryEvidenceStatus = rejected
+        ? 'rejected'
+        : terminal?.status === 'completed'
+          ? deliveryCompleteness(activeRecords, prompts, answers, terminal)
+          : null;
+      const status: HistoryStatus = rejected
+        ? 'incomplete'
+        : recordedStatus === 'completed' && evidenceStatus !== 'complete'
+          ? 'incomplete'
+          : recordedStatus;
       const responses = terminal
         ? answers.map((o) => ({
             id: o.id,
@@ -63,7 +184,9 @@ export function learningHistory(records: readonly EvidenceRecord[]): LearningHis
       return {
         id,
         purpose: plan.purpose as LearningHistoryEntry['purpose'],
-        status: (terminal?.status ?? 'in-progress') as LearningHistoryEntry['status'],
+        status,
+        recordedStatus,
+        evidenceStatus,
         at: String(terminal?.ended_at ?? plan.started_at),
         targets: plan.targets as string[],
         charWpm: Number(plan.char_wpm),

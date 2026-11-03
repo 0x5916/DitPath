@@ -353,16 +353,27 @@ describe('review timing and recommendation', () => {
     expect(result.rung).toBe(0);
     expect(result.dueAt).toBe(add(now, day));
   });
-  it('does not postpone the due time on early success or early failure', () => {
+  it('shortens an early failure due time without resetting the rung', () => {
     const future = { ...origin, rung: 2, dueAt: add(now, 3 * day) };
-    expect(reconcileReview(future, [fixture('pass').check], now).state.dueAt).toBe(future.dueAt);
-    expect(reconcileReview(future, [fixture('fail', now, { k: 8 }).check], now).state.dueAt).toBe(
-      add(now, day)
-    );
+    const success = reconcileReview(future, [fixture('pass').check], now).state;
+    expect(success).toMatchObject({ dueAt: future.dueAt, rung: 2, cycleId: future.cycleId });
+    const failure = reconcileReview(future, [fixture('fail', now, { k: 8 }).check], now).state;
+    expect(failure).toMatchObject({ dueAt: add(now, day), rung: 2, cycleId: future.cycleId });
     const nearer = { ...future, dueAt: add(now, 3_600_000) };
-    expect(reconcileReview(nearer, [fixture('fail', now, { k: 8 }).check], now).state.dueAt).toBe(
-      nearer.dueAt
-    );
+    expect(
+      reconcileReview(nearer, [fixture('fail', now, { k: 8 }).check], now).state
+    ).toMatchObject({ dueAt: nearer.dueAt, rung: 2 });
+  });
+
+  it('preserves a higher rung on early failure and still resets on a due failure', () => {
+    const future = { ...origin, rung: 3, dueAt: add(now, 3 * day) };
+    const early = reconcileReview(future, [fixture('early', now, { k: 8 }).check], now).state;
+    expect(early.rung).toBe(3);
+    expect(early.dueAt).toBe(add(now, day));
+    const due = { ...future, dueAt: add(now, -2 * day) };
+    const failure = reconcileReview(due, [fixture('due', now, { k: 8 }).check], now).state;
+    expect(failure.rung).toBe(0);
+    expect(failure.dueAt).toBe(add(now, day));
   });
   it('withholds credit for overlapping checks or unknown clock bounds', () => {
     const a = fixture('a', now, { cycle: origin.cycleId }).check;
@@ -467,6 +478,100 @@ describe('review timing and recommendation', () => {
         }))
       }).primary
     ).toMatchObject({ reason: 'return-screening', targets: ['K', 'M'] });
+  });
+  it('screens stale attained characters independently of a recent response', () => {
+    const input = recommendationInput();
+    const result = recommendNext({
+      ...input,
+      characters: input.characters.map((item) => ({
+        ...item,
+        lastAssessedAt: item.character === 'K' ? add(now, -30 * day) : add(now, -day)
+      }))
+    });
+    expect(result.primary).toMatchObject({ reason: 'return-screening', targets: ['K'] });
+  });
+  it('does not sample merely exposed characters and orders the oldest evidence first', () => {
+    const input = recommendationInput();
+    const exposed = projectCharacterEvidence([], [], { ...context(), character: 'R' });
+    const result = recommendNext({
+      ...input,
+      characters: [
+        ...input.characters.map((item) => ({
+          ...item,
+          lastAssessedAt: item.character === 'K' ? add(now, -60 * day) : add(now, -20 * day)
+        })),
+        {
+          character: 'R',
+          evidence: exposed,
+          readiness: null,
+          lastAssessedAt: add(now, -90 * day)
+        }
+      ]
+    });
+    expect(result.primary).toMatchObject({
+      reason: 'return-screening',
+      targets: ['K', 'M']
+    });
+    expect(result.primary.targets).not.toContain('R');
+  });
+  it('screens after 14, 30 and 60 days and caps the sample at eight attained characters', () => {
+    const input = recommendationInput();
+    const characters = ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T', 'L', 'E'].map(
+      (character, index) => {
+        const item = {
+          ...award('proficiency', add(now, -(index + 1) * day)),
+          character,
+          key: `award-${character}`
+        };
+        return {
+          character,
+          evidence: projectCharacterEvidence([], [item], { ...context(), character }),
+          readiness: null,
+          lastAssessedAt: add(now, -(15 + index) * day)
+        };
+      }
+    );
+    for (const elapsed of [14 * day + 1, 30 * day, 60 * day]) {
+      expect(
+        recommendNext({
+          ...input,
+          characters: characters.map((item) => ({
+            ...item,
+            lastAssessedAt: add(now, -elapsed)
+          }))
+        }).primary
+      ).toMatchObject({
+        reason: 'return-screening',
+        targets: ['K', 'M', 'R', 'S', 'U', 'A', 'P', 'T']
+      });
+    }
+    expect(
+      recommendNext({
+        ...input,
+        characters: characters.map((item) => ({
+          ...item,
+          lastAssessedAt: add(now, -14 * day)
+        }))
+      }).primary.reason
+    ).not.toBe('return-screening');
+  });
+  it('never falls back to screening without attained proficiency', () => {
+    const input = recommendationInput();
+    const unattained = input.characters.map((item) => ({
+      ...item,
+      evidence: projectCharacterEvidence([], [], { ...context(), character: item.character }),
+      lastAssessedAt: add(now, -90 * day)
+    }));
+    expect(recommendNext({ ...input, characters: unattained }).primary.reason).toBe(
+      'check-current'
+    );
+    expect(
+      recommendNext({
+        ...input,
+        characters: unattained.map((item) => ({ ...item, lastAssessedAt: null })),
+        latestWholeCheck: null
+      }).primary.reason
+    ).toBe('calibrate');
   });
   it('keeps a new-lesson alternative after completing one due check', () => {
     const input = recommendationInput();

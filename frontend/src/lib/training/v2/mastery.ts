@@ -23,6 +23,11 @@ export interface ReduceMasteryOptions {
   nowIso?: string;
 }
 
+export interface HistoricalStability {
+  achieved: boolean;
+  achievedAt: string | null;
+}
+
 export type MasteryBlocker = 'attempts' | 'sessions' | 'accuracy' | 'speed' | 'review';
 
 /** Explains the existing mastery gates without changing the learning policy. */
@@ -78,6 +83,47 @@ export function reduceCharacterMasteries(
     results.set(character, mastery.character === character ? mastery : { ...mastery, character });
   }
   return results;
+}
+
+/**
+ * Reports whether the recorded history ever satisfied the stability gates.
+ *
+ * This is a monotonic historical fact: review due dates, later mistakes, and
+ * time passing may change current proficiency, but they cannot undo an
+ * achievement that already happened. Lesson unlocks use this instead of the
+ * current `stable`/`review` status.
+ */
+export function getHistoricalStability(
+  character: string,
+  allAttempts: readonly AttemptEvent[],
+  policy: MasteryPolicy = DEFAULT_MASTERY_POLICY
+): HistoricalStability {
+  const key = character.toUpperCase();
+  const charAttempts = allAttempts
+    .filter((a) => a.targetCharacter.toUpperCase() === key && a.classification !== 'unmeasured')
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const sessions = new Set<string>();
+  const window: AttemptEvent[] = [];
+  for (let index = 0; index < charAttempts.length; index++) {
+    const attempt = charAttempts[index];
+    sessions.add(attempt.sessionId);
+    window.push(attempt);
+    if (window.length > policy.rollingWindowSize) window.shift();
+    const correct = window.filter((a) => a.isCorrect).length;
+    const accuracy = correct / window.length;
+    const medianLatencyMs = calculateMedian(
+      window.filter((a) => a.isCorrect).map((a) => a.latencyMs)
+    );
+    if (
+      index + 1 >= policy.minAttemptsForStability &&
+      sessions.size >= policy.minSessionsForStability &&
+      accuracy >= policy.targetAccuracy &&
+      medianLatencyMs !== null &&
+      medianLatencyMs <= policy.maxAutomaticLatencyMs
+    )
+      return { achieved: true, achievedAt: attempt.createdAt };
+  }
+  return { achieved: false, achievedAt: null };
 }
 
 /**

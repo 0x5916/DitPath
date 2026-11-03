@@ -210,6 +210,35 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
       }
     }
   },
+  // Progress tabs share one route. Keeping the page title in the route SEO
+  // metadata ensures a query-only tab change does not fall back to the site title.
+  '/morse/progress': {
+    localized: {
+      en: {
+        title: 'Progress · OpenCW',
+        description:
+          'Review your Morse training activity, recent sessions, and character mastery recorded on this device.'
+      },
+      de: {
+        title: 'Fortschritt · OpenCW',
+        description:
+          'Sieh dir deine Morsetrainings-Aktivitaet, die letzten Einheiten und deine Zeichenbeherrschung auf diesem Geraet an.'
+      },
+      ja: {
+        title: '進捗 · OpenCW',
+        description:
+          'このデバイスに記録されたモールストレーニングの活動、最近のセッション、文字の習得状況を確認できます。'
+      },
+      'zh-Hans': {
+        title: '进度 · OpenCW',
+        description: '查看此设备上记录的摩尔斯训练活动、近期练习与字符掌握情况。'
+      },
+      'zh-Hant': {
+        title: '進度 · OpenCW',
+        description: '查看此裝置上記錄的摩斯訓練活動、近期練習與字元掌握情況。'
+      }
+    }
+  },
   '/forum': {
     localized: {
       en: {

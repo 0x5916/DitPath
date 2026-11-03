@@ -15,6 +15,7 @@ import (
 	"opencw/internal/models"
 	"strings"
 	"testing"
+	"time"
 )
 
 func learningRequest(t *testing.T, db *gorm.DB, user models.User, method, path string, input any) *httptest.ResponseRecorder {
@@ -207,6 +208,55 @@ func TestLearningEvidencePostgresDependenciesRetriesIsolation(t *testing.T) {
 func learningBounds(instant string) map[string]any {
 	return map[string]any{"earliest": instant, "latest": instant, "source": "wall-clock-bounded"}
 }
+func screeningEvidenceFixture(id string, targets []string) []map[string]any {
+	start := time.Date(2026, 10, 27, 0, 0, 0, 0, time.UTC)
+	stamp := func(value time.Time) string { return value.UTC().Format(time.RFC3339Nano) }
+	prompts := []any{}
+	records := []map[string]any{}
+	ids := []string{}
+	for index := 0; index < 8; index++ {
+		character := targets[index%len(targets)]
+		prompt, presentation := fmt.Sprintf("p_%s_%d", id, index), fmt.Sprintf("tone_%s_%d", id, index)
+		tone := start.Add(time.Duration(index+1) * time.Second)
+		prompts = append(prompts, map[string]any{"id": prompt, "character": character, "role": "target"})
+		open := learningFixture("exposure-open", "open_"+presentation, map[string]any{"session_id": id, "presentation_id": presentation, "characters": []string{character}, "source": "screening", "started_at": learningBounds(stamp(tone.Add(-500 * time.Millisecond)))})
+		close := learningFixture("exposure-close", "close_"+presentation, map[string]any{"open_id": open["id"], "end_reason": "completed", "last_exposure": map[string]any{character: learningBounds(stamp(tone.Add(time.Second)))}})
+		observation := learningFixture("observation", "answer_"+prompt, map[string]any{"session_id": id, "prompt_id": prompt, "presentation_id": presentation, "first_response": character, "final_response": character, "skipped": false, "replay_count_before_response": 0, "help_before_response": false, "audio_valid": true, "interruption_invalidated": false, "response_interface": "keyboard", "first_presented_at": learningBounds(stamp(tone)), "prior_exposure": nil, "char_wpm": 20, "eff_wpm": 12, "freq_hz": 600})
+		records = append(records, open, close, observation)
+		ids = append(ids, observation["id"].(string))
+	}
+	plan := learningPlanFixture()
+	plan["id"], plan["session_id"], plan["purpose"], plan["feedback"] = "plan_"+id, id, "screening", "immediate"
+	plan["introduced_characters"] = []string{"K", "M", "R", "S", "U", "A", "P", "T"}
+	plan["targets"], plan["prompts"] = targets, prompts
+	plan["started_at"], plan["recorded_at"] = stamp(start), stamp(start)
+	terminal := learningFixture("terminal", "end_"+id, map[string]any{"session_id": id, "status": "completed", "ended_at": stamp(start.Add(time.Minute)), "observation_ids": ids})
+	return append([]map[string]any{plan}, append(records, terminal)...)
+}
+
+func TestLearningEvidencePostgresScreeningFewerThanEightAttained(t *testing.T) {
+	db, _ := sessionStorageDB(t)
+	for _, targets := range [][]string{
+		{"K"},
+		{"K", "M"},
+		{"K", "M", "R"},
+		{"K", "M", "R", "S", "U", "A", "P", "T"},
+	} {
+		t.Run(fmt.Sprint(len(targets)), func(t *testing.T) {
+			user := sessionStorageUser(t, db)
+			records := screeningEvidenceFixture(fmt.Sprintf("screen-%d", len(targets)), targets)
+			result := learningPost(t, db, user, records...)
+			if len(result.RejectedRecords) != 0 || len(result.AcknowledgedIDs) != len(records) {
+				t.Fatalf("targets %v: %+v", targets, result)
+			}
+			var milestones int64
+			if err := db.Model(&models.LearningEvidenceRecord{}).Where("user_id = ? AND kind = ?", user.ID, "milestone").Count(&milestones).Error; err != nil || milestones != 0 {
+				t.Fatalf("screening awarded a milestone: %d %v", milestones, err)
+			}
+		})
+	}
+}
+
 func TestLearningEvidencePostgresPresentationAndChronology(t *testing.T) {
 	db, user := sessionStorageDB(t)
 	learningPost(t, db, user, learningPlanFixture())

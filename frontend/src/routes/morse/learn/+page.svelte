@@ -55,6 +55,7 @@
   let loading = $state(true);
   let errorMsg = $state('');
   let currentStep = $state(1);
+  let unlockedStep = $state(1);
   let suggestedStep = $state<number | undefined>(undefined);
   let inProgressSession = $state<TrainingSessionRecord | null>(null);
   let masteryMap = $state<Map<string, CharacterMastery>>(new Map());
@@ -116,6 +117,7 @@
     reviewChars = [];
     hasAttempts = false;
     currentStep = 1;
+    unlockedStep = 1;
     courseComplete = false;
     loading = true;
     errorMsg = '';
@@ -131,15 +133,21 @@
       const attemptRepo = createAttemptRepository(db, owner);
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
-      const [unfinished, recentAttempts, attemptCount, checkpoints] = await Promise.all([
+      const [unfinished, allAttempts, attemptCount, checkpoints] = await Promise.all([
         repository.getLatestInProgressSession(),
-        attemptRepo.getAttemptsByTimeRange(new Date(now - 60 * 86400000).toISOString(), nowIso),
+        attemptRepo.getAttemptsByTimeRange('0001-01-01T00:00:00.000Z', nowIso),
         attemptRepo.countAttempts(),
         listCheckpoints(owner)
       ]);
       if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
-      const guidance = deriveCourseGuidance(recentAttempts, nowIso);
+      const recentAttempts = allAttempts.filter(
+        (attempt) => Date.parse(attempt.createdAt) >= now - 60 * 86400000
+      );
+      const guidance = deriveCourseGuidance(recentAttempts, nowIso, LESSONS, {
+        history: allAttempts
+      });
       currentStep = guidance.currentStep;
+      unlockedStep = guidance.unlockedStep;
       masteryMap = new SvelteMap(guidance.masteryMap);
       reviewChars = guidance.reviewChars;
       courseComplete = guidance.courseComplete;
@@ -353,6 +361,7 @@
 
     <CoursePath
       {currentStep}
+      {unlockedStep}
       {masteryMap}
       {suggestedStep}
       ready={!loading && !errorMsg}

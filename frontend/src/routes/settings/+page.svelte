@@ -697,6 +697,8 @@
       expanded
       owner={learningSyncState.owner}
       pending={learningSyncState.pending}
+      rejected={learningSyncState.rejected}
+      blocked={learningSyncState.blocked}
       syncing={learningSyncState.syncing}
       synced={learningSyncState.synced}
       error={learningSyncState.error}

@@ -6,6 +6,8 @@
   let {
     owner,
     pending,
+    rejected = 0,
+    blocked = 0,
     error,
     syncing,
     synced = false,
@@ -17,6 +19,10 @@
   }: {
     owner: string;
     pending: number;
+    /** Permanently rejected records retained locally for diagnosis. */
+    rejected?: number;
+    /** Pending records whose permanently rejected dependency blocks upload. */
+    blocked?: number;
     error: string | null;
     syncing: boolean;
     synced?: boolean;
@@ -28,27 +34,52 @@
   } = $props();
 
   const needsAttention = $derived(
-    owner !== 'unclaimed' && (Boolean(error) || (pending > 0 && !syncing))
+    owner !== 'unclaimed' &&
+      (Boolean(error) || rejected > 0 || blocked > 0 || (pending > 0 && !syncing))
   );
 </script>
 
 {#if expanded}
   <aside class="history-sync" aria-live="polite">
-    <p class="sync-state">
-      {#if owner === 'unclaimed'}
+    {#if owner === 'unclaimed'}
+      <p class="sync-state">
         <HardDrive size={16} aria-hidden="true" />{m.history_saved_device()}
-      {:else if error}
+      </p>
+    {:else if error}
+      <p class="sync-state">
         <CircleAlert size={16} aria-hidden="true" />{m.history_sync_error()}
-      {:else if syncing}
+      </p>
+    {:else if syncing}
+      <p class="sync-state">
         <CloudUpload size={16} aria-hidden="true" />{m.history_syncing()}
-      {:else if pending > 0}
-        <CloudUpload size={16} aria-hidden="true" />{m.history_sync_pending({ count: pending })}
-      {:else if !synced}
+      </p>
+    {:else if pending > 0 || rejected > 0 || blocked > 0}
+      <ul class="sync-state sync-issues">
+        {#if pending > 0}<li>
+            <CloudUpload size={16} aria-hidden="true" />{m.history_sync_pending({
+              count: pending
+            })}
+          </li>{/if}
+        {#if rejected > 0}<li>
+            <CircleAlert size={16} aria-hidden="true" />{m.history_sync_rejected({
+              count: rejected
+            })}
+          </li>{/if}
+        {#if blocked > 0}<li>
+            <CircleAlert size={16} aria-hidden="true" />{m.history_sync_blocked({
+              count: blocked
+            })}
+          </li>{/if}
+      </ul>
+    {:else if !synced}
+      <p class="sync-state">
         <HardDrive size={16} aria-hidden="true" />{m.history_saved_device()}
-      {:else}
+      </p>
+    {:else}
+      <p class="sync-state">
         <CloudCheck size={16} aria-hidden="true" />{m.history_synced()}
-      {/if}
-    </p>
+      </p>
+    {/if}
     {#if owner !== 'unclaimed' && onSync}
       <button type="button" class="btn-ghost" disabled={syncing} onclick={onSync}
         >{m.history_sync_now()}</button
@@ -64,7 +95,7 @@
 {:else if needsAttention}
   <aside class="history-sync" aria-live="polite">
     <a class="sync-details" href={`${localizedHref('/settings')}#sync-storage`}>
-      {#if error}
+      {#if error || rejected > 0 || blocked > 0}
         <CircleAlert size={16} aria-hidden="true" />
         <span>{m.history_sync_attention()}</span>
       {:else}
@@ -87,6 +118,16 @@
     align-items: center;
     gap: var(--space-2);
     margin: var(--space-2) 0;
+  }
+  .sync-issues {
+    display: grid;
+    list-style: none;
+    padding: 0;
+  }
+  .sync-issues li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
   p {
     line-height: var(--leading-normal);

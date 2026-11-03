@@ -23,7 +23,8 @@
   import {
     activeLearningProfile,
     loadLearningSnapshot,
-    learningRecommendationHref
+    learningRecommendationHref,
+    returnScreeningTargets
   } from '#lib/data/learning-snapshot.ts';
   import {
     buildMixedCheck,
@@ -88,6 +89,7 @@
   let reviewUnavailable = $state(false);
   let reviewRound = $state(0);
   const reviewValue = $derived(browser ? page.url.searchParams.get('review') : null);
+  const reviewTargetsValue = $derived(browser ? page.url.searchParams.get('targets') : null);
   let resumeAfterExit = $state(false);
   let showCheckExitConfirm = $state(false);
   let sessionOwner: string | null = null;
@@ -105,7 +107,7 @@
   });
 
   const routeKey = $derived(
-    `${step}:${reviewValue ?? ''}:${checkValue ?? ''}:${resumeValue ?? ''}`
+    `${step}:${reviewValue ?? ''}:${reviewTargetsValue ?? ''}:${checkValue ?? ''}:${resumeValue ?? ''}`
   );
 
   async function releaseSession(
@@ -141,13 +143,15 @@
     entryHidden = document.hidden;
     let entryAudio = consumeCheckStart(page.url.pathname + page.url.search);
     const requestedReview = reviewValue;
-    const reviewRequest = parseReviewRequest(requestedReview);
+    const requestedReviewTargets = reviewTargetsValue;
+    const reviewRequest = parseReviewRequest(requestedReview, requestedReviewTargets);
     const requestedCheck = checkValue;
     const checkTargets = parseMixedTargets(requestedCheck);
     mixedPlan = null;
     reviewPlan = null;
     reviewUnavailable =
       (requestedReview !== null && !reviewRequest) ||
+      (requestedReviewTargets !== null && requestedReview !== 'return') ||
       (requestedCheck !== null && !checkTargets) ||
       (requestedReview !== null && requestedCheck !== null);
     beginReview ||= requestedCheck !== null;
@@ -269,10 +273,22 @@
           return;
         }
         const known = snapshot.knownCharacters;
-        const targets = checkTargets ?? reviewRequest!.targets;
+        const screening =
+          !checkTargets && reviewRequest?.purpose === 'return-screening'
+            ? returnScreeningTargets(
+                snapshot,
+                requestedReviewTargets === null ? null : reviewRequest.targets
+              )
+            : null;
+        if (!checkTargets && reviewRequest?.purpose === 'return-screening' && !screening?.length) {
+          reviewUnavailable = true;
+          database.close();
+          return;
+        }
+        const targets = checkTargets ?? screening ?? reviewRequest!.targets;
         if (
           !known.length ||
-          targets.some((ch) => !known.includes(ch)) ||
+          targets.some((target) => !known.includes(target)) ||
           (checkTargets && known.length < 2)
         ) {
           reviewUnavailable = true;
@@ -296,11 +312,15 @@
             )
           });
         } else {
-          reviewPlan = buildReviewPlan(reviewRequest!, known, {
-            charWpm: sound.char_wpm,
-            effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
-            freqHz: sound.freq
-          });
+          reviewPlan = buildReviewPlan(
+            screening ? { ...reviewRequest!, targets: screening } : reviewRequest!,
+            known,
+            {
+              charWpm: sound.char_wpm,
+              effWpm: Math.min(sound.char_wpm, sound.eff_wpm),
+              freqHz: sound.freq
+            }
+          );
         }
         database.close();
         database = null;
@@ -360,7 +380,7 @@
       const checkpointContext = {
         review: reviewPlan,
         mixed: mixedPlan,
-        href: `/morse/learn/session?step=${requestedStep}${requestedReview ? `&review=${encodeURIComponent(requestedReview)}` : ''}${requestedCheck ? `&check=${encodeURIComponent(requestedCheck)}` : ''}`
+        href: `/morse/learn/session?step=${requestedStep}${requestedReview ? `&review=${encodeURIComponent(requestedReview)}` : ''}${requestedReviewTargets !== null ? `&targets=${encodeURIComponent(requestedReviewTargets)}` : ''}${requestedCheck ? `&check=${encodeURIComponent(requestedCheck)}` : ''}`
       };
       const ctrl = new GuidedSessionController({
         ...(resume
@@ -745,6 +765,7 @@
       <h1>{m.review_history_heading()}</h1>
       <p>{m.review_unavailable()}</p>
       <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
+      <a class="btn-ghost" href={localizedHref('/morse')}>{m.review_unavailable_familiarize()}</a>
     </div>
   </main>
 {:else if initializationError}
@@ -806,6 +827,8 @@
           expanded={!mixedPlan || ['paused', 'complete'].includes(controller.phase)}
           owner={learningSyncState.owner}
           pending={learningSyncState.pending}
+          rejected={learningSyncState.rejected}
+          blocked={learningSyncState.blocked}
           error={learningSyncState.error}
           syncing={learningSyncState.syncing}
           synced={learningSyncState.synced}

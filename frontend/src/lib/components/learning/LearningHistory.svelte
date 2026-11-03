@@ -21,12 +21,16 @@
       : p === 'screening'
         ? m.review_return_title()
         : m.mixed_title();
-  const statusLabel = (s: string) =>
-    s === 'completed'
+  const statusLabel = (status: string, recordedStatus?: string, evidenceStatus?: string) =>
+    status === 'completed'
       ? m.history_completed()
-      : s === 'incomplete'
-        ? m.history_incomplete()
-        : s === 'abandoned'
+      : status === 'incomplete'
+        ? evidenceStatus === 'rejected'
+          ? m.history_evidence_rejected()
+          : recordedStatus === 'completed'
+            ? m.history_incomplete_evidence()
+            : m.history_incomplete()
+        : status === 'abandoned'
           ? m.history_abandoned()
           : m.history_inprogress();
 </script>
@@ -71,9 +75,13 @@
                 ? ` · ${entry.targets.join(', ')}`
                 : ''}</strong
             >
-            · {statusLabel(entry.status)}<time datetime={entry.at}
-              >{dates.format(new Date(entry.at))}</time
-            ></summary
+            · {statusLabel(
+              entry.status,
+              entry.recordedStatus,
+              entry.evidenceStatus ?? undefined
+            )}{#if entry.status === 'incomplete' && entry.recordedStatus === 'completed'}<span
+                class="recorded-status">· {m.history_recorded_completed()}</span
+              >{/if}<time datetime={entry.at}>{dates.format(new Date(entry.at))}</time></summary
           >
           <p>{m.practice_speed_summary({ character: entry.charWpm, effective: entry.effWpm })}</p>
           <p>{m.history_answers({ answered: entry.answered, planned: entry.planned })}</p>
@@ -134,6 +142,11 @@
     cursor: pointer;
     min-height: var(--answer-target-min);
     padding-block: var(--space-2);
+  }
+  .recorded-status {
+    margin-inline-start: var(--space-1);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
   }
   time {
     display: block;

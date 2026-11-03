@@ -53,7 +53,7 @@ Use monotonic time within a process and preserve wall-clock uncertainty separate
 
 Order recommendations: recover active/unsaved work; resolve missing evidence; screen after 14 days without compatible assessment; repair demonstrated difficulty; offer an eligible due check; introduce the next character when proficiency/current-check criteria permit; offer contextual practice. Existing lessons stay accessible and a due review alone never relocks them.
 
-A return screening has eight first-listen prompts sampling up to eight previously attained characters. It creates observations only for sampled sounds; it cannot award proficiency/retention or advance the review ladder. Do not invent prior attainment from a legacy score.
+A return screening has eight first-listen prompts sampling up to eight previously attained characters; fewer than eight targets repeat across the prompts. It creates observations only for sampled sounds; repetition cannot award proficiency/retention or advance the review ladder. Recorded exposure without attainment does not enable screening; offer a lesson or familiarization instead. Do not invent prior attainment from a legacy score.
 
 A pair-coaching round has 12 prompts, half for the pair and half for other taught sounds where available. Give immediate feedback and replay; this remains coaching even with typed input because its answer space is constrained. It cannot award milestones or extend review intervals. Limit repeated repair rounds and offer a break or settings check rather than an endless loop.
 

@@ -3,6 +3,8 @@ package learning
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"slices"
 	"testing"
 )
 
@@ -129,7 +131,7 @@ func TestLearningPlanRoleAndCoverage(t *testing.T) {
 	}
 	m = planFixture()
 	m["purpose"] = "screening"
-	m["targets"] = []string{}
+	m["targets"] = []string{"K", "M"}
 	m["prompts"] = m["prompts"].([]any)[:8]
 	if _, r := Validate(encoded(m)); r != nil {
 		t.Fatal(r)
@@ -138,6 +140,91 @@ func TestLearningPlanRoleAndCoverage(t *testing.T) {
 		value.(map[string]any)["character"] = "K"
 	}
 	if _, r := Validate(encoded(m)); r == nil {
-		t.Fatal("screening did not cover its available two symbols")
+		t.Fatal("screening prompts outside the declared target scope were accepted")
+	}
+	m["targets"] = []string{"K"}
+	if _, r := Validate(encoded(m)); r != nil {
+		t.Fatal("one attained character cycled across eight prompts was rejected", r)
+	}
+}
+
+func screeningPlan(taught []string, targets []string) map[string]any {
+	prompts := make([]any, 8)
+	for i := range prompts {
+		prompts[i] = map[string]any{
+			"id":        fmt.Sprint("screen-p", i),
+			"character": targets[i%len(targets)],
+			"role":      "target",
+		}
+	}
+	return map[string]any{
+		"id": "screen-plan", "kind": "plan", "policy_version": PolicyVersion,
+		"recorded_at": "2026-10-27T00:00:00Z", "session_id": "screen-session",
+		"purpose": "screening", "curriculum_version": "koch-39-v1",
+		"profile":  map[string]any{"id": "clean20", "task": "single-character", "char_wpm": 20, "audio_condition": "clean", "response_support": "open"},
+		"char_wpm": 20, "eff_wpm": 12, "freq_hz": 600,
+		"started_at": "2026-10-27T00:00:00Z", "introduced_characters": taught,
+		"targets": targets, "prompts": prompts, "fresh_order": true, "feedback": "immediate",
+	}
+}
+
+func TestReturnScreeningSharedContract(t *testing.T) {
+	raw, err := os.ReadFile("../../../frontend/testdata/return-screening-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		PolicyVersion string `json:"policyVersion"`
+		Cases         []struct {
+			ID                   string   `json:"id"`
+			IntroducedCharacters []string `json:"introducedCharacters"`
+			AttainedCharacters   []string `json:"attainedCharacters"`
+			Targets              []string `json:"targets"`
+			ExpectedPrompts      int      `json:"expectedPrompts"`
+			ExpectedDistinct     int      `json:"expectedDistinct"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(raw, &fixture); err != nil || fixture.PolicyVersion != PolicyVersion {
+		t.Fatal("invalid shared screening fixture", err)
+	}
+	for _, c := range fixture.Cases {
+		t.Run(c.ID, func(t *testing.T) {
+			if len(c.Targets) != len(c.AttainedCharacters) || c.ExpectedPrompts != 8 || len(c.Targets) != c.ExpectedDistinct {
+				t.Fatal("inconsistent screening fixture")
+			}
+			for _, target := range c.Targets {
+				if !slices.Contains(c.IntroducedCharacters, target) {
+					t.Fatalf("target %s is outside the taught set", target)
+				}
+			}
+			if _, r := Validate(encoded(screeningPlan(c.IntroducedCharacters, c.Targets))); r != nil {
+				t.Fatal(r)
+			}
+		})
+	}
+}
+
+func TestScreeningAcceptsFewerThanEightAttainedCharacters(t *testing.T) {
+	taught := []string{"K", "M", "R", "S", "U", "A", "P", "T"}
+	for _, targets := range [][]string{
+		{"K"},
+		{"K", "M"},
+		{"K", "M", "R"},
+		{"K", "M", "R", "S", "U", "A", "P", "T"},
+	} {
+		if _, r := Validate(encoded(screeningPlan(taught, targets))); r != nil {
+			t.Fatalf("targets %v: %+v", targets, r)
+		}
+	}
+	// A declared target that is not actually sampled misrepresents the screening scope.
+	if _, r := Validate(encoded(screeningPlan(taught, []string{"K", "M"}))); r != nil {
+		t.Fatal(r)
+	}
+	invalid := screeningPlan(taught, []string{"K", "M"})
+	for _, value := range invalid["prompts"].([]any) {
+		value.(map[string]any)["character"] = "K"
+	}
+	if _, r := Validate(encoded(invalid)); r == nil {
+		t.Fatal("unused screening target accepted")
 	}
 }

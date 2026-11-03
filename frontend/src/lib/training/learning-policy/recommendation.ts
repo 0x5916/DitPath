@@ -109,6 +109,28 @@ export function recommendNext(input: RecommendationInput): {
       .filter((time) => Number.isFinite(time) && time <= now),
     -Infinity
   );
+  // Screening is per character: one recently assessed target must not hide
+  // another attained character whose last compatible assessment is stale.
+  const staleAttained = attained
+    .filter(
+      (item) =>
+        !item.lastAssessedAt ||
+        !Number.isFinite(timestamp(item.lastAssessedAt)) ||
+        timestamp(item.lastAssessedAt) < now - P.freshnessMs
+    )
+    .sort(
+      (a, b) =>
+        (a.lastAssessedAt ? timestamp(a.lastAssessedAt) : -Infinity) -
+          (b.lastAssessedAt ? timestamp(b.lastAssessedAt) : -Infinity) ||
+        rank(a.character) - rank(b.character)
+    );
+  if (staleAttained.length)
+    return finish(
+      recommendation(
+        'return-screening',
+        staleAttained.slice(0, P.screeningPrompts).map((item) => item.character)
+      )
+    );
   if (latestResponse === -Infinity)
     return finish(
       recommendation(
@@ -118,18 +140,6 @@ export function recommendNext(input: RecommendationInput): {
           : LESSONS[0].split('')
       )
     );
-  if (attained.length && now - latestResponse > P.freshnessMs) {
-    const targets = [...attained]
-      .sort(
-        (a, b) =>
-          (a.lastAssessedAt ? timestamp(a.lastAssessedAt) : -Infinity) -
-            (b.lastAssessedAt ? timestamp(b.lastAssessedAt) : -Infinity) ||
-          rank(a.character) - rank(b.character)
-      )
-      .slice(0, P.screeningPrompts)
-      .map((item) => item.character);
-    return finish(recommendation('return-screening', targets));
-  }
   const difficult = characters.filter((item) => item.evidence.repeatedDifficulty);
   if (difficult.length)
     return finish(

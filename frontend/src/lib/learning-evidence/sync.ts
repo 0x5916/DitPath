@@ -153,5 +153,12 @@ export async function synchronizeLearningEvidence(ports: EvidenceSyncPorts): Pro
     await repo.applyPage(changes, body.next_cursor, cursor);
     if (!body.has_more) break;
   }
-  if (deferred) throw new EvidenceSyncError('MISSING_EVIDENCE_DEPENDENCY');
+  if (deferred) {
+    // Retry only while retryable or newly added work remains. A permanent
+    // rejection that terminalized all dependents must not schedule an endless
+    // dependency retry.
+    const remaining = await repo.pending();
+    current(ports);
+    if (remaining.length) throw new EvidenceSyncError('MISSING_EVIDENCE_DEPENDENCY');
+  }
 }

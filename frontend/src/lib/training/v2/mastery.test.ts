@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getMasteryBlockers, reduceCharacterMasteries, reduceCharacterMastery } from './mastery';
+import {
+  getHistoricalStability,
+  getMasteryBlockers,
+  reduceCharacterMasteries,
+  reduceCharacterMastery
+} from './mastery';
 import { DEFAULT_MASTERY_POLICY, type AttemptEvent } from './types';
 import { LESSONS } from '../sequence';
 
@@ -249,6 +254,79 @@ describe('Batch Character Mastery Reducer', () => {
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it('records historical stability even after later mistakes make the current status learning', () => {
+    const history = [
+      ...Array.from({ length: 8 }, (_, i) =>
+        createMockAttempt({
+          id: `s1_${i}`,
+          sessionId: 'sess_1',
+          createdAt: '2026-10-01T10:00:00.000Z'
+        })
+      ),
+      ...Array.from({ length: 8 }, (_, i) =>
+        createMockAttempt({
+          id: `s2_${i}`,
+          sessionId: 'sess_2',
+          createdAt: '2026-10-02T10:00:00.000Z'
+        })
+      ),
+      ...Array.from({ length: 20 }, (_, i) =>
+        createMockAttempt({
+          id: `bad_${i}`,
+          sessionId: `sess_bad_${i}`,
+          isCorrect: false,
+          classification: 'incorrect',
+          createdAt: new Date(Date.parse('2026-10-03T10:00:00.000Z') + i * 1000).toISOString()
+        })
+      )
+    ];
+    expect(getHistoricalStability('T', history)).toEqual({
+      achieved: true,
+      achievedAt: '2026-10-02T10:00:00.000Z'
+    });
+    expect(
+      reduceCharacterMastery('T', history, { nowIso: '2026-10-20T10:00:00.000Z' }).status
+    ).toBe('learning');
+  });
+
+  it('does not report historical stability without multi-session, accurate, fast evidence', () => {
+    const singleSession = Array.from({ length: 20 }, (_, i) =>
+      createMockAttempt({
+        id: `one_${i}`,
+        sessionId: 'sess_1',
+        createdAt: new Date(Date.parse('2026-10-01T10:00:00.000Z') + i * 1000).toISOString()
+      })
+    );
+    expect(getHistoricalStability('T', singleSession).achieved).toBe(false);
+    const slow = [
+      ...Array.from({ length: 8 }, (_, i) =>
+        createMockAttempt({
+          id: `slow1_${i}`,
+          sessionId: 'sess_1',
+          latencyMs: 2800,
+          classification: 'developing',
+          createdAt: '2026-10-01T10:00:00.000Z'
+        })
+      ),
+      ...Array.from({ length: 8 }, (_, i) =>
+        createMockAttempt({
+          id: `slow2_${i}`,
+          sessionId: 'sess_2',
+          latencyMs: 2900,
+          classification: 'developing',
+          createdAt: '2026-10-02T10:00:00.000Z'
+        })
+      )
+    ];
+    expect(getHistoricalStability('T', slow).achieved).toBe(false);
+    expect(
+      getHistoricalStability(
+        'T',
+        singleSession.map((attempt) => ({ ...attempt, classification: 'unmeasured' as const }))
+      ).achieved
+    ).toBe(false);
   });
 
   it('reads history targets at most twice instead of once per curriculum character', () => {

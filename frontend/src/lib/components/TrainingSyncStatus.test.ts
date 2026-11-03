@@ -37,6 +37,49 @@ describe('training sync presentation', () => {
     }
   );
 
+  it('surfaces terminal evidence rejections without blocking valid synchronization', () => {
+    const collapsed = render(TrainingSyncStatus, {
+      props: { ...account, synced: true, rejected: 2 }
+    }).body;
+    expect(collapsed).toContain('Sync needs attention');
+    expect(collapsed).toContain('href="/en/settings#sync-storage"');
+    const expanded = render(TrainingSyncStatus, {
+      props: { ...account, expanded: true, synced: true, rejected: 2, onSync() {} }
+    }).body;
+    expect(expanded).toContain('Some history could not sync');
+    expect(expanded).toContain('Permanently rejected records: 2');
+    expect(expanded).not.toContain('blocked by rejected evidence');
+    expect(expanded).toContain('Sync now');
+  });
+
+  it('distinguishes retryable, permanently rejected and dependency-blocked records', () => {
+    const { body } = render(TrainingSyncStatus, {
+      props: {
+        ...account,
+        expanded: true,
+        synced: false,
+        pending: 3,
+        rejected: 2,
+        blocked: 4,
+        onSync() {}
+      }
+    });
+    expect(body).toContain('3 changes are waiting to sync');
+    expect(body).toContain('Permanently rejected records: 2');
+    expect(body).toContain('Records blocked by rejected evidence: 4');
+    expect(body).not.toContain('Synced across your devices');
+  });
+
+  it('keeps the normal fully synchronized state concise', () => {
+    const { body } = render(TrainingSyncStatus, {
+      props: { ...account, expanded: true, synced: true, onSync() {} }
+    });
+    expect(body).toContain('Synced across your devices');
+    expect(body).not.toContain('waiting to sync');
+    expect(body).not.toContain('permanently rejected');
+    expect(body).not.toContain('blocked by');
+  });
+
   it('keeps manual synchronization and explicit history import in expanded details', () => {
     const { body } = render(TrainingSyncStatus, {
       props: {
