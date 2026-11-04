@@ -82,12 +82,48 @@ it('does not announce checkpoint-only or unchanged evidence pages', async () => 
 
     const downloaded = { ...record('one'), recorded_at: '2026-10-28T00:00:00.000Z' };
     await a.applyPage([{ revision: '1', kind: 'exposure-open', record: downloaded }], 'first');
-    expect(changes).toEqual([{ ownerKey: 'account:a', local: false, scope: 'learning-evidence' }]);
+    expect(changes).toEqual([
+      { ownerKey: 'account:a', local: false, scope: 'learning-evidence', records: true }
+    ]);
 
     changes.length = 0;
     await a.applyPage([{ revision: '1', kind: 'exposure-open', record: downloaded }], 'unchanged');
     expect(changes).toEqual([]);
     expect(await a.getCursor()).toBe('unchanged');
+  } finally {
+    unsubscribe();
+  }
+});
+it('distinguishes evidence record changes from outbox-only status changes', async () => {
+  const { a } = await fixture();
+  const changes: { records?: boolean }[] = [];
+  const unsubscribe = subscribeTrainingDataChanges((event) => changes.push(event));
+  try {
+    await a.append([record('three')]);
+    expect(changes).toEqual([
+      { ownerKey: 'account:a', local: true, scope: 'learning-evidence', records: true }
+    ]);
+
+    changes.length = 0;
+    await a.append([record('three')]);
+    expect(changes).toEqual([]);
+
+    await a.reject('three', 'TRANSIENT', false);
+    expect(changes).toEqual([{ ownerKey: 'account:a', local: false, scope: 'learning-evidence' }]);
+
+    changes.length = 0;
+    await a.reject('three', 'PERMANENT', true);
+    expect(changes).toEqual([
+      { ownerKey: 'account:a', local: false, scope: 'learning-evidence', records: true }
+    ]);
+
+    changes.length = 0;
+    await a.acknowledge(['three']);
+    expect(changes).toEqual([{ ownerKey: 'account:a', local: false, scope: 'learning-evidence' }]);
+
+    changes.length = 0;
+    await a.acknowledge(['three']);
+    expect(changes).toEqual([]);
   } finally {
     unsubscribe();
   }

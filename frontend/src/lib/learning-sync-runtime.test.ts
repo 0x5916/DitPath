@@ -157,6 +157,21 @@ describe('learning evidence sync lifecycle', () => {
     expect(runtime.learningSyncState.version).toBe(version);
   });
 
+  it('publishes a data revision only when evidence records change', async () => {
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));
+    const { notifyTrainingDataChange } = await import('./data/training-data-events');
+    const version = runtime.learningSyncState.version;
+    const dataVersion = runtime.learningSyncState.dataVersion;
+
+    notifyTrainingDataChange('account:a', false, 'learning-evidence', false);
+    expect(runtime.learningSyncState.version).toBe(version + 1);
+    expect(runtime.learningSyncState.dataVersion).toBe(dataVersion);
+
+    notifyTrainingDataChange('account:a', false, 'learning-evidence', true);
+    expect(runtime.learningSyncState.dataVersion).toBe(dataVersion + 1);
+  });
+
   it('marks offline coverage incomplete independently of the previous checkpoint', async () => {
     dispose = runtime.initializeLearningSync();
     await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));

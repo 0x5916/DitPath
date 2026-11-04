@@ -48,6 +48,7 @@ describe('prospective evidence repository and synchronization', () => {
     expect(events).toContainEqual({
       ownerKey: 'account:a',
       local: false,
+      records: true,
       scope: 'learning-evidence'
     });
   });

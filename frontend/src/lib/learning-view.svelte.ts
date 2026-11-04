@@ -12,7 +12,13 @@ export function createLearningView() {
   let settled = $state(false);
   let active = false,
     generation = 0;
-  async function refresh(force = false) {
+  /**
+   * `settled` coverage may bridge a presentation-only refresh (for example a
+   * guided attempt changing known characters). A learning-evidence revision
+   * must use current coverage because partial evidence suppresses provisional
+   * claims and changes screening eligibility.
+   */
+  async function refresh(force = false, coverageIntent: 'settled' | 'current' = 'current') {
     const ownerKey = getTrainingOwner(),
       request = ++generation;
     if (snapshot?.ownerKey !== ownerKey) {
@@ -23,10 +29,12 @@ export function createLearningView() {
     try {
       const result = await loadLearningSnapshot({
         ownerKey,
-        // A forced refresh during a pending pass re-projects changed inputs
-        // without letting transient coverage alone change the action.
         coverage:
-          force && settled && learningSyncState.syncing && previousCoverage
+          coverageIntent === 'settled' &&
+          force &&
+          settled &&
+          learningSyncState.syncing &&
+          previousCoverage
             ? previousCoverage
             : learningEvidenceCoverage(ownerKey)
       });
@@ -68,34 +76,52 @@ export function createLearningView() {
       let trainingRevision = '';
       let learningRevision = '';
       let learningCoverage = '';
+      let learningDataVersion = -1;
       let dataChanged = false;
       let scheduled = false;
       let forceRefresh = false;
-      const schedule = (force = false) => {
+      let coverageIntent: 'settled' | 'current' = 'settled';
+      const schedule = (force = false, intent: 'settled' | 'current' = 'settled') => {
         forceRefresh ||= force;
+        // A real records revision must never be downgraded by a coalesced
+        // presentation-only wake-up.
+        if (intent === 'current') coverageIntent = 'current';
         if (scheduled) return;
         scheduled = true;
         queueMicrotask(() => {
           scheduled = false;
           const force = forceRefresh;
+          const intent = coverageIntent;
           forceRefresh = false;
-          if (active) void refresh(force);
+          coverageIntent = 'settled';
+          if (active) void refresh(force, intent);
         });
       };
       const training = subscribeTrainingSync((state) => {
         const next = `${state.owner}:${state.version}`;
         if (next === trainingRevision) return;
         trainingRevision = next;
-        // A version change means attempts, sessions, or evidence changed.
-        schedule(true);
+        // Guided attempts change known characters, not evidence coverage, so a
+        // settled coverage value may bridge this presentation-only refresh.
+        schedule(true, 'settled');
       });
       const learning = subscribeLearningSync((state) => {
         const revision = `${state.owner}:${state.version}`;
+        const dataRevision = state.dataVersion;
         const coverage = `${state.owner}:${state.initialized}:${state.synced}:${state.pending}:${state.error ?? ''}:${state.unavailable}:${state.syncing}`;
-        if (revision === learningRevision && coverage === learningCoverage) return;
+        const recordsChanged = dataRevision !== learningDataVersion;
+        const statusChanged = revision !== learningRevision || coverage !== learningCoverage;
+        if (!recordsChanged && !statusChanged) return;
+        learningDataVersion = dataRevision;
         if (revision !== learningRevision) dataChanged = true;
         learningRevision = revision;
         learningCoverage = coverage;
+        if (recordsChanged) {
+          // Corrections, rejections and new evidence invalidate claims now.
+          // Project against current coverage even while the pass is running.
+          schedule(true, 'current');
+          return;
+        }
         // Wait for the sync pass to settle so the projection sees its final
         // coverage instead of refreshing once as partial and again as complete.
         if (!state.syncing) {

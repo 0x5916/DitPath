@@ -19,6 +19,8 @@ export interface LearningSyncSnapshot {
   unavailable: boolean;
   error: string | null;
   version: number;
+  /** Increments only when evidence records or excluded rejections change. */
+  dataVersion: number;
 }
 class State implements LearningSyncSnapshot {
   owner = $state('unclaimed');
@@ -31,6 +33,7 @@ class State implements LearningSyncSnapshot {
   unavailable = $state(false);
   error = $state<string | null>(null);
   version = $state(0);
+  dataVersion = $state(0);
 }
 export const learningSyncState = new State();
 const listeners = new SvelteSet<(state: LearningSyncSnapshot) => void>();
@@ -44,7 +47,8 @@ const snapshot = (): LearningSyncSnapshot => ({
   synced: learningSyncState.synced,
   unavailable: learningSyncState.unavailable,
   error: learningSyncState.error,
-  version: learningSyncState.version
+  version: learningSyncState.version,
+  dataVersion: learningSyncState.dataVersion
 });
 function publish(patch: Partial<LearningSyncSnapshot>) {
   Object.assign(learningSyncState, patch);
@@ -193,7 +197,8 @@ export function initializeLearningSync(): () => void {
       synced: false,
       error: null,
       unavailable: false,
-      version: learningSyncState.version + 1
+      version: learningSyncState.version + 1,
+      dataVersion: 0
     });
     void syncLearningNow();
   });
@@ -201,22 +206,27 @@ export function initializeLearningSync(): () => void {
     typeof BroadcastChannel === 'undefined'
       ? null
       : new BroadcastChannel('opencw:learning-evidence');
-  const changed = (expected: string, local = false) => {
+  const changed = (expected: string, local = false, records = false) => {
     if (expected !== owner()) return;
-    publish({ version: learningSyncState.version + 1, ...(local ? { synced: false } : {}) });
+    publish({
+      version: learningSyncState.version + 1,
+      dataVersion: learningSyncState.dataVersion + (records ? 1 : 0),
+      ...(local ? { synced: false } : {})
+    });
     void refresh(expected).catch(() => {});
     if (local && !learningSyncState.unavailable) {
       if (running) rerun = true;
       else void syncLearningNow();
     }
   };
-  const data = subscribeTrainingDataChanges(({ ownerKey, scope, local }) => {
+  const data = subscribeTrainingDataChanges(({ ownerKey, scope, local, records }) => {
     if (scope !== 'learning-evidence') return;
-    changed(ownerKey, local);
-    channel?.postMessage({ owner: ownerKey, local });
+    changed(ownerKey, local, records === true);
+    channel?.postMessage({ owner: ownerKey, local, records: records === true });
   });
   if (channel)
-    channel.onmessage = (event) => changed(String(event.data?.owner), event.data?.local === true);
+    channel.onmessage = (event) =>
+      changed(String(event.data?.owner), event.data?.local === true, event.data?.records === true);
   const wake = () => {
     if (document.visibilityState !== 'hidden') void syncLearningNow({ rerun: false });
   };

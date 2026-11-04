@@ -27,7 +27,8 @@ vi.mock('./learning-sync.svelte', () => ({
       synced: true,
       unavailable: false,
       error: null,
-      version: 0
+      version: 0,
+      dataVersion: 0
     });
     return () => {};
   }
@@ -82,7 +83,8 @@ describe('learning projection lifecycle', () => {
       synced: false,
       unavailable: false,
       error: null,
-      version: 0
+      version: 0,
+      dataVersion: 0
     });
     await Promise.resolve();
     await Promise.resolve();
@@ -98,7 +100,8 @@ describe('learning projection lifecycle', () => {
       synced: true,
       unavailable: false,
       error: null,
-      version: 0
+      version: 0,
+      dataVersion: 0
     });
     await Promise.resolve();
     await Promise.resolve();
@@ -114,7 +117,8 @@ describe('learning projection lifecycle', () => {
       synced: true,
       unavailable: false,
       error: null,
-      version: 0
+      version: 0,
+      dataVersion: 0
     });
     await Promise.resolve();
     expect(mocks.load).toHaveBeenCalledTimes(2);
@@ -153,7 +157,8 @@ describe('learning projection lifecycle', () => {
       synced: true,
       unavailable: false,
       error: null,
-      version: 0
+      version: 0,
+      dataVersion: 0
     });
     await vi.waitFor(() => expect(view.settled).toBe(true));
 
@@ -195,7 +200,7 @@ describe('learning projection lifecycle', () => {
     expect(view.settled).toBe(false);
   });
 
-  it('forces a new projection when a data revision changes during sync', async () => {
+  it('keeps settled coverage for a guided-attempt refresh during sync', async () => {
     const first = { ownerKey: 'account:a', coverage: 'complete', claim: 'stale' };
     mocks.load.mockResolvedValue(first);
     const { createLearningView } = await import('./learning-view.svelte');
@@ -235,7 +240,8 @@ describe('learning projection lifecycle', () => {
       synced: true,
       unavailable: false,
       error: null,
-      version: 1
+      version: 1,
+      dataVersion: 0
     });
     await vi.waitFor(() => expect(mocks.load.mock.calls.length).toBe(callsBeforeSettle + 1));
     expect(mocks.load.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -244,6 +250,70 @@ describe('learning projection lifecycle', () => {
     });
     expect(view.settled).toBe(true);
     expect(view.snapshot).toBe(corrected);
+
+    stop();
+  });
+
+  it('uses current coverage when evidence records change during sync', async () => {
+    const first = { ownerKey: 'account:a', coverage: 'complete', claim: 'certified' };
+    mocks.load.mockResolvedValue(first);
+    const { createLearningView } = await import('./learning-view.svelte');
+    const view = createLearningView();
+    const stop = view.start();
+    await vi.waitFor(() => expect(view.settled).toBe(true));
+
+    // A correction/download arrives while the pass is still running. The
+    // projection must not certify provisional claims under stale complete
+    // coverage; partial coverage intentionally suppresses them.
+    const corrected = { ownerKey: 'account:a', coverage: 'partial', claim: 'uncertain' };
+    mocks.load.mockResolvedValue(corrected);
+    mocks.coverage.mockReturnValue('partial');
+    mocks.syncState.syncing = true;
+    mocks.learning?.({
+      owner: 'account:a',
+      pending: 1,
+      rejected: 0,
+      blocked: 0,
+      initialized: true,
+      syncing: true,
+      synced: false,
+      unavailable: false,
+      error: null,
+      version: 1,
+      dataVersion: 1
+    });
+    await vi.waitFor(() => expect(view.snapshot).toBe(corrected));
+    expect(mocks.load.mock.calls.at(-1)?.[0]).toMatchObject({
+      ownerKey: 'account:a',
+      coverage: 'partial'
+    });
+
+    // Settlement restores complete coverage and the truthful settled claim.
+    const settled = { ownerKey: 'account:a', coverage: 'complete', claim: 'revalidated' };
+    mocks.load.mockResolvedValue(settled);
+    mocks.coverage.mockReturnValue('complete');
+    mocks.syncState.syncing = false;
+    const callsBeforeSettle = mocks.load.mock.calls.length;
+    mocks.learning?.({
+      owner: 'account:a',
+      pending: 0,
+      rejected: 0,
+      blocked: 0,
+      initialized: true,
+      syncing: false,
+      synced: true,
+      unavailable: false,
+      error: null,
+      version: 1,
+      dataVersion: 1
+    });
+    await vi.waitFor(() => expect(mocks.load.mock.calls.length).toBe(callsBeforeSettle + 1));
+    expect(mocks.load.mock.calls.at(-1)?.[0]).toMatchObject({
+      ownerKey: 'account:a',
+      coverage: 'complete'
+    });
+    await vi.waitFor(() => expect(view.snapshot).toBe(settled));
+    expect(view.settled).toBe(true);
 
     stop();
   });
