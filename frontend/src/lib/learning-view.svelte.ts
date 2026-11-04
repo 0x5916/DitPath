@@ -1,23 +1,58 @@
 import { loadLearningSnapshot, type LearningSnapshot } from './data/learning-snapshot';
-import { learningEvidenceCoverage, subscribeLearningSync } from './learning-sync.svelte';
+import {
+  learningEvidenceCoverage,
+  learningSyncState,
+  subscribeLearningSync
+} from './learning-sync.svelte';
 import { getTrainingOwner, subscribeTrainingSync } from './training-sync.svelte';
 /** Mounted pages share the same projection and owner fence. No browser work during prerender. */
 export function createLearningView() {
   let snapshot = $state.raw<LearningSnapshot | null>(null);
   let failed = $state(false);
+  let settled = $state(false);
   let active = false,
     generation = 0;
-  async function refresh() {
+  /**
+   * `settled` coverage may bridge a presentation-only refresh (for example a
+   * guided attempt changing known characters). A learning-evidence revision
+   * must use current coverage because partial evidence suppresses provisional
+   * claims and changes screening eligibility.
+   */
+  async function refresh(force = false, coverageIntent: 'settled' | 'current' = 'current') {
     const ownerKey = getTrainingOwner(),
       request = ++generation;
-    if (snapshot?.ownerKey !== ownerKey) snapshot = null;
+    if (snapshot?.ownerKey !== ownerKey) {
+      snapshot = null;
+      settled = false;
+    }
+    const previousCoverage = snapshot?.coverage;
     try {
       const result = await loadLearningSnapshot({
         ownerKey,
-        coverage: learningEvidenceCoverage(ownerKey)
+        coverage:
+          coverageIntent === 'settled' &&
+          force &&
+          settled &&
+          learningSyncState.syncing &&
+          previousCoverage
+            ? previousCoverage
+            : learningEvidenceCoverage(ownerKey)
       });
       if (active && request === generation && getTrainingOwner() === ownerKey) {
-        snapshot = result;
+        const initialPending =
+          ownerKey.startsWith('account:') &&
+          (learningSyncState.owner !== ownerKey || !learningSyncState.initialized);
+        const syncPending = ownerKey.startsWith('account:') && learningSyncState.syncing;
+        // A transient partial read must not replace a settled projection. A real
+        // input change forces the new projection so stale claims cannot linger;
+        // after initialization it stays actionable even while sync is pending.
+        if (!settled || force) {
+          snapshot = result;
+          settled = !initialPending;
+        } else if (!initialPending && !syncPending) {
+          snapshot = result;
+          settled = true;
+        }
         failed = false;
       }
     } catch {
@@ -31,12 +66,75 @@ export function createLearningView() {
     get failed() {
       return failed;
     },
+    /** The visible snapshot reflects settled initial coverage or a forced input refresh. */
+    get settled() {
+      return settled;
+    },
     refresh,
     start() {
       active = true;
-      const training = subscribeTrainingSync(() => void refresh());
-      const learning = subscribeLearningSync(() => void refresh());
-      const wake = () => void refresh();
+      let trainingRevision = '';
+      let learningRevision = '';
+      let learningCoverage = '';
+      let learningDataVersion = -1;
+      let dataChanged = false;
+      let scheduled = false;
+      let forceRefresh = false;
+      let coverageIntent: 'settled' | 'current' = 'settled';
+      const schedule = (force = false, intent: 'settled' | 'current' = 'settled') => {
+        forceRefresh ||= force;
+        // A real records revision must never be downgraded by a coalesced
+        // presentation-only wake-up.
+        if (intent === 'current') coverageIntent = 'current';
+        if (scheduled) return;
+        scheduled = true;
+        queueMicrotask(() => {
+          scheduled = false;
+          const force = forceRefresh;
+          const intent = coverageIntent;
+          forceRefresh = false;
+          coverageIntent = 'settled';
+          if (active) void refresh(force, intent);
+        });
+      };
+      const training = subscribeTrainingSync((state) => {
+        const next = `${state.owner}:${state.version}`;
+        if (next === trainingRevision) return;
+        trainingRevision = next;
+        // Guided attempts change known characters, not evidence coverage, so a
+        // settled coverage value may bridge this presentation-only refresh.
+        schedule(true, 'settled');
+      });
+      const learning = subscribeLearningSync((state) => {
+        const revision = `${state.owner}:${state.version}`;
+        const dataRevision = state.dataVersion;
+        const coverage = `${state.owner}:${state.initialized}:${state.synced}:${state.pending}:${state.error ?? ''}:${state.unavailable}:${state.syncing}`;
+        const recordsChanged = dataRevision !== learningDataVersion;
+        const statusChanged = revision !== learningRevision || coverage !== learningCoverage;
+        if (!recordsChanged && !statusChanged) return;
+        learningDataVersion = dataRevision;
+        if (revision !== learningRevision) dataChanged = true;
+        learningRevision = revision;
+        learningCoverage = coverage;
+        if (recordsChanged) {
+          // Corrections, rejections and new evidence invalidate claims now.
+          // Project against current coverage even while the pass is running.
+          schedule(true, 'current');
+          return;
+        }
+        // Wait for the sync pass to settle so the projection sees its final
+        // coverage instead of refreshing once as partial and again as complete.
+        if (!state.syncing) {
+          const force = dataChanged;
+          dataChanged = false;
+          schedule(force);
+        }
+      });
+      // A sync pass publishes partial coverage while it runs. Let its settle
+      // notification refresh the projection instead of replacing a resolved one.
+      const wake = () => {
+        if (!learningSyncState.syncing) schedule();
+      };
       window.addEventListener('focus', wake);
       return () => {
         active = false;

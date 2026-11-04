@@ -97,11 +97,13 @@ function scheduleRetry(error: unknown) {
 }
 
 /** Run one account's uploads and downloads under an origin-wide cooperative lock. */
-export async function syncTrainingNow(): Promise<void> {
+export async function syncTrainingNow(options: { rerun?: boolean } = {}): Promise<void> {
   if (!mounted || !getTrainingOwner().startsWith('account:') || !navigator.onLine) return;
   const session = getAuthSession();
   if (inFlight?.generation === session.generation) {
-    rerun = true;
+    // Focus and visibilitychange both fire when returning to a tab. A wake-up
+    // must not queue a second full pass; a real local change still does.
+    if (options.rerun !== false) rerun = true;
     return inFlight.promise;
   }
   const owner = getTrainingOwner();
@@ -253,9 +255,12 @@ export function initializeTrainingSync(): () => void {
         if (!pilot && event.data.local) void syncTrainingNow();
       };
     const wake = () => {
+      if (document.visibilityState !== 'hidden') void syncTrainingNow({ rerun: false });
+    };
+    const reconnect = () => {
       if (document.visibilityState !== 'hidden') void syncTrainingNow();
     };
-    window.addEventListener('online', wake);
+    window.addEventListener('online', reconnect);
     window.addEventListener('focus', wake);
     document.addEventListener('visibilitychange', wake);
     disposeRuntime = () => {
@@ -265,7 +270,7 @@ export function initializeTrainingSync(): () => void {
       unsubscribeUser();
       unsubscribeData();
       channel?.close();
-      window.removeEventListener('online', wake);
+      window.removeEventListener('online', reconnect);
       window.removeEventListener('focus', wake);
       document.removeEventListener('visibilitychange', wake);
     };

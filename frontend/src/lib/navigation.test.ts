@@ -10,6 +10,10 @@ describe('navigation destinations', () => {
     expect(navigationDestination(route)).toBe('/morse/learn');
     expect(navigationDestination(route, true)).toBe('/');
   });
+  it('shows Recall & Review directly on desktop and under mobile More', () => {
+    expect(navigationDestination('/morse/review')).toBe('/morse/review');
+    expect(navigationDestination('/morse/review', true)).toBe('/more');
+  });
   it.each(['/morse', '/more', '/settings', '/profile', '/login', '/register', '/about'])(
     'keeps secondary destination %s under More',
     (route) => {

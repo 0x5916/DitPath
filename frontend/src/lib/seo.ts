@@ -181,6 +181,32 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
       }
     }
   },
+  '/morse/review': {
+    localized: {
+      en: {
+        title: 'Recall & Review | OpenCW',
+        description:
+          'Check characters you already know, keep strong sounds fresh, and see which recall reviews are due.'
+      },
+      de: {
+        title: 'Abruf & Wiederholung | OpenCW',
+        description:
+          'Prüfe bekannte Zeichen, halte sichere Klänge frisch und sieh, welche Wiederholungen fällig sind.'
+      },
+      ja: {
+        title: '復習と確認 | OpenCW',
+        description: '知っている文字を確認し、定着した音を保ち、復習が必要な項目を確認します。'
+      },
+      'zh-Hans': {
+        title: '回忆与复习 | OpenCW',
+        description: '检查已学字符，巩固熟悉声音，并查看到期复习。'
+      },
+      'zh-Hant': {
+        title: '回憶與複習 | OpenCW',
+        description: '檢查已學字元，鞏固熟悉聲音，並查看到期複習。'
+      }
+    }
+  },
   '/morse/practice': {
     localized: {
       en: {

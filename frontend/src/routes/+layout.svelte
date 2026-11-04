@@ -40,6 +40,7 @@
 
   const PRIMARY_NAV = [
     { path: '/morse/learn', label: m.nav_learn },
+    { path: '/morse/review', label: m.nav_review },
     { path: '/morse/practice', label: m.nav_practice },
     { path: '/morse/progress', label: m.nav_progress },
     { path: '/forum', label: m.nav_forum }
@@ -164,11 +165,20 @@
     }
   }
 
-  afterNavigate(() => {
+  afterNavigate((navigation) => {
     void initializeBrowserLanguage().catch(() => {
       // A failed optional canonical navigation must not interrupt app startup.
     });
-    void syncTrainingNow();
+    void syncTrainingNow({ rerun: false });
+    // A link or history navigation removes the previous control. Move focus to
+    // the new page without stealing it from an intentional hash target or an
+    // element that already received focus during the transition.
+    if (
+      navigation.type !== 'enter' &&
+      !navigation.to?.url.hash &&
+      document.activeElement === document.body
+    )
+      document.getElementById('main-content')?.focus({ preventScroll: true });
   });
 
   $effect(() => {

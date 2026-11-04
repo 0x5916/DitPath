@@ -308,9 +308,11 @@ async function blockDependentRejections(
 export function createLearningEvidenceRepository(db: IDBDatabase, owner: string) {
   if (!owner.trim()) throw new Error('Evidence requires an owner');
   const rows = <T>(store: IDBObjectStore) => reqToPromise<T[]>(store.index('owner').getAll(owner));
-  const notify = (local = false) => notifyTrainingDataChange(owner, local, 'learning-evidence');
+  const notify = (local = false, records = false) =>
+    notifyTrainingDataChange(owner, local, 'learning-evidence', records);
   return {
     async append(records: readonly EvidenceRecord[]) {
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
         const meta = await reqToPromise<Meta | undefined>(s.meta.get([owner, 'order']));
         let order = Number(meta?.value ?? 0);
@@ -333,10 +335,12 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
           };
           await reqToPromise(s.records.add(row));
           if (owner.startsWith('account:')) await reqToPromise(s.outbox.add(row));
+          changed = true;
         }
         await reqToPromise(s.meta.put({ owner, key: 'order', value: order }));
       });
-      notify(true);
+      // Duplicate-only appends write no record and cannot change a projection.
+      if (changed) notify(true, true);
     },
     async checkpoints(): Promise<unknown[]> {
       return transaction(db, 'readonly', async (s) =>
@@ -424,7 +428,7 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         current();
         return imported;
       });
-      notify(true);
+      if (count) notify(true, true);
       return count;
     },
     async orphanCandidates() {
@@ -472,12 +476,20 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       });
     },
     async acknowledge(ids: readonly string[]) {
+      if (!ids.length) return;
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
-        for (const id of ids) await reqToPromise(s.outbox.delete([owner, id]));
+        for (const id of ids) {
+          const existing = await reqToPromise(s.outbox.get([owner, id]));
+          if (!existing) continue;
+          await reqToPromise(s.outbox.delete([owner, id]));
+          changed = true;
+        }
       });
-      notify();
+      if (changed) notify();
     },
     async reject(id: string, error: string, permanent: boolean) {
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
         const row = await reqToPromise<Pending | undefined>(s.outbox.get([owner, id]));
         // A permanent rejection is terminal. A later retryable or concurrent
@@ -485,13 +497,17 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         if (!row || row.permanent) return;
         await reqToPromise(s.outbox.put({ ...row, error, permanent }));
         if (permanent) await blockDependentRejections(s, owner);
+        changed = true;
       });
+      // Only a permanent rejection changes rejectedIds() and excludes claims.
+      if (changed) notify(false, permanent);
     },
     async applyPage(
       changes: readonly EvidenceChange[],
       cursor: string,
       expectedCursor?: string | null
     ) {
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
         const previous = await reqToPromise<Meta | undefined>(s.meta.get([owner, 'cursor']));
         if (expectedCursor !== undefined && (previous?.value ?? null) !== expectedCursor)
@@ -508,6 +524,7 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
           );
           if (existing && evidenceKey(existing.record) !== evidenceKey(change.record))
             throw new Error('Downloaded evidence conflict');
+          if (!existing) changed = true;
           await reqToPromise(
             s.records.put({
               owner,
@@ -520,7 +537,8 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         }
         await reqToPromise(s.meta.put({ owner, key: 'cursor', value: cursor }));
       });
-      notify();
+      // A checkpoint-only page is a successful no-op; keep mounted views stable.
+      if (changed) notify(false, true);
     },
     async getCursor(): Promise<string | null> {
       return transaction(

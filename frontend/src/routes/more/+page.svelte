@@ -13,7 +13,9 @@
     SlidersHorizontal,
     User,
     UserPlus,
-    Radio
+    Radio,
+    RotateCcw,
+    ShieldCheck
   } from '@lucide/svelte';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { logout, user } from '#lib/auth.ts';
@@ -27,6 +29,7 @@
       label: m.more_app_section,
       links: [
         { path: '/morse/learn', label: m.nav_learn, icon: Radio },
+        { path: '/morse/review', label: m.nav_review, icon: RotateCcw },
         { path: '/morse', label: m.morse_title, icon: BookOpen }
       ]
     },
@@ -53,6 +56,12 @@
           hash: '#sync-storage',
           label: m.settings_sync_storage_title,
           icon: Cloud
+        },
+        {
+          path: '/settings',
+          hash: '#learning-evidence',
+          label: m.learning_overview_heading,
+          icon: ShieldCheck
         }
       ]
     }

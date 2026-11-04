@@ -221,6 +221,42 @@ describe('Owner-scoped training persistence', () => {
     ).rejects.toThrow('cursor changed');
     expect(await sync.getCursor()).toBe('checkpoint');
   });
+  it('does not announce cursor-only or unchanged download pages', async () => {
+    const sync = createTrainingSyncRepository(db, account);
+    const changes: { ownerKey: string; local: boolean }[] = [];
+    const unsubscribe = subscribeTrainingDataChanges((event) => changes.push(event));
+    try {
+      await sync.applyDownloadPage({
+        attempts: [],
+        sessions: [],
+        expectedCursor: null,
+        nextCursor: 'empty'
+      });
+      expect(changes).toEqual([]);
+      expect(await sync.getCursor()).toBe('empty');
+
+      await sync.applyDownloadPage({
+        attempts: [attempt],
+        sessions: [],
+        expectedCursor: 'empty',
+        nextCursor: 'data'
+      });
+      expect(changes).toEqual([{ ownerKey: account, local: false }]);
+
+      changes.length = 0;
+      await sync.applyDownloadPage({
+        attempts: [attempt],
+        sessions: [],
+        expectedCursor: 'data',
+        nextCursor: 'unchanged'
+      });
+      expect(changes).toEqual([]);
+      expect(await sync.getCursor()).toBe('unchanged');
+      expect(await createAttemptRepository(db, account).countAttempts()).toBe(1);
+    } finally {
+      unsubscribe();
+    }
+  });
   it('rolls back partial downloads and the cursor on interruption, then replays safely', async () => {
     const sync = createTrainingSyncRepository(db, account);
     await expect(
