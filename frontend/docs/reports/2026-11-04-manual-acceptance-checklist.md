@@ -2,22 +2,28 @@
 
 Use this only for rows that cannot be completed with the local disposable backend and automated browser. Do not record a row as passed without the stated observation.
 
-## A. Penpot review and sign-off
+## A. Penpot design reconciliation and sign-off
 
-Required user action: authenticate the Penpot workspace and connect the Penpot MCP plugin to the review candidate.
+Design reconciliation is complete through the Penpot MCP plugin. The pre-edit version is `OpenCW · 2026-11-04 · pre recall design reconciliation`; the post-edit version is `OpenCW · 2026-11-04 · recall workflow reconciliation complete`.
 
-1. Open file `41725af0-a889-809a-8008-d8302a5aefb6`, page `Learning`.
-2. Compare the implemented Home against the current board:
-   - Guided Lessons is the only accented primary action.
-   - Recall & Review is a distinct bordered secondary action.
-   - Practice and Morse table remain secondary.
-3. Compare Lessons: guided hero, current/locked/revisit rows, `Recall & Review` link, and visible unlock requirements.
-4. Review the new `/morse/review` hierarchy: recommendation, due review, attainment, screening. Confirm the desktop navigation label `Recall` versus `Recall & Review`.
-5. Confirm where partial coverage and permanent rejection status belong on Recall versus Settings.
-6. Confirm mobile discovery: current More entry is sufficient, or Recall needs a bottom-tab slot.
-7. Save a named version such as `OpenCW · 2026-11-04 · recall workflow acceptance`; report the version name and any requested changes.
+Completed review:
 
-Acceptance: an authorized reviewer approves the five decisions above or records concrete changes. Code alone does not establish design alignment.
+1. Opened file `41725af0-a889-809a-8008-d8302a5aefb6`, page `Learning`.
+2. Added the `Recall & Review` section with boards 20–25: returning Home, desktop Recall, mobile Recall, mobile More, the navigation-label decision, and the decision specification.
+3. Updated Design system desktop navigation boards 10 and 11 to include `Recall` between Lessons and Practice, and added the `Recall & Review` link to the Lessons first-visit board 01.
+4. Confirmed Home hierarchy: Guided Lessons is the only accented primary action; Recall & Review is a bordered secondary action; Practice and Morse table remain secondary.
+5. Confirmed desktop navigation: visible label `Recall`, page title and accessible name `Recall & Review`. Approved by Alan on 4 November 2026.
+6. Confirmed Recall hierarchy: profile/coverage, recommendation, due review, attainment, screening.
+7. Confirmed status placement: coverage uncertainty stays on Recall; permanent-rejection diagnostics and repair stay in Settings → Learning evidence, with affected History rows labelled.
+8. Confirmed mobile discovery: keep Home / Practice / Progress / More; Recall & Review remains a full-label More entry and More stays active on `/morse/review`.
+9. Ran `penpot.currentFile.validate()`: 0 errors. New board bounds do not overlap.
+
+Remaining user action:
+
+1. Review the post-edit Penpot version against the implemented Home, Recall, mobile More and navigation surfaces.
+2. Reply with design sign-off, or concrete changes. Design reconciliation alone is not final sign-off.
+
+Acceptance: an authorized reviewer signs off the post-edit version or records concrete changes. The label decision is already recorded; the rest of the version still needs final review.
 
 ## B. Spoken screen-reader journey
 

@@ -96,7 +96,7 @@ Screenshots: `.playwright-mcp/opencw-continuation/screens/` (`home-960.png`, `le
 
 ### Not completed / blocked
 
-- Penpot MCP was not connected (`penpot` unavailable), so no board was inspected, versioned, or edited. The Recall & Review design remains a pending design-review dependency; no Penpot alignment is claimed.
+- Penpot MCP was not connected (`penpot` unavailable) during the implementation pass, so no board was inspected, versioned, or edited at that point. **Later on 4 November** the MCP was connected, boards 20–25 were added, desktop navigation boards 10/11 were updated, and both pre-edit and post-edit versions were saved; see [the acceptance report](2026-11-04-opencw-acceptance.md#design-reconciliation) and [design handoff](../design-handoff.md#recall-design-reconciliation-4-november-2026). Final design sign-off remains separate.
 - Real authenticated synchronization against a disposable backend/account, two isolated profiles, concurrent-tab success paths, and Go PostgreSQL/race suites were not run. The acceptance API is an always-503 mock and is not synchronization acceptance.
 - Physical-device audio, IME, spoken screen-reader, native 200% zoom, and safe-area/keyboard checks were not run.
 - Chrome macOS desktop switching, Safari return-to-original-space visibility, active desktop/app-focus changes during playback, guided introduction playback, and screen recording remain open from the prior lifecycle report.

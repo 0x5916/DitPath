@@ -49,6 +49,7 @@ Audio/timing/controller files from the other workstream are excluded from every 
 - Same-owner token renewal: access token rotated with unchanged username/JWT subject; pending practice stayed pending through renewal, then uploaded once; loaded history and the saved check checkpoint survived.
 - Guided introduction playback in visible Chrome: K and M each started audio, changed to Continue after completion, and advanced to the warm-up prompt.
 - Real milestone correction: four valid mixed checks produced four server milestones; a late exposure guard deferred correction until closure, then emitted one `unverified / late-evidence-invalidated` correction. Browser showed K proficiency recorded, K retention not established, `Earlier claim needs verification`, while M retention remained.
+- Penpot design reconciliation: MCP connected; pre-edit version `OpenCW · 2026-11-04 · pre recall design reconciliation`; Learning boards 20–25 added; desktop navigation boards 10/11 updated; post-edit version `OpenCW · 2026-11-04 · recall workflow reconciliation complete`; `penpot.currentFile.validate()` returned 0 errors. Alan selected the visible desktop label `Recall`; page title/accessible name remain `Recall & Review`. No code or policy change was needed.
 - Built preview (`4175`) browser checks: route tour, Back/Forward focus, 320/390/768/960/1199/1440 widths, five locales, dark theme, offline recall shell, Lighthouse accessibility 100.
 - Synthetic acceptance (`4174`) checks: guided-only Home/Recall, new-learner empty state, partial coverage recovery, evidence-vs-training status wording, Settings/More evidence discovery, and Practice save failure → retry → saved.
 - Integration candidate: `npm run verify` 72 files/903 tests, `npm run lint`, and `npm run build` all exit 0 after a formatting-only report fix.
@@ -57,7 +58,7 @@ Audio/timing/controller files from the other workstream are excluded from every 
 
 ## Remaining blockers and deferred work
 
-- Penpot requires login and the MCP plugin was unavailable after one transient page read. No board was inspected, versioned, or edited; the Recall & Review visual design remains an explicit pending design-review dependency.
+- Design reconciliation is complete, but final design sign-off remains a separate user action after reviewing the post-edit Penpot version. The visible desktop label is approved as `Recall`.
 - Physical-device audio, IME, spoken screen-reader, native 200% zoom, safe areas, and software-keyboard checks remain unverified.
 - Chrome macOS desktop switching, Safari return-to-original-space visibility, active desktop/app-focus changes during playback, and screen recording remain open from the prior lifecycle packet.
 - Large-history projection optimization was measured (~160 ms for 4,800 synthetic records) and deferred because a trial optimization showed no meaningful gain.
@@ -65,4 +66,4 @@ Audio/timing/controller files from the other workstream are excluded from every 
 
 ## Next task
 
-Authenticate Penpot and review/version the Recall & Review boards, then complete the remaining physical-device, assistive-technology and lifecycle rows. Do not claim the release candidate fully verified until those rows have evidence.
+Review the post-edit Penpot version and record final design sign-off, then complete the remaining physical-device, assistive-technology and lifecycle rows. Do not claim the release candidate fully verified until those rows have evidence.
