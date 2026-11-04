@@ -43,7 +43,8 @@ Audio/timing/controller files from the other workstream are excluded from every 
 - `npm run messages:validate`: exit 0; 740 keys, 5 locales.
 - `go test ./...`: exit 0; `go vet ./...`: exit 0.
 - Built preview (`4175`) browser checks: route tour, Back/Forward focus, 320/390/768/960/1199/1440 widths, five locales, dark theme, offline recall shell, Lighthouse accessibility 100.
-- Synthetic acceptance (`4174`) checks: guided-only Home/Recall, new-learner empty state, partial coverage recovery, evidence-vs-training status wording, Settings/More evidence discovery.
+- Synthetic acceptance (`4174`) checks: guided-only Home/Recall, new-learner empty state, partial coverage recovery, evidence-vs-training status wording, Settings/More evidence discovery, and Practice save failure → retry → saved.
+- Intermediate commits: `npm run check` exit 0 at every code commit; focused suites passed at `b007cf7` and `e743e1b`.
 - Full details: `frontend/docs/reports/2026-11-04-opencw-continuation.md`.
 
 ## Remaining blockers and deferred work

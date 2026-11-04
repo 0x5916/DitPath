@@ -70,6 +70,8 @@ Run from `frontend/` with Node 26 unless noted.
 
 Focused suites used during iteration: learning-view, learning-sync runtime, learning-evidence repository/sync, training-sync repository, home-course-action, recall-action, Home state/cache, navigation, and SEO.
 
+Intermediate commit checks: `npm run check` exited 0 at `b007cf7`, `e743e1b`, `474feee`, `e714051`, and `6781aee`. Focused suites at `b007cf7` passed 5 files / 57 tests; at `e743e1b` passed 3 files / 26 tests.
+
 ### Browser evidence
 
 Built preview: `http://127.0.0.1:4175` on the identity above. Synthetic fixtures: `http://127.0.0.1:4174` through `npm run acceptance` (mock API returns 503). Browser: headless Chromium 157.0.0.0 on macOS.
@@ -86,6 +88,7 @@ Passed:
 - Widths 320, 390, 768, 960, 1199, and 1440 CSS px: no horizontal overflow; navigation switches at 959/960.
 - Dark theme at 390 px on Recall & Review and Settings.
 - Offline reload of the built `/en/morse/review` shell through the service worker.
+- Practice save failure and recovery in the synthetic acceptance fixture: completing a passage showed `Your practice result has not been saved`, and overlay `Retry saving` changed the state to `Practice result saved on this device`.
 - Lighthouse accessibility: 100 on the built recall surface; best practices 100; SEO 80 (a non-descriptive link warning; the route is noindex).
 
 Screenshots: `.playwright-mcp/opencw-continuation/screens/` (`home-960.png`, `lessons-960.png`, `review-390-dark.png`, `settings-390-dark.png`, `review-320.png`).
