@@ -57,7 +57,7 @@ Audio/timing/controller files from the other workstream are excluded from every 
 - Intermediate commits: `npm run check` exit 0 at every code commit; focused suites passed at `b007cf7` and `e743e1b`.
 - 2026-11-05 final candidate `0963f7a`: `npm run verify` exit 0 with 73 files/904 tests; `npm run lint` exit 0; `npm run build` exit 0; `PUBLIC_API_BASE=/v1 npm run build` exit 0; Svelte autofixer 0 issues/0 suggestions.
 - 2026-11-05 backend rerun: `go test -count=1 ./...` exit 0; `go vet ./...` exit 0. Disposable PostgreSQL/race suites reused from 2026-11-04 because `git diff 6781aee..HEAD -- backend` is empty; PR CI re-runs both.
-- PR #4 CI on code candidate `0963f7a`: Frontend, Backend, PostgreSQL and Targeted race jobs all passed (run `41896405567`).
+- PR #4 CI on code candidate `0963f7a`: Frontend, Backend, PostgreSQL and Targeted race jobs all passed (run `41896405567`); documentation head `73d6457` passed again (run `41897154029`).
 - 2026-11-05 lifecycle: real Chrome/Safari tab, Cmd+Tab and Space switching; hidden/paused, no auto-resume, explicit Resume, confirmed desktop return; Chrome 200% page zoom; More full-label fix verified in five locales.
 - 2026-11-05 trailing slash: `/en/` 404 in both local preview and production nginx; consistent with `trailingSlash: 'never'`, documented as a deployment-configuration decision rather than changed.
 - Full details: `frontend/docs/reports/2026-11-04-opencw-continuation.md` and `frontend/docs/reports/2026-11-04-opencw-acceptance.md`.

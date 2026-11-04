@@ -108,7 +108,7 @@ The behavior is identical in preview and production configuration, so it is **no
 
 Reused evidence: disposable PostgreSQL `--verbose` (14 packages, 1,292 pass lines, 0 skips/failures) and `--race --verbose` (8 packages, 961 pass lines, no races) from 2026-11-04. `git diff 6781aee..HEAD -- backend` is empty, so the backend tree and configuration identity are unchanged. PR CI re-runs both suites for the exact candidate.
 
-PR #4 CI on code candidate `0963f7a` passed all four jobs: Frontend checks, Backend tests/vet, PostgreSQL integration and Targeted race tests (run `41896405567`).
+PR #4 CI on code candidate `0963f7a` passed all four jobs: Frontend checks, Backend tests/vet, PostgreSQL integration and Targeted race tests (run `41896405567`). It passed again on documentation head `73d6457` (run `41897154029`).
 
 ## Remaining approvals and blockers
 

@@ -57,22 +57,17 @@ Unresolved facts to verify read-only before execution:
 
 ## 3. Backup
 
-After authorization and immediately before the update, from the repository root:
+After authorization and immediately before the update, from the repository root. Use the host's documented backup path instead of `/mnt/backups` if different:
 
 ```sh
-make backup
-scripts/backup.sh --dir /mnt/backups --keep 14
+BACKUP_PATH="$(scripts/backup.sh --dir /mnt/backups --keep 14 --print-path)"
+printf '%s\n' "$BACKUP_PATH"
+gzip -t "$BACKUP_PATH"
+ls -lh "$BACKUP_PATH"
+ls -lh "$(dirname "$BACKUP_PATH")/globals" 2>/dev/null || true
 ```
 
-Use the host's documented backup path instead of `/mnt/backups` if different. `backup.sh` writes a verified gzip plain-SQL dump and companion globals dump, rotates retained dumps and never prompts.
-
-Check completion and recoverability:
-
-```sh
-scripts/backup.sh --print-path
-gzip -t <reported-dump-path>
-ls -lh <reported-dump-path> backups/globals/
-```
+`--print-path` prints only the new dump path on stdout and logs on stderr, so this runs one backup and captures its path. `backup.sh` writes a verified gzip plain-SQL dump and companion globals dump, rotates retained dumps and never prompts. `make backup` is the Make wrapper when the default backup directory is acceptable.
 
 Record the exact dump path, size, timestamp and gzip exit code in the release record. The update script also takes its own pre-update backup and aborts if it fails; do not use `--no-backup`. Do not restore or rehearse against production. Rehearsal must use a separate scratch database/isolated stack.
 
