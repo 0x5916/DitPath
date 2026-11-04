@@ -3,6 +3,7 @@ export function navigationDestination(route: string | null, mobile = false): str
   if (route === '/') return '/';
   if (route === '/morse/learn' || route?.startsWith('/morse/learn/'))
     return mobile ? '/' : '/morse/learn';
+  if (route === '/morse/review') return mobile ? '/more' : '/morse/review';
   if (route === '/morse/practice' || route === '/morse/progress') return route;
   if (route === '/forum' || route?.startsWith('/forum/')) return mobile ? '/more' : '/forum';
   if (

@@ -14,7 +14,7 @@ function localizedPaths(paths: readonly string[]): string[] {
   return locales.flatMap((locale) => paths.map((path) => localizedRoutePath(path, locale)));
 }
 
-const CORE_ROUTES = ['/', '/morse/learn', '/morse/practice', '/morse/progress'];
+const CORE_ROUTES = ['/', '/morse/learn', '/morse/review', '/morse/practice', '/morse/progress'];
 const BUILD_ASSETS = [
   // Generated files are relative to the worker's application scope.
   ...immutable.map(({ path }) => new URL(path, self.registration.scope).pathname),

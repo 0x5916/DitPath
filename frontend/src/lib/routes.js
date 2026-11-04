@@ -13,6 +13,7 @@ export const ROUTE_PATHS = [
   '/morse',
   '/morse/learn',
   '/morse/learn/session',
+  '/morse/review',
   '/morse/practice',
   '/morse/progress',
   '/login',
@@ -45,6 +46,7 @@ export const NOINDEX_ROUTE_PATHS = [
   '/settings',
   '/more',
   '/morse/learn/session',
+  '/morse/review',
   '/morse/practice',
   '/morse/progress'
 ];

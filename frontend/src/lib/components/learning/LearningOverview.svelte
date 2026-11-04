@@ -2,8 +2,7 @@
   import { armCheckStart } from '#lib/check-start-intent.ts';
   import { LEARNING_POLICY } from '#lib/training/learning-policy/policy.ts';
   import type { LearningSnapshot } from '../../data/learning-snapshot';
-  import { learningRecommendationHref } from '../../data/learning-snapshot';
-  import { recommendationTitle } from './recommendation-copy';
+  import { recallAction } from './recall-action';
   import { localizedHref, lang } from '#lib/i18n.svelte.ts';
   import type { Attainment } from '../../training/learning-policy/types';
   import * as m from '#lib/paraglide/messages.js';
@@ -44,10 +43,8 @@
     if (filterControl && filterControl.getBoundingClientRect().top < 0)
       filterControl.scrollIntoView({ block: 'start' });
   }
-  const primary = $derived(snapshot.recommendation.primary);
-  const nextHref = $derived(
-    localizedHref(learningRecommendationHref(primary, snapshot.knownCharacters))
-  );
+  const action = $derived(recallAction(snapshot.recommendation.primary, snapshot.knownCharacters));
+  const nextHref = $derived(localizedHref(action.href));
   const checkTargets = $derived(
     new URL(nextHref, 'https://local.invalid').searchParams.get('check')
   );
@@ -111,13 +108,13 @@
           </p>
         </header>{/if}
       {#if onAction}<button type="button" class="btn-primary" onclick={onAction}
-          >{recommendationTitle(primary)}</button
+          >{action.title}</button
         >
       {:else}
         <a class="btn-primary" href={nextHref} onclick={prepareCheck}
           >{checkTargets
             ? m.mixed_targets({ characters: checkTargets.split('').join(', ') })
-            : recommendationTitle(primary)}</a
+            : action.title}</a
         >
       {/if}
     </div>

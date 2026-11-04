@@ -40,6 +40,7 @@
 
   const PRIMARY_NAV = [
     { path: '/morse/learn', label: m.nav_learn },
+    { path: '/morse/review', label: m.nav_review },
     { path: '/morse/practice', label: m.nav_practice },
     { path: '/morse/progress', label: m.nav_progress },
     { path: '/forum', label: m.nav_forum }

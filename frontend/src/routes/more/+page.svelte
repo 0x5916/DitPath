@@ -13,7 +13,8 @@
     SlidersHorizontal,
     User,
     UserPlus,
-    Radio
+    Radio,
+    RotateCcw
   } from '@lucide/svelte';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { logout, user } from '#lib/auth.ts';
@@ -27,6 +28,7 @@
       label: m.more_app_section,
       links: [
         { path: '/morse/learn', label: m.nav_learn, icon: Radio },
+        { path: '/morse/review', label: m.nav_review, icon: RotateCcw },
         { path: '/morse', label: m.morse_title, icon: BookOpen }
       ]
     },
