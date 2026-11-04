@@ -79,6 +79,12 @@ Inspect these existing files first; preserve their surrounding behavior:
 
 Acceptance: recommendation and character entry each play once without an extra click; direct-entry success and blocked-audio fallback both work; pause/hidden-tab/resume, replay, skip, save/reload, exit cancellation and save failure preserve data and assessment validity. Invalid targets and another-tab ownership remain safe. Completing a check still records the same evidence and reaches the existing results. Verified locally: **773 tests in 63 files**, required frontend gates exit 0, **16 browser scenarios** including **50 locale/theme/viewport cases**, plus a Firefox visibility/exit smoke pass and native iPhone 17e / iOS 27.0 Simulator coverage. The simulator fixed portrait keyboard/header behavior; expanded-chrome landscape keyboard and existing Progress notch findings remain documented. See the [implementation report](reports/2026-10-29-check-instant-entry.md) for evidence and physical-device, screen-reader, native-zoom and live-sync limits.
 
+## Learner workflow separation (4 November 2026)
+
+Guided Lessons and Recall & Review are now separate learner surfaces. Guided Lessons keeps the course path, historical unlocks, unfinished-session restart and persistent completion. Recall & Review owns prospective checks, due reviews, proficiency/retention evidence, screening and coaching. Home presents both purposes; Recall & Review opens Guided Lessons instead of a specific step when a recommendation would otherwise imply a course unlock.
+
+The surface reuses the existing Home cards, course typography, warm neutral surfaces, Forest accents and Lucide icons. It adds a dedicated `/morse/review` route, desktop Recall navigation, a mobile More entry, and an offline precache shell. The Penpot plugin was not connected during implementation, so no design board was edited or claimed as aligned; a design review/version of the recall surface remains pending. The route/state contract is recorded in [learning.md](learning.md).
+
 ## Preserve the approved screen behavior
 
 - **Home:** generous whitespace, clear learning action, secondary Practice/sign-in actions, original radio illustration, optional listening demo. Preserve mobile stacking and short-screen scrolling. Do not copy Duolingo artwork or branding.

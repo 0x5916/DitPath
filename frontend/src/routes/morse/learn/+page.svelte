@@ -20,9 +20,6 @@
     }
   }
 
-  import { createLearningView } from '#lib/learning-view.svelte.ts';
-  import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
-  const learning = createLearningView();
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { CircleAlert } from '@lucide/svelte';
@@ -176,7 +173,6 @@
   }
 
   onMount(() => {
-    const stopLearning = learning.start();
     mounted = true;
     let revision = '';
     const unsubscribe = subscribeTrainingSync((state) => {
@@ -187,7 +183,6 @@
     });
     return () => {
       unsubscribe();
-      stopLearning();
       mounted = false;
       loadVersion++;
       sessionRepo = null;
@@ -248,21 +243,19 @@
     onDiscard={(entry) => void discardSaved(entry)}
     busy={sessionActionPending}
   />
-  {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2 && !inProgressSession && activeStep === currentStep}
-    <LearningOverview snapshot={learning.snapshot} />
-  {:else}<LearnHero
-      embedded
-      kind={heroKind}
-      step={activeStep}
-      introducedChar={activeIntroduced}
-      {reviewChars}
-      resumableSessionId={inProgressSession?.id}
-      errorMessage={errorMsg}
-      {sessionActionPending}
-      onStart={handleStartLesson}
-      onResume={handleResumeSession}
-      onDiscardResume={handleDiscardResume}
-    />{/if}
+  <LearnHero
+    embedded
+    kind={heroKind}
+    step={activeStep}
+    introducedChar={activeIntroduced}
+    {reviewChars}
+    resumableSessionId={inProgressSession?.id}
+    errorMessage={errorMsg}
+    {sessionActionPending}
+    onStart={handleStartLesson}
+    onResume={handleResumeSession}
+    onDiscardResume={handleDiscardResume}
+  />
   {#if errorMsg}
     <button type="button" class="btn-primary" onclick={loadLessons}>{m.progress_retry()}</button>
   {/if}
@@ -270,7 +263,7 @@
 {/snippet}
 
 {#snippet lessonRequirements()}
-  {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0 && !learning.snapshot?.knownCharacters.length}
+  {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0}
     <details
       class={['unlock-checks', (heroKind === 'new' || heroKind === 'next') && 'with-start-row']}
     >
@@ -351,6 +344,7 @@
           {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
         </span>
       {/if}
+      <a class="link recall-link" href={localizedHref('/morse/review')}>{m.review_page_title()}</a>
     </header>
 
     <TrainingSyncStatus
@@ -394,9 +388,6 @@
   }
   .learn-home-container :global(.saved-sessions article) {
     margin-top: var(--space-6);
-  }
-  .learn-home-container :global(.learning-overview h2) {
-    font-size: 2rem;
   }
   .learn-home-container :global(.body-text) {
     margin-top: var(--space-10);
@@ -526,6 +517,11 @@
   .path-meta {
     font-size: var(--text-sm);
     color: var(--text-secondary);
+  }
+  .recall-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
   }
   @media (min-width: 960px) {
     .page-title {

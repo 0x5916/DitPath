@@ -8,7 +8,6 @@ import type { HomeDashboard } from './home-dashboard';
 export interface RetainedHomeView {
   owner: string;
   dashboard: HomeDashboard;
-  recentReview: boolean;
   capturedAt: number;
 }
 

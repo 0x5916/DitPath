@@ -159,6 +159,7 @@
   <div class="progress-container">
     <header class="progress-header">
       <h1 class="page-title">{m.nav_progress()}</h1>
+      <a class="link recall-link" href={localizedHref('/morse/review')}>{m.review_page_title()}</a>
     </header>
     <nav class="progress-tabs" aria-label={m.nav_progress()}>
       {#each ['overview', 'characters', 'history'] as tab (tab)}
@@ -542,6 +543,11 @@
   .progress-header h1 {
     font-size: 2rem;
     margin: 0;
+  }
+  .recall-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
   }
   .progress-empty {
     padding: var(--space-6);
