@@ -1,11 +1,12 @@
 # OpenCW continuation checkpoint — 2026-11-04
 
-Local implementation and verification are complete for the authorized continuation packets. Nothing was pushed, merged, deployed, or run against production. Learning-policy semantics and backend contracts are unchanged.
+Implementation is complete for the authorized continuation packets; acceptance is partially complete. Nothing was pushed, merged, deployed, or run against production. Learning-policy semantics and backend contracts are unchanged.
 
 ## Git identity
 
 - Working branch: `codex/opencw-continuation`
 - Base: `0e81a7685723fb9dd9fa67451ed894cbfd8810b5` (`integration/opencw-learning-reliability`)
+- Integration branch: `codex/opencw-integration`, based on `origin/main` `4d286506fcf3184fb6c0ead4c82a8380d8879430`, merged cleanly with the candidate
 - Final code commit before docs: `6781aee25cb0bdce350fb97657205f11f4c55ed8`
 - Final documentation commits follow `6781aee`; see `git log -1` for the current HEAD
 - Original dirty checkout: `/Users/alan/Desktop/Morse` (preserved; audio/timing/controller edits untouched)
@@ -15,14 +16,14 @@ Local implementation and verification are complete for the authorized continuati
 
 ## Commit series
 
-| Commit    | Scope                                                                  |
-| --------- | ---------------------------------------------------------------------- |
-| `b007cf7` | Carried-forward learning reliability and pending-coverage fixes        |
-| `e743e1b` | Evidence record revisions project with current coverage                |
-| `474feee` | Distinct Recall & Review surface and route                             |
-| `e714051` | Purpose-specific Home, Lessons, Progress, and owning docs              |
-| `6781aee` | Evidence sync scope, recovery wording, live-region and focus fixes     |
-| docs      | Dated report, checkpoint and handoff update                            |
+| Commit    | Scope                                                              |
+| --------- | ------------------------------------------------------------------ |
+| `b007cf7` | Carried-forward learning reliability and pending-coverage fixes    |
+| `e743e1b` | Evidence record revisions project with current coverage            |
+| `474feee` | Distinct Recall & Review surface and route                         |
+| `e714051` | Purpose-specific Home, Lessons, Progress, and owning docs          |
+| `6781aee` | Evidence sync scope, recovery wording, live-region and focus fixes |
+| docs      | Dated report, checkpoint and handoff update                        |
 
 Audio/timing/controller files from the other workstream are excluded from every commit. The original branch remains at `0e81a76` with its dirty tree intact.
 
@@ -43,15 +44,18 @@ Audio/timing/controller files from the other workstream are excluded from every 
 - `npm run build`: exit 0.
 - `npm run messages:validate`: exit 0; 740 keys, 5 locales.
 - `go test ./...`: exit 0; `go vet ./...`: exit 0.
+- Disposable PostgreSQL suites: `backend/scripts/test-postgres.sh --verbose` exit 0, 14 packages ok, 1,292 pass lines, 0 skips/failures; `--race --verbose` exit 0, 8 packages ok, 961 pass lines, 0 skips/failures, no data races.
+- Real authenticated browser acceptance against a disposable backend: successful login, training upload/download, two-profile sync, account isolation, concurrent practice updates, offline save/reconnect, learning-evidence upload, permanent rejection visibility, Home recall CTA audio activation, saved-session reload, visible Chrome active-check pause/resume, and Safari navigation focus.
 - Built preview (`4175`) browser checks: route tour, Back/Forward focus, 320/390/768/960/1199/1440 widths, five locales, dark theme, offline recall shell, Lighthouse accessibility 100.
 - Synthetic acceptance (`4174`) checks: guided-only Home/Recall, new-learner empty state, partial coverage recovery, evidence-vs-training status wording, Settings/More evidence discovery, and Practice save failure → retry → saved.
+- Integration candidate: `npm run verify` 72 files/903 tests, `npm run lint`, and `npm run build` all exit 0 after a formatting-only report fix.
 - Intermediate commits: `npm run check` exit 0 at every code commit; focused suites passed at `b007cf7` and `e743e1b`.
-- Full details: `frontend/docs/reports/2026-11-04-opencw-continuation.md`.
+- Full details: `frontend/docs/reports/2026-11-04-opencw-continuation.md` and `frontend/docs/reports/2026-11-04-opencw-acceptance.md`.
 
 ## Remaining blockers and deferred work
 
-- Penpot MCP was not connected. No board was inspected, versioned, or edited; the Recall & Review visual design is an explicit pending design-review dependency.
-- Real authenticated backend sync, two-profile success paths, concurrent successful sync, and disposable PostgreSQL/race suites were not run. The acceptance API is an always-503 mock.
+- Penpot requires login and the MCP plugin was unavailable after one transient page read. No board was inspected, versioned, or edited; the Recall & Review visual design remains an explicit pending design-review dependency.
+- A valid captured-audio milestone and real milestone correction were not produced because headless audio first presentations were interrupted. Correction/revalidation is covered by unit and policy tests, not by this browser run.
 - Physical-device audio, IME, spoken screen-reader, native 200% zoom, safe areas, and software-keyboard checks remain unverified.
 - Chrome macOS desktop switching, Safari return-to-original-space visibility, active desktop/app-focus changes during playback, guided introduction playback, and screen recording remain open from the prior lifecycle packet.
 - Large-history projection optimization was measured (~160 ms for 4,800 synthetic records) and deferred because a trial optimization showed no meaningful gain.
@@ -59,4 +63,4 @@ Audio/timing/controller files from the other workstream are excluded from every 
 
 ## Next task
 
-Connect Penpot and review/version the Recall & Review boards, then run the remaining real-backend and physical-device acceptance. Do not claim the release candidate fully verified until those rows have evidence.
+Authenticate Penpot and review/version the Recall & Review boards, then complete the remaining physical-device, assistive-technology and lifecycle rows. Do not claim the release candidate fully verified until those rows have evidence.
