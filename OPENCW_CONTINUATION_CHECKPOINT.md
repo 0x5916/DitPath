@@ -46,6 +46,9 @@ Audio/timing/controller files from the other workstream are excluded from every 
 - `go test ./...`: exit 0; `go vet ./...`: exit 0.
 - Disposable PostgreSQL suites: `backend/scripts/test-postgres.sh --verbose` exit 0, 14 packages ok, 1,292 pass lines, 0 skips/failures; `--race --verbose` exit 0, 8 packages ok, 961 pass lines, 0 skips/failures, no data races.
 - Real authenticated browser acceptance against a disposable backend: successful login, training upload/download, two-profile sync, account isolation, concurrent practice updates, offline save/reconnect, learning-evidence upload, permanent rejection visibility, Home recall CTA audio activation, saved-session reload, visible Chrome active-check pause/resume, and Safari navigation focus.
+- Same-owner token renewal: access token rotated with unchanged username/JWT subject; pending practice stayed pending through renewal, then uploaded once; loaded history and the saved check checkpoint survived.
+- Guided introduction playback in visible Chrome: K and M each started audio, changed to Continue after completion, and advanced to the warm-up prompt.
+- Real milestone correction: four valid mixed checks produced four server milestones; a late exposure guard deferred correction until closure, then emitted one `unverified / late-evidence-invalidated` correction. Browser showed K proficiency recorded, K retention not established, `Earlier claim needs verification`, while M retention remained.
 - Built preview (`4175`) browser checks: route tour, Back/Forward focus, 320/390/768/960/1199/1440 widths, five locales, dark theme, offline recall shell, Lighthouse accessibility 100.
 - Synthetic acceptance (`4174`) checks: guided-only Home/Recall, new-learner empty state, partial coverage recovery, evidence-vs-training status wording, Settings/More evidence discovery, and Practice save failure → retry → saved.
 - Integration candidate: `npm run verify` 72 files/903 tests, `npm run lint`, and `npm run build` all exit 0 after a formatting-only report fix.
@@ -55,11 +58,10 @@ Audio/timing/controller files from the other workstream are excluded from every 
 ## Remaining blockers and deferred work
 
 - Penpot requires login and the MCP plugin was unavailable after one transient page read. No board was inspected, versioned, or edited; the Recall & Review visual design remains an explicit pending design-review dependency.
-- A valid captured-audio milestone and real milestone correction were not produced because headless audio first presentations were interrupted. Correction/revalidation is covered by unit and policy tests, not by this browser run.
 - Physical-device audio, IME, spoken screen-reader, native 200% zoom, safe areas, and software-keyboard checks remain unverified.
-- Chrome macOS desktop switching, Safari return-to-original-space visibility, active desktop/app-focus changes during playback, guided introduction playback, and screen recording remain open from the prior lifecycle packet.
+- Chrome macOS desktop switching, Safari return-to-original-space visibility, active desktop/app-focus changes during playback, and screen recording remain open from the prior lifecycle packet.
 - Large-history projection optimization was measured (~160 ms for 4,800 synthetic records) and deferred because a trial optimization showed no meaningful gain.
-- Same-owner authentication renewal was not repeated in a browser; runtime tests cover owner fencing and late responses.
+- Manual checklist: `frontend/docs/reports/2026-11-04-manual-acceptance-checklist.md`.
 
 ## Next task
 
