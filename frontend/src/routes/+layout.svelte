@@ -165,11 +165,20 @@
     }
   }
 
-  afterNavigate(() => {
+  afterNavigate((navigation) => {
     void initializeBrowserLanguage().catch(() => {
       // A failed optional canonical navigation must not interrupt app startup.
     });
     void syncTrainingNow({ rerun: false });
+    // A link or history navigation removes the previous control. Move focus to
+    // the new page without stealing it from an intentional hash target or an
+    // element that already received focus during the transition.
+    if (
+      navigation.type !== 'enter' &&
+      !navigation.to?.url.hash &&
+      document.activeElement === document.body
+    )
+      document.getElementById('main-content')?.focus({ preventScroll: true });
   });
 
   $effect(() => {

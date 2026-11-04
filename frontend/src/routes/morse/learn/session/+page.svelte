@@ -825,6 +825,7 @@
       {/if}
       {#if reviewPlan || mixedPlan}<TrainingSyncStatus
           expanded={!mixedPlan || ['paused', 'complete'].includes(controller.phase)}
+          scope="evidence"
           owner={learningSyncState.owner}
           pending={learningSyncState.pending}
           rejected={learningSyncState.rejected}

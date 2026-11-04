@@ -27,7 +27,8 @@ describe('recall action presentation', () => {
     });
     expect(recallAction(recommendation('load-history'), ['K'])).toMatchObject({
       href: '/settings#learning-evidence',
-      kind: 'evidence'
+      kind: 'evidence',
+      hint: expect.stringContaining('Settings')
     });
   });
 

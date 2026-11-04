@@ -12,6 +12,7 @@
     syncing,
     synced = false,
     expanded = false,
+    scope = 'training',
     onSync,
     onImport,
     unclaimedCount = 0,
@@ -27,6 +28,8 @@
     syncing: boolean;
     synced?: boolean;
     expanded?: boolean;
+    /** Keep the independent training and learning-evidence statuses named apart. */
+    scope?: 'training' | 'evidence';
     onSync?: () => void;
     onImport?: () => void;
     unclaimedCount?: number;
@@ -37,47 +40,75 @@
     owner !== 'unclaimed' &&
       (Boolean(error) || rejected > 0 || blocked > 0 || (pending > 0 && !syncing))
   );
+  const saved = $derived(
+    scope === 'evidence' ? m.evidence_saved_device() : m.history_saved_device()
+  );
+  const syncingText = $derived(scope === 'evidence' ? m.evidence_syncing() : m.history_syncing());
+  const syncedText = $derived(scope === 'evidence' ? m.evidence_synced() : m.history_synced());
+  const errorText = $derived(
+    scope === 'evidence' ? m.evidence_sync_error() : m.history_sync_error()
+  );
+  const pendingText = $derived(
+    scope === 'evidence'
+      ? m.evidence_sync_pending({ count: pending })
+      : m.history_sync_pending({ count: pending })
+  );
+  const rejectedText = $derived(
+    scope === 'evidence'
+      ? m.evidence_sync_rejected({ count: rejected })
+      : m.history_sync_rejected({ count: rejected })
+  );
+  const blockedText = $derived(
+    scope === 'evidence'
+      ? m.evidence_sync_blocked({ count: blocked })
+      : m.history_sync_blocked({ count: blocked })
+  );
+  const attentionText = $derived(
+    scope === 'evidence' ? m.evidence_sync_attention() : m.history_sync_attention()
+  );
+  const waitingText = $derived(
+    scope === 'evidence'
+      ? m.evidence_sync_waiting({ count: pending })
+      : m.history_sync_waiting({ count: pending })
+  );
+  const detailsHref = $derived(
+    `${localizedHref('/settings')}#${scope === 'evidence' ? 'learning-evidence' : 'sync-storage'}`
+  );
 </script>
 
 {#if expanded}
   <aside class="history-sync" aria-live="polite">
     {#if owner === 'unclaimed'}
       <p class="sync-state">
-        <HardDrive size={16} aria-hidden="true" />{m.history_saved_device()}
+        <HardDrive size={16} aria-hidden="true" />{saved}
       </p>
     {:else if error}
       <p class="sync-state">
-        <CircleAlert size={16} aria-hidden="true" />{m.history_sync_error()}
+        <CircleAlert size={16} aria-hidden="true" />{errorText}
       </p>
     {:else if syncing}
       <p class="sync-state">
-        <CloudUpload size={16} aria-hidden="true" />{m.history_syncing()}
+        <CloudUpload size={16} aria-hidden="true" />{syncingText}
       </p>
     {:else if pending > 0 || rejected > 0 || blocked > 0}
       <ul class="sync-state sync-issues">
         {#if pending > 0}<li>
-            <CloudUpload size={16} aria-hidden="true" />{m.history_sync_pending({
-              count: pending
-            })}
+            <CloudUpload size={16} aria-hidden="true" />{pendingText}
           </li>{/if}
         {#if rejected > 0}<li>
-            <CircleAlert size={16} aria-hidden="true" />{m.history_sync_rejected({
-              count: rejected
-            })}
+            <CircleAlert size={16} aria-hidden="true" />{rejectedText}
           </li>{/if}
         {#if blocked > 0}<li>
-            <CircleAlert size={16} aria-hidden="true" />{m.history_sync_blocked({
-              count: blocked
-            })}
+            <CircleAlert size={16} aria-hidden="true" />{blockedText}
           </li>{/if}
       </ul>
     {:else if !synced}
       <p class="sync-state">
-        <HardDrive size={16} aria-hidden="true" />{m.history_saved_device()}
+        <HardDrive size={16} aria-hidden="true" />{saved}
       </p>
     {:else}
       <p class="sync-state">
-        <CloudCheck size={16} aria-hidden="true" />{m.history_synced()}
+        <CloudCheck size={16} aria-hidden="true" />{syncedText}
       </p>
     {/if}
     {#if owner !== 'unclaimed' && onSync}
@@ -93,14 +124,15 @@
     {/if}
   </aside>
 {:else if needsAttention}
-  <aside class="history-sync" aria-live="polite">
-    <a class="sync-details" href={`${localizedHref('/settings')}#sync-storage`}>
+  <!-- Routine background sync stays discoverable without interrupting assessed audio. -->
+  <aside class="history-sync">
+    <a class="sync-details" href={detailsHref}>
       {#if error || rejected > 0 || blocked > 0}
         <CircleAlert size={16} aria-hidden="true" />
-        <span>{m.history_sync_attention()}</span>
+        <span>{attentionText}</span>
       {:else}
         <CloudUpload size={16} aria-hidden="true" />
-        <span>{m.history_sync_waiting({ count: pending })}</span>
+        <span>{waitingText}</span>
       {/if}
       <ChevronRight size={16} aria-hidden="true" />
     </a>

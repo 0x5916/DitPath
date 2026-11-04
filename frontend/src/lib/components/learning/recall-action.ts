@@ -46,5 +46,11 @@ export function recallAction(
           : m.recall_need_second(),
       kind: 'guided'
     };
-  return { href, title: recommendationTitle(recommendation), hint: '', kind: kindOf(href) };
+  const kind = kindOf(href);
+  return {
+    href,
+    title: recommendationTitle(recommendation),
+    hint: kind === 'evidence' ? m.recall_evidence_hint() : '',
+    kind
+  };
 }

@@ -210,6 +210,11 @@
     color: var(--text-secondary);
     line-height: var(--leading-normal);
   }
+  .recall-card a.link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
+  }
   .recall-primary {
     border-inline-start: 3px solid var(--accent);
   }

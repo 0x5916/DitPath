@@ -588,6 +588,7 @@
       <a href="#sound-defaults">{m.settings_sound_defaults()}</a>
     {/if}
     <a href="#sync-storage">{m.settings_sync_storage_title()}</a>
+    <a href="#learning-evidence">{m.learning_overview_heading()}</a>
     {#if !loading && !loadError}
       <a href="#account">{m.settings_account_section()}</a>
     {/if}
@@ -695,6 +696,7 @@
     <p class="body-text">{m.learning_guest_boundary()}</p>
     <TrainingSyncStatus
       expanded
+      scope="evidence"
       owner={learningSyncState.owner}
       pending={learningSyncState.pending}
       rejected={learningSyncState.rejected}
