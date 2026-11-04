@@ -2,6 +2,15 @@
 
 Use this only for rows that cannot be completed with the local disposable backend and automated browser. Do not record a row as passed without the stated observation.
 
+## 2026-11-05 continuation status
+
+The release-acceptance continuation completed the available desktop/automated rows and fixed one design-alignment defect. See [2026-11-05-opencw-release-acceptance.md](2026-11-05-opencw-release-acceptance.md).
+
+- **Completed:** Chrome/Safari real tab, Cmd+Tab and Space switching; pause/no-auto-resume; explicit Resume; Chrome 200% page zoom; More full-label localization; final frontend/backend gates.
+- **Fixed:** the mobile More entry used the short `Recall` label; it now uses the localized full `Recall & Review` title in all five locales.
+- **Still blocked:** physical iPhone/Android, audible first-tap/device playback, IME/software keyboard, safe areas, mobile native text scaling, spoken screen-reader journeys and Safari 200% zoom. None of these is waived.
+- **Design sign-off:** still pending. The Penpot MCP plugin was not connected during the 2026-11-05 run, so the implementation comparison used the reconciled board descriptions and screenshots; it is not a substitute for the owner's final visual review.
+
 ## A. Penpot design reconciliation and sign-off
 
 Design reconciliation is complete through the Penpot MCP plugin. The pre-edit version is `OpenCW · 2026-11-04 · pre recall design reconciliation`; the post-edit version is `OpenCW · 2026-11-04 · recall workflow reconciliation complete`.
@@ -18,6 +27,8 @@ Completed review:
 8. Confirmed mobile discovery: keep Home / Practice / Progress / More; Recall & Review remains a full-label More entry and More stays active on `/morse/review`.
 9. Ran `penpot.currentFile.validate()`: 0 errors. New board bounds do not overlap.
 
+2026-11-05 implementation update: the Learning page More entry used the short `Recall` string; it now uses the localized full `Recall & Review` title in all five locales. Desktop navigation still uses the approved `Recall` label. Penpot MCP was disconnected during this verification, so the owner should inspect the post-edit version directly.
+
 Remaining user action:
 
 1. Review the post-edit Penpot version against the implemented Home, Recall, mobile More and navigation surfaces.
@@ -28,6 +39,8 @@ Acceptance: an authorized reviewer signs off the post-edit version or records co
 ## B. Spoken screen-reader journey
 
 Required user action: run on a machine with VoiceOver, NVDA or TalkBack enabled; provide the spoken result, not only the accessibility tree.
+
+2026-11-05 status: still blocked for spoken output. Automated accessibility-tree, focus-order, dialog and control-name checks passed at 390/1440; desktop Chrome 200% page zoom passed. These are not substituted for a spoken journey.
 
 1. Home: verify one page heading, both journey names, and only one primary action are announced without duplicate verbosity.
 2. Open Recall & Review. Verify recommendation, due review, attainment counts, screening, and coverage uncertainty are understandable; empty/partial states must not sound like failure or proficiency.
@@ -43,6 +56,8 @@ Blocked row remains blocked until the actual spoken output and any defects are r
 
 Required user action: run on at least one real iPhone/Safari and one Android/Chrome device. Emulators and resized desktop viewports do not satisfy this row.
 
+2026-11-05 status: blocked. No physical device is attached (`xcrun xctrace list devices` shows only the Mac and simulators; `adb devices` is empty). Audio graph activity was observed in desktop Chrome/Safari, but audible playback, IME, software keyboard, safe areas and mobile native text scaling still require the real devices.
+
 1. First-tap audio: open Home, tap the recall action, and verify sound starts from that gesture. If blocked, verify the visible `Play sound` fallback and no double playback.
 2. Guided introduction: open Lesson 1, tap `Listen to K` and `Listen to M`; verify audible full sounds, Continue only after completion, and no automatic replay.
 3. Background/return: send the app to the background during a prompt; verify it pauses, does not auto-resume, and resumes only after the explicit action.
@@ -55,6 +70,8 @@ Record device, OS, browser, IME, and audible result. A visual audio indicator is
 ## D. Remaining desktop-switch scenarios
 
 Required user action: perform real macOS desktop/window switches, not synthetic `visibilitychange` events.
+
+2026-11-05 status: completed in visible Chrome 156.0.8078.80 and Safari 27.2 with real Cmd+Tab and Control+Right/Left Space switching. Genuine blur, focus, `visibilitychange`, pause and return states were captured; returning did not auto-resume; explicit Resume worked without duplicate audio; the original desktop became visible again. Screen recording remained unavailable, so timestamped screenshots and event JSON are the evidence. See [the acceptance report](2026-11-05-opencw-release-acceptance.md#c-real-desktop-lifecycle).
 
 1. Chrome macOS: start an active check, switch Spaces away, wait, return to the original space. Record visibility/focus events, audio start/suspend/resume events, UI state, and whether audio resumed without an explicit action.
 2. Safari macOS: repeat. Explicitly confirm whether the original space becomes visible on return; a hidden event followed by no observable return is unverified.
@@ -71,3 +88,4 @@ A desktop switch that produces no lifecycle events is **unverified**, not passed
 - Real server milestone correction with UI update: passed.
 - Disposable PostgreSQL and race suites: passed.
 - Two-profile sync, isolation, offline recovery, permanent rejection, active-check pause/resume, Safari navigation focus, widths, locales, offline shell: passed.
+- 2026-11-05: Chrome/Safari real tab, Cmd+Tab and Space lifecycle; pause/no-auto-resume and explicit Resume; Chrome 200% page zoom; More full-label localization; `npm run verify` 73 files/904 tests; backend `go test`/`go vet`; Svelte autofixer 0 issues. See [the release acceptance report](2026-11-05-opencw-release-acceptance.md).

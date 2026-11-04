@@ -29,6 +29,7 @@ The authorized continuation packets are implemented on `codex/opencw-continuatio
 | `474feee` | Distinct Recall & Review surface and route                         |
 | `e714051` | Purpose-specific Home, Lessons, Progress, and owning docs          |
 | `6781aee` | Evidence sync scope, recovery wording, live-region and focus fixes |
+| `0963f7a` | Full localized Recall & Review label in mobile More                |
 
 Documentation commits follow the code series. `codex/opencw-integration` merges the candidate into PR #3's merged mainline without conflicts. The pre-existing audio/timing/controller edits are excluded from the series.
 
@@ -36,7 +37,20 @@ Documentation commits follow the code series. `codex/opencw-integration` merges 
 
 Independently repeated: `npm run verify` exit 0 (72 files, 903 tests), `npm run lint` exit 0, `npm run build` exit 0, messages validation (740 keys, five locales), `go test ./...` exit 0, `go vet ./...` exit 0, `git diff --check` clean. Disposable PostgreSQL suites: 14 packages/1,292 pass lines with 0 skips, and 8 race packages/961 pass lines with no data races. Real authenticated browser acceptance covered login, training upload/download, two-profile sync, account isolation, concurrent practice updates, offline save/reconnect, learning-evidence upload, permanent rejection visibility, Home recall CTA audio activation, saved-session reload, visible Chrome active-check pause/resume, Safari navigation focus, same-owner token renewal with pending writes/checkpoint preservation, guided introduction playback, and a real server milestone correction with UI revalidation. Integration branch `codex/opencw-integration` was independently verified with `npm run verify`, `npm run lint`, and `npm run build`.
 
-Not completed: Penpot design reconciliation is complete, but final design sign-off remains a separate user action after reviewing the post-edit version; the visible desktop label `Recall` is approved. Physical-device audio/IME/screen-reader/native-zoom checks and the prior desktop-switch, active-app-focus and screen-recording rows remain open. Full evidence: `frontend/docs/reports/2026-11-04-opencw-continuation.md`, `frontend/docs/reports/2026-11-04-opencw-acceptance.md`, `frontend/docs/reports/2026-11-04-manual-acceptance-checklist.md`, and `.playwright-mcp/opencw-continuation/`.
+Not completed: Penpot design reconciliation is complete, but final design sign-off remains a separate user action after reviewing the post-edit version; the visible desktop label `Recall` is approved. Physical-device audio/IME/screen-reader/native-zoom checks remain open. Full evidence: `frontend/docs/reports/2026-11-04-opencw-continuation.md`, `frontend/docs/reports/2026-11-04-opencw-acceptance.md`, `frontend/docs/reports/2026-11-04-manual-acceptance-checklist.md`, and `.playwright-mcp/opencw-continuation/`.
+
+### 2026-11-05 release-acceptance continuation
+
+Published draft PR [#4](https://github.com/0x5916/Morse/pull/4) on `codex/opencw-integration`, code candidate `0963f7a` (base `origin/main` `4d28650`). The PR is draft and auto-merge is disabled.
+
+- Fixed one demonstrated design-alignment defect: the mobile More entry used the short `Recall` label; it now uses the localized full `Recall & Review` title in all five locales, with a server-render regression test. Desktop navigation keeps the approved `Recall` label.
+- Final frontend gates: `npm run verify` exit 0 (73 files, 904 tests), `npm run lint` exit 0, `npm run build` exit 0, Svelte autofixer 0 issues. Backend rerun: `go test -count=1 ./...` and `go vet ./...` exit 0. Disposable PostgreSQL/race suites are reused from 2026-11-04 for the unchanged backend tree; PR CI re-ran all four jobs successfully on `0963f7a` (run `41896405567`).
+- Real desktop lifecycle now has evidence in visible Chrome and Safari for tab switching, Cmd+Tab and Space switching, pause/no-auto-resume, explicit Resume and confirmed desktop return. Screen recording remains unavailable.
+- Chrome 200% page zoom passed at a 720 CSS px viewport with no overflow. Physical-device, audible, IME/software-keyboard, mobile native text scaling and spoken screen-reader rows remain blocked. Penpot MCP was disconnected during this run, so final design sign-off remains pending.
+- The `/en/` 404 is identical in local preview and production nginx; it is consistent with `trailingSlash: 'never'`, is not preview-only, and any 301 requires deployment-configuration approval.
+- Full report: `frontend/docs/reports/2026-11-05-opencw-release-acceptance.md`. Deployment plan: `frontend/docs/reports/2026-11-05-opencw-deployment-plan.md`.
+
+Nothing was merged, auto-merged, deployed or run against production. The original dirty checkout remains untouched.
 
 Section 1's historical inventory is superseded by this closeout.
 
