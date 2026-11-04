@@ -59,15 +59,15 @@ Regressions cover duplicate/ack/rejection notifications, revision-vs-status prop
 
 Run from `frontend/` with Node 26 unless noted.
 
-| Check | Result |
-| --- | --- |
-| `npm run verify` | exit 0; 72 test files, 903 tests passed |
-| `npm run lint` | exit 0 |
-| `npm run build` | exit 0; static build written |
+| Check                       | Result                                            |
+| --------------------------- | ------------------------------------------------- |
+| `npm run verify`            | exit 0; 72 test files, 903 tests passed           |
+| `npm run lint`              | exit 0                                            |
+| `npm run build`             | exit 0; static build written                      |
 | `npm run messages:validate` | exit 0; 740 keys, 5 locales, every key referenced |
-| `go test ./...` | exit 0 (backend) |
-| `go vet ./...` | exit 0 (backend) |
-| `git diff --check` | clean |
+| `go test ./...`             | exit 0 (backend)                                  |
+| `go vet ./...`              | exit 0 (backend)                                  |
+| `git diff --check`          | clean                                             |
 
 Focused suites used during iteration: learning-view, learning-sync runtime, learning-evidence repository/sync, training-sync repository, home-course-action, recall-action, Home state/cache, navigation, and SEO.
 
@@ -105,12 +105,12 @@ Screenshots: `.playwright-mcp/opencw-continuation/screens/` (`home-960.png`, `le
 
 ## Commit series
 
-| Commit | Scope |
-| --- | --- |
-| `b007cf7` | Carried-forward learning reliability and pending-coverage work |
-| `e743e1b` | Evidence record revisions project with current coverage |
-| `474feee` | Distinct Recall & Review surface and route |
-| `e714051` | Purpose-specific Home, Lessons, Progress, and docs |
+| Commit    | Scope                                                              |
+| --------- | ------------------------------------------------------------------ |
+| `b007cf7` | Carried-forward learning reliability and pending-coverage work     |
+| `e743e1b` | Evidence record revisions project with current coverage            |
+| `474feee` | Distinct Recall & Review surface and route                         |
+| `e714051` | Purpose-specific Home, Lessons, Progress, and docs                 |
 | `6781aee` | Sync scope wording, evidence settings, live-region and focus fixes |
 
 Audio, timing, and controller edits remain in the original dirty checkout and are not part of this series.
