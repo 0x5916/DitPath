@@ -8,7 +8,7 @@ This is an implementation plan, not a claim that the remaining work is complete.
 
 ## 0. Continuation closeout — 2026-11-04
 
-The authorized continuation packets are implemented and verified locally on `codex/opencw-continuation`, based on `0e81a76`. Nothing was pushed, merged, or deployed. The original `integration/opencw-learning-reliability` checkout and its audio/timing/controller edits remain untouched.
+The authorized continuation packets are implemented on `codex/opencw-continuation`, based on `0e81a76`, and prepared for integration on `codex/opencw-integration`, based on `origin/main` `4d28650` (PR #3 merge). Nothing was pushed, merged, or deployed. The original `integration/opencw-learning-reliability` checkout and its audio/timing/controller edits remain untouched.
 
 ### Delivered behavior
 
@@ -30,13 +30,13 @@ The authorized continuation packets are implemented and verified locally on `cod
 | `e714051` | Purpose-specific Home, Lessons, Progress, and owning docs          |
 | `6781aee` | Evidence sync scope, recovery wording, live-region and focus fixes |
 
-The pre-existing audio/timing/controller edits are excluded from the series.
+Documentation commits follow the code series. `codex/opencw-integration` merges the candidate into PR #3's merged mainline without conflicts. The pre-existing audio/timing/controller edits are excluded from the series.
 
 ### Verification provenance
 
-Independently repeated: `npm run verify` exit 0 (72 files, 903 tests), `npm run lint` exit 0, `npm run build` exit 0, messages validation (740 keys, five locales), `go test ./...` exit 0, `go vet ./...` exit 0, `git diff --check` clean. Built-preview browser checks covered route navigation and Back/Forward focus, 320/390/768/960/1199/1440 widths, five locales, dark theme, offline Recall shell, and Lighthouse accessibility 100. Synthetic acceptance covered guided-only Home/Recall, new-learner empty state, partial coverage recovery, and distinct evidence/training status. Full evidence: `frontend/docs/reports/2026-11-04-opencw-continuation.md` and `.playwright-mcp/opencw-continuation/`.
+Independently repeated: `npm run verify` exit 0 (72 files, 903 tests), `npm run lint` exit 0, `npm run build` exit 0, messages validation (740 keys, five locales), `go test ./...` exit 0, `go vet ./...` exit 0, `git diff --check` clean. Disposable PostgreSQL suites: 14 packages/1,292 pass lines with 0 skips, and 8 race packages/961 pass lines with no data races. Real authenticated browser acceptance covered login, training upload/download, two-profile sync, account isolation, concurrent practice updates, offline save/reconnect, learning-evidence upload, permanent rejection visibility, Home recall CTA audio activation, saved-session reload, visible Chrome active-check pause/resume, and Safari navigation focus. Integration branch `codex/opencw-integration` was independently verified with `npm run verify`, `npm run lint`, and `npm run build`.
 
-Not completed: Penpot MCP was disconnected, so no board was inspected, versioned, or edited; Recall & Review design review remains pending. Real authenticated backend sync, two-profile success, concurrent successful sync, and disposable PostgreSQL/race suites were not run (the acceptance API is an always-503 mock). Physical-device audio/IME/screen-reader/native-zoom checks and the prior desktop-switch, active-playback, guided-introduction and screen-recording rows remain open. A same-owner auth renewal was not repeated in a browser; runtime tests cover owner fencing and late responses.
+Not completed: Penpot requires login and the MCP plugin was unavailable after one transient page read; no board was inspected, versioned, or edited, so Recall & Review design review remains pending. Headless audio produced an incomplete check rather than a valid milestone, so a real correction/revalidation run is still blocked. Physical-device audio/IME/screen-reader/native-zoom checks and the prior desktop-switch, active-playback, guided-introduction and screen-recording rows remain open. A same-owner auth renewal was not repeated in a browser; runtime tests cover owner fencing and late responses. Full evidence: `frontend/docs/reports/2026-11-04-opencw-continuation.md`, `frontend/docs/reports/2026-11-04-opencw-acceptance.md`, and `.playwright-mcp/opencw-continuation/`.
 
 Section 1's historical inventory is superseded by this closeout.
 
