@@ -29,7 +29,7 @@
       label: m.more_app_section,
       links: [
         { path: '/morse/learn', label: m.nav_learn, icon: Radio },
-        { path: '/morse/review', label: m.nav_review, icon: RotateCcw },
+        { path: '/morse/review', label: m.review_page_title, icon: RotateCcw },
         { path: '/morse', label: m.morse_title, icon: BookOpen }
       ]
     },
