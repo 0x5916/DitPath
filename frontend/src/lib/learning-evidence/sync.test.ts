@@ -7,6 +7,7 @@ import {
   type EvidenceRecord
 } from '../data/learning-evidence';
 import { reqToPromise } from '../data/training-db';
+import { subscribeTrainingDataChanges } from '../data/training-data-events';
 import { activeLearningProfile, projectLearningSnapshot } from '../data/learning-snapshot';
 import { synchronizeLearningEvidence } from './sync';
 const dbs: IDBDatabase[] = [];
@@ -36,6 +37,19 @@ describe('prospective evidence repository and synchronization', () => {
     await expect(repo.append([{ ...record, characters: ['R'] }])).rejects.toThrow('Immutable');
     expect(await createLearningEvidenceRepository(db, 'account:b').all()).toEqual([]);
     await expect(repo.append([{ ...record, kind: 'milestone' }])).rejects.toThrow('Invalid');
+  });
+  it('notifies projections when a record is rejected', async () => {
+    const { repo } = await fixture();
+    await repo.append([record]);
+    const events: { ownerKey: string; local: boolean; scope?: string }[] = [];
+    const unsubscribe = subscribeTrainingDataChanges((event) => events.push(event));
+    await repo.reject('open', 'ID_CONFLICT', true);
+    unsubscribe();
+    expect(events).toContainEqual({
+      ownerKey: 'account:a',
+      local: false,
+      scope: 'learning-evidence'
+    });
   });
   it('accepts semantically normalized server retries and a separate checkpoint', async () => {
     const { db, repo } = await fixture();

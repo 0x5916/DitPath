@@ -102,24 +102,25 @@
 
   async function loadLessons() {
     const owner = getTrainingOwner();
-    if (loadedOwner !== owner) {
-      loadedOwner = owner;
+    const ownerChanged = loadedOwner !== owner;
+    if (ownerChanged) {
       savedSessions = [];
       sessionActionPending = false;
       sessionActionError = '';
+      inProgressSession = null;
+      masteryMap = new SvelteMap();
+      reviewChars = [];
+      hasAttempts = false;
+      currentStep = 1;
+      unlockedStep = 1;
+      courseComplete = false;
+      suggestedStep = undefined;
+      loading = true;
     }
     const version = ++loadVersion;
     if (activeDb) closeTrainingDb(activeDb);
     activeDb = null;
     sessionRepo = null;
-    inProgressSession = null;
-    masteryMap = new SvelteMap();
-    reviewChars = [];
-    hasAttempts = false;
-    currentStep = 1;
-    unlockedStep = 1;
-    courseComplete = false;
-    loading = true;
     errorMsg = '';
     let db: IDBDatabase | null = null;
     let initialized = false;
@@ -158,6 +159,7 @@
       suggestedStep =
         owner === 'unclaimed' && migration.suggestedStep > 1 ? migration.suggestedStep : undefined;
       sessionRepo = repository;
+      loadedOwner = owner;
       initialized = true;
     } catch (error) {
       if (mounted && version === loadVersion && owner === getTrainingOwner()) {

@@ -1,16 +1,18 @@
 <script lang="ts">
   import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import { learningSyncState } from '#lib/learning-sync.svelte.ts';
   import { learningRecommendationHref } from '#lib/data/learning-snapshot.ts';
   import { recommendationTitle } from '#lib/components/learning/recommendation-copy.ts';
   const learning = createLearningView();
   import { onMount } from 'svelte';
-  import { ArrowRight, ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
+  import { ArrowRight, ChevronRight, CircleAlert, Dumbbell, Radio, Wrench } from '@lucide/svelte';
   import HomeLanding from '#lib/components/home/HomeLanding.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
-  import { user } from '#lib/auth.ts';
   import { openTrainingDb, closeTrainingDb } from '#lib/data/training-db.ts';
   import { loadHomeDashboard } from '#lib/data/home-dashboard.ts';
+  import { clearHomeView, readHomeView, retainHomeView } from '#lib/data/home-view-cache.ts';
+  import { resolveHomeView } from '#lib/data/home-view-state.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import {
     getTrainingOwner,
@@ -21,8 +23,9 @@
   import * as m from '#lib/paraglide/messages.js';
   import { openLearningPilotDb, getLearningPilotHistory } from '#lib/data/learning-pilot.ts';
 
-  // Keep the prerendered landing page until local history chooses a layout.
-  let dashboardVisible = $state(false);
+  // The prerendered shell is unresolved, not the public landing page. A
+  // resolved landing state requires both owner-scoped reads to finish.
+  let retainedDashboard = $state(false);
   let loading = $state(true);
   let loadError = $state(false);
   let dashboard = $state.raw<Awaited<ReturnType<typeof loadHomeDashboard>> | null>(null);
@@ -31,6 +34,32 @@
   let loadedOwner: string | null = null;
   let activeDb: IDBDatabase | null = null;
   let recentReview = $state(false);
+  let coveragePending = $derived.by(() => {
+    const owner = getTrainingOwner();
+    return (
+      owner.startsWith('account:') &&
+      (learningSyncState.owner !== owner || !learningSyncState.initialized)
+    );
+  });
+  let resolution = $derived(
+    resolveHomeView({
+      owner: getTrainingOwner(),
+      dashboard: dashboard ? { hasActivity: dashboard.hasActivity } : null,
+      snapshot: learning.snapshot
+        ? {
+            ownerKey: learning.snapshot.ownerKey,
+            hasProspectiveEvidence: learning.snapshot.hasProspectiveEvidence
+          }
+        : null,
+      loadError,
+      learningFailed: learning.failed,
+      coveragePending,
+      snapshotSettled: learning.settled,
+      retainedDashboard
+    })
+  );
+  let viewState = $derived(resolution.viewState);
+  let recommendationState = $derived(resolution.recommendationState);
   let lessonLink = $derived.by(() => {
     const title = m.nav_learn();
     const path = '/morse/learn';
@@ -77,6 +106,8 @@
     const version = ++loadVersion;
     // Keep this owner's last result visible while sync refreshes it.
     if (owner !== loadedOwner) {
+      clearHomeView();
+      retainedDashboard = false;
       loadedOwner = null;
       dashboard = null;
       recentReview = false;
@@ -113,13 +144,9 @@
       if (current()) {
         dashboard = result;
         loadedOwner = owner;
-        dashboardVisible = Boolean($user) || result.hasActivity;
       }
     } catch {
-      if (current()) {
-        loadError = true;
-        dashboardVisible = true;
-      }
+      if (current()) loadError = true;
     } finally {
       if (db) closeTrainingDb(db);
       if (activeDb === db) activeDb = null;
@@ -127,9 +154,23 @@
     }
   }
 
+  function retryHome() {
+    if (loadError || !dashboard) void loadHome();
+    if (learning.failed) void learning.refresh();
+  }
+
   onMount(() => {
     const stopLearning = learning.start();
     mounted = true;
+    const owner = getTrainingOwner();
+    const retained = readHomeView(owner);
+    if (retained) {
+      dashboard = retained.dashboard;
+      recentReview = retained.recentReview;
+      retainedDashboard = true;
+      loadedOwner = retained.owner;
+      loading = false;
+    }
     let revision = '';
     const unsubscribe = subscribeTrainingSync(({ owner, version }) => {
       const next = `${owner}:${version}`;
@@ -145,9 +186,17 @@
       if (activeDb) closeTrainingDb(activeDb);
     };
   });
+
+  // Only a resolved dashboard is retained. A landing decision is a negative
+  // claim and is always revalidated, so activity saved in another tab cannot
+  // leave the next Home return showing the public landing page.
+  $effect(() => {
+    if (resolution.viewState !== 'dashboard' || !loadedOwner || !dashboard) return;
+    retainHomeView({ owner: loadedOwner, dashboard, recentReview });
+  });
 </script>
 
-{#if !dashboardVisible && !learning.snapshot?.hasProspectiveEvidence}
+{#if viewState === 'landing'}
   <HomeLanding />
 {:else}
   <div class="page-narrow page-stack home-dashboard">
@@ -160,14 +209,34 @@
     <nav aria-label={m.home_go_title()}>
       <ul class="training-links">
         <li>
-          <a class="training-link training-link--recommended" href={href(lessonLink.path)}>
-            <Radio size={24} aria-hidden="true" />
-            <span>
-              <strong class="training-title">{lessonLink.title}</strong>
-              {#if lessonLink.hint}<span class="lesson-hint">{lessonLink.hint}</span>{/if}
-            </span>
-            <ChevronRight size={18} aria-hidden="true" />
-          </a>
+          {#if recommendationState === 'ready'}
+            <a class="training-link training-link--recommended" href={href(lessonLink.path)}>
+              <Radio size={24} aria-hidden="true" />
+              <span>
+                <strong class="training-title">{lessonLink.title}</strong>
+                {#if lessonLink.hint}<span class="lesson-hint">{lessonLink.hint}</span>{/if}
+              </span>
+              <ChevronRight size={18} aria-hidden="true" />
+            </a>
+          {:else if recommendationState === 'error'}
+            <div class="training-link training-link--recommended recommendation-state" role="alert">
+              <CircleAlert size={24} aria-hidden="true" />
+              <span>
+                <strong class="training-title">{m.progress_load_error()}</strong>
+                <button type="button" class="recommendation-retry" onclick={retryHome}
+                  >{m.progress_retry()}</button
+                >
+              </span>
+            </div>
+          {:else}
+            <div
+              class="training-link training-link--recommended recommendation-state"
+              role="status"
+            >
+              <Radio size={24} aria-hidden="true" />
+              <span><strong class="training-title">{m.common_loading()}</strong></span>
+            </div>
+          {/if}
         </li>
         <li>
           <a class="training-link" href={href('/morse/practice')}>
@@ -290,6 +359,27 @@
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
     color: var(--accent);
+  }
+  .recommendation-state {
+    cursor: default;
+  }
+  .recommendation-retry {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--answer-target-min);
+    margin-top: var(--space-1);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .recommendation-retry:focus-visible {
+    outline: 2px solid var(--on-accent);
+    outline-offset: 2px;
   }
   .home-progress {
     display: grid;

@@ -109,6 +109,7 @@ export function createTrainingSyncRepository(db: IDBDatabase, ownerKey: string) 
       });
     },
     async acknowledge(records: FrozenOutboxRecord[]): Promise<void> {
+      let changed = false;
       await withTransaction(db, OWNED_STORES.outbox, 'readwrite', async (stores) => {
         for (const record of records) {
           if (record.ownerKey !== ownerKey) continue;
@@ -121,10 +122,11 @@ export function createTrainingSyncRepository(db: IDBDatabase, ownerKey: string) 
             payloadKey(record.payload) === record.payloadKey
           ) {
             await reqToPromise(stores[OWNED_STORES.outbox].delete(key));
+            changed = true;
           }
         }
       });
-      notifyTrainingDataChange(ownerKey, false);
+      if (changed) notifyTrainingDataChange(ownerKey, false);
     },
     async reject(record: FrozenOutboxRecord, error: string, permanent = false): Promise<void> {
       await withTransaction(db, OWNED_STORES.outbox, 'readwrite', async (stores) => {
@@ -164,6 +166,7 @@ export function createTrainingSyncRepository(db: IDBDatabase, ownerKey: string) 
       });
     },
     async applyDownloadPage(page: DownloadPage): Promise<void> {
+      let changed = false;
       await withTransaction(
         db,
         [OWNED_STORES.attempts, OWNED_STORES.sessions, OWNED_STORES.outbox, OWNED_STORES.meta],
@@ -182,13 +185,17 @@ export function createTrainingSyncRepository(db: IDBDatabase, ownerKey: string) 
               const pending = await reqToPromise(
                 stores[OWNED_STORES.outbox].get([ownerKey, kind, record.id])
               );
-              if (!pending)
-                await reqToPromise(
-                  stores[kind === 'attempt' ? OWNED_STORES.attempts : OWNED_STORES.sessions].put({
-                    ...record,
-                    ownerKey
-                  })
-                );
+              if (pending) continue;
+              const store =
+                stores[kind === 'attempt' ? OWNED_STORES.attempts : OWNED_STORES.sessions];
+              const existing = await reqToPromise<
+                Owned<AttemptEvent | HistorySessionRecord> | undefined
+              >(store.get([ownerKey, record.id]));
+              // Cursor-only pages are the common background-sync result. Do not
+              // tell mounted views that data changed when nothing was written.
+              if (existing && payloadKey(stripOwner(existing)) === payloadKey(record)) continue;
+              await reqToPromise(store.put({ ...record, ownerKey }));
+              changed = true;
             }
           }
           await reqToPromise(
@@ -200,7 +207,7 @@ export function createTrainingSyncRepository(db: IDBDatabase, ownerKey: string) 
           );
         }
       );
-      notifyTrainingDataChange(ownerKey, false);
+      if (changed) notifyTrainingDataChange(ownerKey, false);
     },
     async getUnclaimedCount(): Promise<number> {
       return withTransaction(

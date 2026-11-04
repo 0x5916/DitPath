@@ -168,7 +168,7 @@
     void initializeBrowserLanguage().catch(() => {
       // A failed optional canonical navigation must not interrupt app startup.
     });
-    void syncTrainingNow();
+    void syncTrainingNow({ rerun: false });
   });
 
   $effect(() => {

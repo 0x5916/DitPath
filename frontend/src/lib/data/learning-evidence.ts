@@ -472,12 +472,20 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
       });
     },
     async acknowledge(ids: readonly string[]) {
+      if (!ids.length) return;
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
-        for (const id of ids) await reqToPromise(s.outbox.delete([owner, id]));
+        for (const id of ids) {
+          const existing = await reqToPromise(s.outbox.get([owner, id]));
+          if (!existing) continue;
+          await reqToPromise(s.outbox.delete([owner, id]));
+          changed = true;
+        }
       });
-      notify();
+      if (changed) notify();
     },
     async reject(id: string, error: string, permanent: boolean) {
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
         const row = await reqToPromise<Pending | undefined>(s.outbox.get([owner, id]));
         // A permanent rejection is terminal. A later retryable or concurrent
@@ -485,13 +493,17 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         if (!row || row.permanent) return;
         await reqToPromise(s.outbox.put({ ...row, error, permanent }));
         if (permanent) await blockDependentRejections(s, owner);
+        changed = true;
       });
+      // Rejection status feeds rejectedIds(), so projections must revalidate.
+      if (changed) notify();
     },
     async applyPage(
       changes: readonly EvidenceChange[],
       cursor: string,
       expectedCursor?: string | null
     ) {
+      let changed = false;
       await transaction(db, 'readwrite', async (s) => {
         const previous = await reqToPromise<Meta | undefined>(s.meta.get([owner, 'cursor']));
         if (expectedCursor !== undefined && (previous?.value ?? null) !== expectedCursor)
@@ -508,6 +520,7 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
           );
           if (existing && evidenceKey(existing.record) !== evidenceKey(change.record))
             throw new Error('Downloaded evidence conflict');
+          if (!existing) changed = true;
           await reqToPromise(
             s.records.put({
               owner,
@@ -520,7 +533,8 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         }
         await reqToPromise(s.meta.put({ owner, key: 'cursor', value: cursor }));
       });
-      notify();
+      // A checkpoint-only page is a successful no-op; keep mounted views stable.
+      if (changed) notify();
     },
     async getCursor(): Promise<string | null> {
       return transaction(

@@ -5,6 +5,7 @@ import {
   openLearningEvidenceDb,
   type EvidenceRecord
 } from './learning-evidence';
+import { subscribeTrainingDataChanges } from './training-data-events';
 const dbs: IDBDatabase[] = [];
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));
 const record = (id: string): EvidenceRecord => ({
@@ -69,6 +70,27 @@ it('aborts partial work when the captured authentication session changes', async
   expect(await a.all()).toEqual([]);
   expect(await a.pending()).toEqual([]);
   expect(await b.importUnclaimed(() => true)).toBe(2);
+});
+it('does not announce checkpoint-only or unchanged evidence pages', async () => {
+  const { a } = await fixture();
+  const changes: { ownerKey: string; local: boolean; scope?: string }[] = [];
+  const unsubscribe = subscribeTrainingDataChanges((event) => changes.push(event));
+  try {
+    await a.applyPage([], 'empty');
+    expect(changes).toEqual([]);
+    expect(await a.getCursor()).toBe('empty');
+
+    const downloaded = { ...record('one'), recorded_at: '2026-10-28T00:00:00.000Z' };
+    await a.applyPage([{ revision: '1', kind: 'exposure-open', record: downloaded }], 'first');
+    expect(changes).toEqual([{ ownerKey: 'account:a', local: false, scope: 'learning-evidence' }]);
+
+    changes.length = 0;
+    await a.applyPage([{ revision: '1', kind: 'exposure-open', record: downloaded }], 'unchanged');
+    expect(changes).toEqual([]);
+    expect(await a.getCursor()).toBe('unchanged');
+  } finally {
+    unsubscribe();
+  }
 });
 it('adopts identical downloaded records without requeuing and preserves the feed checkpoint', async () => {
   const { a } = await fixture();

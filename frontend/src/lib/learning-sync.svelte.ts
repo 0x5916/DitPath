@@ -12,6 +12,8 @@ export interface LearningSyncSnapshot {
   rejected: number;
   /** Pending records whose permanently rejected dependency makes upload impossible. */
   blocked: number;
+  /** The first pass for this owner has drained, so coverage is settled, not pending. */
+  initialized: boolean;
   syncing: boolean;
   synced: boolean;
   unavailable: boolean;
@@ -23,6 +25,7 @@ class State implements LearningSyncSnapshot {
   pending = $state(0);
   rejected = $state(0);
   blocked = $state(0);
+  initialized = $state(false);
   syncing = $state(false);
   synced = $state(false);
   unavailable = $state(false);
@@ -36,6 +39,7 @@ const snapshot = (): LearningSyncSnapshot => ({
   pending: learningSyncState.pending,
   rejected: learningSyncState.rejected,
   blocked: learningSyncState.blocked,
+  initialized: learningSyncState.initialized,
   syncing: learningSyncState.syncing,
   synced: learningSyncState.synced,
   unavailable: learningSyncState.unavailable,
@@ -69,10 +73,12 @@ async function refresh(expected: string) {
     db?.close();
   }
 }
-export async function syncLearningNow(): Promise<void> {
+export async function syncLearningNow(options: { rerun?: boolean } = {}): Promise<void> {
   if (!mounted) return;
   if (running) {
-    rerun = true;
+    // Focus and visibilitychange describe the same wake-up. Coalesce them so a
+    // background return does not run two download passes.
+    if (options.rerun !== false) rerun = true;
     return running;
   }
   clearTimeout(retry);
@@ -83,6 +89,7 @@ export async function syncLearningNow(): Promise<void> {
     mounted && !signal.aborted && owner() === expected && isAuthSessionCurrent(session);
   if (!expected.startsWith('account:') || !navigator.onLine) {
     await refresh(expected).catch(() => {});
+    if (mounted && owner() === expected) publish({ initialized: true });
     return;
   }
   publish({ syncing: true, error: null, unavailable: false });
@@ -107,11 +114,7 @@ export async function syncLearningNow(): Promise<void> {
       else await synchronize();
       if (active()) {
         const status = await createLearningEvidenceRepository(db, expected).getSyncStatus();
-        publish({
-          ...status,
-          synced: status.pending === 0,
-          version: learningSyncState.version + 1
-        });
+        publish({ ...status, synced: status.pending === 0 });
       }
     } catch (error) {
       if (active()) {
@@ -138,7 +141,10 @@ export async function syncLearningNow(): Promise<void> {
     running = null;
     const again = rerun;
     rerun = false;
-    if (again && mounted && !learningSyncState.unavailable) void syncLearningNow();
+    if (again && mounted && !learningSyncState.unavailable) {
+      // A queued rerun is still part of the initial settle; keep coverage pending.
+      void syncLearningNow();
+    } else if (mounted && owner() === expected) publish({ initialized: true });
   }
 }
 /** Explicit, captured-account import; signing in never calls this action. */
@@ -182,6 +188,7 @@ export function initializeLearningSync(): () => void {
       pending: 0,
       rejected: 0,
       blocked: 0,
+      initialized: false,
       syncing: false,
       synced: false,
       error: null,
@@ -211,17 +218,22 @@ export function initializeLearningSync(): () => void {
   if (channel)
     channel.onmessage = (event) => changed(String(event.data?.owner), event.data?.local === true);
   const wake = () => {
+    if (document.visibilityState !== 'hidden') void syncLearningNow({ rerun: false });
+  };
+  const reconnect = () => {
     if (document.visibilityState !== 'hidden') void syncLearningNow();
   };
   const offline = () => publish({ synced: false });
   window.addEventListener('offline', offline);
-  window.addEventListener('online', wake);
+  window.addEventListener('online', reconnect);
   window.addEventListener('focus', wake);
   document.addEventListener('visibilitychange', wake);
   const recoveryOwner = owner();
-  void recoverInterruptedEvidence(recoveryOwner, () => mounted && owner() === recoveryOwner)
-    .catch(() => {})
-    .finally(() => void syncLearningNow());
+  // Recovery appends notify the evidence repository, which starts or queues the
+  // upload pass; do not queue a second one here.
+  void recoverInterruptedEvidence(recoveryOwner, () => mounted && owner() === recoveryOwner).catch(
+    () => {}
+  );
   return () => {
     mounted = false;
     releaseCapture();
@@ -231,7 +243,7 @@ export function initializeLearningSync(): () => void {
     data();
     channel?.close();
     window.removeEventListener('offline', offline);
-    window.removeEventListener('online', wake);
+    window.removeEventListener('online', reconnect);
     window.removeEventListener('focus', wake);
     document.removeEventListener('visibilitychange', wake);
   };

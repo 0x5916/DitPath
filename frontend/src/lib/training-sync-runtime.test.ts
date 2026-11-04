@@ -74,6 +74,21 @@ describe('training sync browser lifecycle', () => {
     expect(auth.request).toHaveBeenCalledOnce();
   });
 
+  it('coalesces focus and visibility wake-ups into one empty pass', async () => {
+    dispose = runtime.initializeTrainingSync();
+    await vi.waitFor(() => expect(runtime.trainingSyncState.synced).toBe(true));
+    const calls = auth.request.mock.calls.length;
+    const version = runtime.trainingSyncState.version;
+
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(runtime.trainingSyncState.syncing).toBe(false));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    expect(auth.request.mock.calls.length).toBe(calls + 1);
+    expect(runtime.trainingSyncState.version).toBe(version);
+  });
+
   it('clears the rendered owner immediately and cancels a previous account response', async () => {
     let release!: (response: Response) => void;
     auth.request.mockReturnValueOnce(

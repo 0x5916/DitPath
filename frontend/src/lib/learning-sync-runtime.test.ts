@@ -19,6 +19,14 @@ vi.mock('./auth', () => ({
     }
   }
 }));
+const recovery = vi.hoisted(() => ({
+  recover: vi.fn<() => Promise<void>>(),
+  lease: vi.fn(() => () => {})
+}));
+vi.mock('./learning-evidence/recovery', () => ({
+  recoverInterruptedEvidence: recovery.recover,
+  retainCaptureLease: recovery.lease
+}));
 let runtime: typeof import('./learning-sync.svelte');
 let dispose: (() => void) | undefined;
 beforeEach(async () => {
@@ -27,6 +35,8 @@ beforeEach(async () => {
   auth.generation++;
   auth.listeners.clear();
   auth.request.mockReset();
+  recovery.recover.mockReset().mockResolvedValue(undefined);
+  recovery.lease.mockClear();
   vi.stubGlobal('window', Object.assign(new EventTarget(), { indexedDB: new IDBFactory() }));
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('document', Object.assign(new EventTarget(), { visibilityState: 'visible' }));
@@ -54,6 +64,99 @@ describe('learning evidence sync lifecycle', () => {
     window.dispatchEvent(new Event('online'));
     expect(auth.request.mock.calls.length).toBe(calls);
   });
+  it('keeps coverage pending until the initial sync pass drains', async () => {
+    let release!: (response: Response) => void;
+    auth.request.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (release = resolve))
+    );
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    expect(runtime.learningSyncState.initialized).toBe(false);
+
+    release(Response.json({ changes: [], next_cursor: 'cp', has_more: false }));
+    await vi.waitFor(() => expect(runtime.learningSyncState.initialized).toBe(true));
+    expect(runtime.learningSyncState.syncing).toBe(false);
+  });
+
+  it('does not queue a redundant initial pass when recovery finds nothing', async () => {
+    recovery.recover.mockResolvedValue(undefined);
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(runtime.learningSyncState.initialized).toBe(true));
+    expect(auth.request).toHaveBeenCalledOnce();
+  });
+
+  it('queues exactly one pass when recovery appends evidence', async () => {
+    let finishRecovery!: () => void;
+    recovery.recover.mockImplementation(async () => {
+      await new Promise<void>((resolve) => (finishRecovery = resolve));
+      const { openLearningEvidenceDb, createLearningEvidenceRepository } =
+        await import('./data/learning-evidence');
+      const db = await openLearningEvidenceDb();
+      try {
+        await createLearningEvidenceRepository(db, 'account:a').append([
+          {
+            id: 'recovered-open',
+            kind: 'exposure-open',
+            policy_version: 'learning-policy-1.0',
+            recorded_at: '2026-11-03T00:00:00.000Z',
+            session_id: null,
+            characters: ['K'],
+            source: 'reference',
+            presentation_id: 'recovered',
+            started_at: null
+          }
+        ]);
+      } finally {
+        db.close();
+      }
+    });
+    let release!: (response: Response) => void;
+    auth.request.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (release = resolve))
+    );
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    release(Response.json({ changes: [], next_cursor: 'cp', has_more: false }));
+    await vi.waitFor(() => expect(runtime.learningSyncState.initialized).toBe(true));
+    expect(auth.request).toHaveBeenCalledOnce();
+
+    finishRecovery();
+    await vi.waitFor(() => expect(runtime.learningSyncState.syncing).toBe(false));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(auth.request).toHaveBeenCalledTimes(2);
+  });
+
+  it('drains repeated queued local changes and initializes', async () => {
+    let release!: (response: Response) => void;
+    auth.request.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (release = resolve))
+    );
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    const { notifyTrainingDataChange } = await import('./data/training-data-events');
+    for (let index = 0; index < 3; index++)
+      notifyTrainingDataChange('account:a', true, 'learning-evidence');
+
+    release(Response.json({ changes: [], next_cursor: 'cp', has_more: false }));
+    await vi.waitFor(() => expect(runtime.learningSyncState.initialized).toBe(true));
+    expect(auth.request).toHaveBeenCalledTimes(2);
+  });
+
+  it('coalesces focus and visibility wake-ups into one empty pass', async () => {
+    dispose = runtime.initializeLearningSync();
+    await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));
+    const calls = auth.request.mock.calls.length;
+    const version = runtime.learningSyncState.version;
+
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(runtime.learningSyncState.syncing).toBe(false));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    expect(auth.request.mock.calls.length).toBe(calls + 1);
+    expect(runtime.learningSyncState.version).toBe(version);
+  });
+
   it('marks offline coverage incomplete independently of the previous checkpoint', async () => {
     dispose = runtime.initializeLearningSync();
     await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));
@@ -69,6 +172,7 @@ describe('learning evidence sync lifecycle', () => {
     );
     dispose = runtime.initializeLearningSync();
     await vi.waitFor(() => expect(runtime.learningSyncState.unavailable).toBe(true));
+    await vi.waitFor(() => expect(runtime.learningSyncState.initialized).toBe(true));
     expect(runtime.learningSyncState.synced).toBe(false);
     expect(auth.request).toHaveBeenCalledOnce();
   });
@@ -134,6 +238,7 @@ describe('learning evidence sync lifecycle', () => {
     expect(runtime.learningSyncState.synced).toBe(false);
     release(Response.json({ changes: [], next_cursor: 'old', has_more: false }));
     await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));
+    expect(runtime.learningSyncState.initialized).toBe(true);
     const { openLearningEvidenceDb, createLearningEvidenceRepository } =
       await import('./data/learning-evidence');
     const db = await openLearningEvidenceDb();
