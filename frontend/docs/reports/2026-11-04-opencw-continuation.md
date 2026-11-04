@@ -6,13 +6,14 @@ Date: 2026-11-04. Local implementation and verification only. No push, merge, de
 
 - Branch: `codex/opencw-continuation`
 - Base: `0e81a7685723fb9dd9fa67451ed894cbfd8810b5` (`integration/opencw-learning-reliability`)
-- Final commit: `6781aee25cb0bdce350fb97657205f11f4c55ed8` at the time of the final build
+- Final commit: `654f3b2f0fa1ff84a59541491e8f08990eede5e9` (code at `6781aee`; later commits are documentation only)
 - Working tree: clean for the committed series
 - Node: `v26.13.0`; Go: `go1.27.3 darwin/arm64`
+- Build API base: `http://localhost:8080/v1` (documented local API, not production)
 - Build identity: `.playwright-mcp/opencw-continuation/source-identity.txt`
-- Build index SHA-256: `a261167578ead61e95255531ddde23c095bfe443c0e5552ae9d66cd36e16c700`
-- Service worker SHA-256: `74aed8303e98cb2e1374953d5f0f797109f7a0dcad2091443301cf033a2dbf7c`
-- Build tree SHA-256: `48e19f9a614166aff34341cbeac83554f9dd8e1e6202cef0a8cb2fb653138409`
+- Build `en.html` SHA-256: `e933f2a039d84c6a03add90f8fc78f12bf0b070a42f8e309ea529a78d64d6b8a`
+- Service worker SHA-256: `33f1d6d59522bc8115c63a4a606404bae3285038153d385791fefb48abecd5ab`
+- Build tree SHA-256: `7f80ca44040be67999b997f800d383db9da26263e60b48a92c6a31851b939657`
 
 ## Completed work
 
