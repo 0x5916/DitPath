@@ -7,7 +7,7 @@ Local implementation and verification are complete for the authorized continuati
 - Working branch: `codex/opencw-continuation`
 - Base: `0e81a7685723fb9dd9fa67451ed894cbfd8810b5` (`integration/opencw-learning-reliability`)
 - Final code commit before docs: `6781aee25cb0bdce350fb97657205f11f4c55ed8`
-- Final documentation HEAD: `654f3b2f0fa1ff84a59541491e8f08990eede5e9`
+- Final documentation commits follow `6781aee`; see `git log -1` for the current HEAD
 - Original dirty checkout: `/Users/alan/Desktop/Morse` (preserved; audio/timing/controller edits untouched)
 - Isolated worktree: `/Users/alan/.codex/worktrees/opencw-continuation/Morse`
 - Baseline patch and untracked copies: `.playwright-mcp/opencw-baseline-2026-11-04/`

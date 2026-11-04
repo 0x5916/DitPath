@@ -6,7 +6,7 @@ Date: 2026-11-04. Local implementation and verification only. No push, merge, de
 
 - Branch: `codex/opencw-continuation`
 - Base: `0e81a7685723fb9dd9fa67451ed894cbfd8810b5` (`integration/opencw-learning-reliability`)
-- Final commit: `654f3b2f0fa1ff84a59541491e8f08990eede5e9` (code at `6781aee`; later commits are documentation only)
+- Code commit used for the final build: `6781aee`; later commits are documentation only
 - Working tree: clean for the committed series
 - Node: `v26.13.0`; Go: `go1.27.3 darwin/arm64`
 - Build API base: `http://localhost:8080/v1` (documented local API, not production)
