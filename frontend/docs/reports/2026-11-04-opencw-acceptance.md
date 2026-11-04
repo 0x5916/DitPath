@@ -4,6 +4,8 @@ Acceptance continuation for `codex/opencw-continuation`. Local only: no push, me
 
 ## Identity
 
+- Tested code: `6781aee25cb0bdce350fb97657205f11f4c55ed8`
+- Integration acceptance HEAD: `79ef77db2bb9e0f54ad4c6fdd6c8ed473d7a46de` (documentation only after the tested code; see `git log -1` for later doc commits)
 - Implementation candidate: `codex/opencw-continuation`, base `0e81a7685723fb9dd9fa67451ed894cbfd8810b5`
 - Integration candidate: `codex/opencw-integration`, based on `origin/main` `4d286506fcf3184fb6c0ead4c82a8380d8879430`
 - Remote main contains PR #3 merge `4d28650`; its tree is identical to candidate base `0e81a76` (`git diff 0e81a76..origin/main` empty).
