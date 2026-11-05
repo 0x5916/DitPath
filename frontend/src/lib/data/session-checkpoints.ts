@@ -32,6 +32,94 @@ export interface CopyCheckpoint {
   attempt: CopyAttempt;
 }
 export type SessionCheckpoint = GuidedCheckpoint | CopyCheckpoint;
+
+const COPY_STATUSES: readonly string[] = [
+  'ready',
+  'playing',
+  'paused',
+  'awaiting-check',
+  'reviewed',
+  'disposed'
+];
+const GUIDED_PHASES: readonly string[] = [
+  'idle',
+  'ready',
+  'playing',
+  'answering',
+  'introducing',
+  'paused',
+  'feedback'
+];
+
+const finite = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+/** Reject a structurally corrupt copy attempt before it reaches the editor. */
+function validCopyAttempt(attempt: CopyAttempt | undefined): boolean {
+  if (!attempt || typeof attempt !== 'object') return false;
+  const settings = attempt.settings;
+  const session = attempt.session;
+  return (
+    typeof attempt.id === 'string' &&
+    attempt.id.length > 0 &&
+    !!attempt.exercise &&
+    typeof attempt.exercise === 'object' &&
+    finite(attempt.exercise.lesson) &&
+    typeof attempt.exercise.text === 'string' &&
+    attempt.exercise.text.length <= 10000 &&
+    !!settings &&
+    typeof settings === 'object' &&
+    finite(settings.charWpm) &&
+    finite(settings.effWpm) &&
+    finite(settings.freq) &&
+    finite(settings.volume) &&
+    finite(settings.startDelay) &&
+    !!session &&
+    typeof session === 'object' &&
+    COPY_STATUSES.includes(session.status) &&
+    finite(session.attempt) &&
+    session.attempt >= 1 &&
+    (session.recordedAttempt === null ||
+      (finite(session.recordedAttempt) && session.recordedAttempt >= 0))
+  );
+}
+
+/** Validate nested guided state without throwing on null/corrupt array entries. */
+function validGuidedState(state: GuidedSessionState, id: string): boolean {
+  if (!state || typeof state !== 'object') return false;
+  const prompts = state.prompts;
+  const attempts = state.attempts;
+  if (
+    !Array.isArray(prompts) ||
+    prompts.length === 0 ||
+    prompts.length > 1000 ||
+    !prompts.every(
+      (prompt) => prompt && typeof prompt === 'object' && typeof prompt.id === 'string'
+    )
+  )
+    return false;
+  if (
+    !Array.isArray(attempts) ||
+    !attempts.every(
+      (attempt) =>
+        attempt &&
+        typeof attempt === 'object' &&
+        attempt.sessionId === id &&
+        prompts.some((prompt) => prompt.id === attempt.promptId)
+    )
+  )
+    return false;
+  const index = state.currentPromptIndex;
+  return (
+    state.sessionId === id &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < prompts.length &&
+    state.currentPrompt?.id === prompts[index]?.id &&
+    GUIDED_PHASES.includes(state.phase)
+  );
+}
+
 export function validCheckpoint(value: unknown): value is SessionCheckpoint {
   if (!value || typeof value !== 'object') return false;
   const c = value as SessionCheckpoint;
@@ -44,33 +132,13 @@ export function validCheckpoint(value: unknown): value is SessionCheckpoint {
   )
     return false;
   if (c.kind === 'copy')
-    return (
-      c.id === 'copy' &&
-      c.href === '/morse/practice' &&
-      typeof c.attempt?.exercise?.text === 'string' &&
-      c.attempt.exercise.text.length <= 10000 &&
-      !!c.attempt.settings &&
-      !!c.attempt.session
-    );
+    return c.id === 'copy' && c.href === '/morse/practice' && validCopyAttempt(c.attempt);
   return (
     c.kind === 'guided' &&
     c.href.startsWith('/morse/learn/session?') &&
     c.record?.id === c.id &&
     c.record.status === 'in-progress' &&
-    c.state?.sessionId === c.id &&
-    Array.isArray(c.state.prompts) &&
-    c.state.prompts.length > 0 &&
-    c.state.prompts.length <= 1000 &&
-    c.state.currentPromptIndex >= 0 &&
-    c.state.currentPromptIndex < c.state.prompts.length &&
-    Array.isArray(c.state.attempts) &&
-    c.state.attempts.every(
-      (a) => a.sessionId === c.id && c.state.prompts.some((p) => p.id === a.promptId)
-    ) &&
-    c.state.currentPrompt?.id === c.state.prompts[c.state.currentPromptIndex]?.id &&
-    ['idle', 'ready', 'playing', 'answering', 'introducing', 'paused', 'feedback'].includes(
-      c.state.phase
-    ) &&
+    validGuidedState(c.state, c.id) &&
     !['complete', 'abandoned'].includes(c.state.phase)
   );
 }

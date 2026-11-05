@@ -1,160 +1,28 @@
 <script lang="ts">
-  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
-  import {
-    loadCheckpoint,
-    saveCheckpoint,
-    removeCheckpoint,
-    discardCheckpoint,
-    claimSession,
-    type CopyCheckpoint,
-    type SessionCheckpoint
-  } from '#lib/data/session-checkpoints.ts';
-  let savedCopy = $state.raw<CopyCheckpoint | null>(null),
-    restoreCopy = $state.raw<CopyCheckpoint | null>(null);
-  let copyLoading = $state(true),
-    copySaveError = $state(false),
-    copyBlocked = $state(false),
-    copyHasWork = $state(false);
-  let checkpointQueue = Promise.resolve(),
-    copyLoad = 0;
-  let copyLease: (() => Promise<void>) | null = null;
-  let lastCopyCheckpoint: CopyCheckpoint | null = null;
-  async function loadSavedCopy() {
-    const owner = getTrainingOwner(),
-      version = ++copyLoad;
-    copyLoading = true;
-    copyBlocked = false;
-    savedCopy = null;
-    restoreCopy = null;
-    copyHasWork = false;
-    try {
-      const release = copyLease;
-      copyLease = null;
-      await release?.();
-      const c = await loadCheckpoint(owner, 'copy');
-      if (destroyed || owner !== getTrainingOwner() || version !== copyLoad) return;
-      if (c?.kind === 'copy') savedCopy = c;
-      else {
-        const release = await claimSession(owner, 'copy');
-        if (destroyed || owner !== getTrainingOwner() || version !== copyLoad) {
-          await release();
-          return;
-        }
-        copyLease = release;
-      }
-      copySaveError = false;
-    } catch {
-      if (owner === getTrainingOwner()) {
-        copySaveError = true;
-        copyBlocked = true;
-      }
-    } finally {
-      if (owner === getTrainingOwner() && version === copyLoad) copyLoading = false;
-    }
-  }
-  async function discardSavedCopy(entry: SessionCheckpoint) {
-    const owner = getTrainingOwner();
-    try {
-      await discardCheckpoint(owner, entry);
-      if (owner === getTrainingOwner()) {
-        await loadSavedCopy();
-      }
-    } catch {
-      if (owner === getTrainingOwner()) copySaveError = true;
-    }
-  }
-  async function continueSavedCopy(entry: SessionCheckpoint) {
-    if (entry.kind !== 'copy') return;
-    const owner = getTrainingOwner();
-    copyLoading = true;
-    try {
-      const release = await claimSession(owner, 'copy', true);
-      if (destroyed || owner !== getTrainingOwner()) {
-        await release();
-        return;
-      }
-      copyLease = release;
-      restoreCopy = entry;
-      savedCopy = null;
-      copySaveError = false;
-      copyBlocked = false;
-    } catch {
-      if (owner === getTrainingOwner()) {
-        copySaveError = true;
-        copyBlocked = true;
-      }
-    } finally {
-      if (owner === getTrainingOwner()) copyLoading = false;
-    }
-  }
-  function retryCopyCheckpoint() {
-    const owner = getTrainingOwner(),
-      value = lastCopyCheckpoint;
-    checkpointQueue = checkpointQueue
-      .then(() => (value ? saveCheckpoint(owner, value) : removeCheckpoint(owner, 'copy')))
-      .then(() => {
-        if (owner === getTrainingOwner()) copySaveError = false;
-      })
-      .catch(() => {
-        if (owner === getTrainingOwner()) copySaveError = true;
-      });
-  }
-
-  function checkpointCopy(attempt: CopyAttempt, draft: string) {
-    if (!attempt.id || !attempt.exercise.text) return;
-    const owner = getTrainingOwner();
-    if (attempt.session.status === 'ready' && !copyHasWork) return;
-    const clear = attempt.session.status === 'ready';
-    copyHasWork = !clear;
-    const value: CopyCheckpoint = {
-      version: 1,
-      kind: 'copy',
-      id: 'copy',
-      href: '/morse/practice',
-      savedAt: new Date().toISOString(),
-      attempt: JSON.parse(JSON.stringify(attempt)),
-      draft
-    };
-    lastCopyCheckpoint = clear ? null : value;
-    checkpointQueue = checkpointQueue
-      .then(() => (clear ? removeCheckpoint(owner, 'copy') : saveCheckpoint(owner, value)))
-      .then(() => {
-        if (owner === getTrainingOwner()) copySaveError = false;
-      })
-      .catch(() => {
-        if (owner === getTrainingOwner()) copySaveError = true;
-      });
-  }
-  async function saveCopyAndLeave() {
-    practice?.prepareToLeave();
-    await tick();
-    await checkpointQueue;
-    if (copySaveError) return;
-    bypassDestination = new URL(localizedHref('/'), page.url.href).href;
-    await goto(bypassDestination);
-  }
-
-  import { onDestroy, onMount, tick } from 'svelte';
-  import { SvelteMap } from 'svelte/reactivity';
   import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { localizedHref } from '#lib/i18n.svelte.ts';
-  import { createPracticeDeparture } from '#lib/practice/departure.ts';
-  import ExitSessionDialog from '#lib/components/learning/ExitSessionDialog.svelte';
-  import { readClientCwSettings, readStoredLesson } from '#lib/cwSync.ts';
-  import { LESSONS } from '#lib/training/sequence.ts';
-  import InfoTip from '#lib/components/InfoTip.svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import ContinuousCopyPractice from '#lib/components/practice/ContinuousCopyPractice.svelte';
-  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
-  import { createSessionRepository } from '#lib/data/session-repository.ts';
-  import { createPracticeSessionRecord, type CopyAttempt } from '#lib/practice/copy-attempt.ts';
-  import type { TrainingSessionRecord } from '#lib/training/v2/types.ts';
-  import * as m from '#lib/paraglide/messages.js';
+  import ExitSessionDialog from '#lib/components/learning/ExitSessionDialog.svelte';
+  import InfoTip from '#lib/components/InfoTip.svelte';
+  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+  import { readClientCwSettings, readStoredLesson } from '#lib/cwSync.ts';
+  import { createSessionRepository } from '#lib/data/session-repository.ts';
+  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
+  import { waitForHistoryRestore, type HistoryRestore } from '#lib/history-restore.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import { createPracticeSessionRecord, type CopyAttempt } from '#lib/practice/copy-attempt.ts';
+  import { createCopyCheckpointStore } from '#lib/practice/copy-checkpoint.svelte.ts';
+  import { createPracticeDeparture } from '#lib/practice/departure.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
+  import type { TrainingSessionRecord } from '#lib/training/v2/types.ts';
   import {
     getTrainingOwner,
-    trainingSyncState,
-    subscribeTrainingSync
+    subscribeTrainingSync,
+    trainingSyncState
   } from '#lib/training-sync.svelte.ts';
 
   let practice = $state<{
@@ -162,6 +30,8 @@
     prepareToLeave: () => void;
     focusCopy: () => void;
   } | null>(null);
+  const copyStore = createCopyCheckpointStore();
+
   let departure = $state.raw<ReturnType<typeof createPracticeDeparture> | null>(null);
   let returnFocus = $state<HTMLElement | null>(null);
   let navigationError = $state(false);
@@ -169,9 +39,10 @@
   let bypassDestination: string | null = null;
   let allowUnload = false;
   let destroyed = false;
-  let cancelHistoryRestore: (() => void) | null = null;
+  let historyRestore: HistoryRestore | null = null;
 
   let defaults = $state({ lesson: 1, charWpm: 20, effWpm: 12, freq: 600, startDelay: 0.5 });
+
   function loadDefaults() {
     const cw = readClientCwSettings();
     defaults = {
@@ -181,6 +52,15 @@
       freq: cw.freq,
       startDelay: cw.start_delay
     };
+  }
+
+  async function saveCopyAndLeave() {
+    practice?.prepareToLeave();
+    await tick();
+    await copyStore.whenIdle();
+    if (copyStore.saveError) return;
+    bypassDestination = new URL(localizedHref('/'), page.url.href).href;
+    await goto(bypassDestination);
   }
 
   let persistenceStatus = $state<'saving' | 'saved' | 'failed' | null>(null);
@@ -210,10 +90,7 @@
       db = await openTrainingDb();
       await createSessionRepository(db, owner).saveSession(record);
       await tick();
-      await checkpointQueue;
-      const checkpoint = await loadCheckpoint(owner, 'copy');
-      if (checkpoint?.kind === 'copy' && checkpoint.attempt.id === record.id)
-        await removeCheckpoint(owner, 'copy');
+      await copyStore.clearForAttempt(record.id);
       if (unsavedRecords.get(owner) === record) unsavedRecords.delete(owner);
       if (owner === getTrainingOwner() && pendingRecord === record) {
         pendingRecord = null;
@@ -229,22 +106,6 @@
 
   function hasWorkAtRisk() {
     return unsavedRecords.size > 0 || Boolean(practice?.hasUnfinishedCopy());
-  }
-
-  function waitForHistoryRestore(source: string): Promise<void> {
-    if (window.location.href === source) return Promise.resolve();
-    return new Promise((resolve) => {
-      const finish = () => {
-        window.removeEventListener('popstate', onPop);
-        cancelHistoryRestore = null;
-        resolve();
-      };
-      const onPop = () => {
-        if (window.location.href === source) finish();
-      };
-      cancelHistoryRestore = finish;
-      window.addEventListener('popstate', onPop);
-    });
   }
 
   beforeNavigate((navigation) => {
@@ -267,8 +128,10 @@
     const owner = getTrainingOwner();
     const delta = navigation.type === 'popstate' ? navigation.delta : null;
     navigationError = false;
+    const restore = delta === null ? null : waitForHistoryRestore(source.href);
+    historyRestore = restore;
     departure = createPracticeDeparture(
-      delta === null ? Promise.resolve() : waitForHistoryRestore(source.href),
+      restore?.promise ?? Promise.resolve(),
       () => {
         bypassDestination = target.href;
         if (delta !== null) window.history.go(delta);
@@ -284,7 +147,8 @@
   async function cancelDeparture() {
     departure?.cancel();
     departure = null;
-    cancelHistoryRestore?.();
+    historyRestore?.cancel();
+    historyRestore = null;
     navigationError = false;
     await tick();
     if (!returnFocus?.isConnected) practice?.focusCopy();
@@ -295,8 +159,7 @@
     confirming = true;
     navigationError = false;
     try {
-      await checkpointQueue;
-      await removeCheckpoint(getTrainingOwner(), 'copy');
+      await copyStore.clear();
       if (await departure.confirm()) departure = null;
     } catch {
       bypassDestination = null;
@@ -313,11 +176,9 @@
   });
   onDestroy(() => {
     destroyed = true;
-    const release = copyLease;
-    copyLease = null;
-    void checkpointQueue.finally(() => release?.());
+    void copyStore.dispose();
     departure?.cancel();
-    cancelHistoryRestore?.();
+    historyRestore?.cancel();
   });
 
   function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -330,13 +191,13 @@
   // Keep existing character-explorer bookmarks useful after giving the tool its own page.
   onMount(() => {
     loadDefaults();
-    void loadSavedCopy();
+    void copyStore.load();
     const unsubscribe = subscribeTrainingSync(() => {
       const owner = getTrainingOwner();
       if (practiceOwner === owner) return;
       void cancelDeparture();
       practiceOwner = owner;
-      void loadSavedCopy();
+      void copyStore.load();
       loadDefaults();
       attemptOwner = null;
       recordOwner = owner;
@@ -373,27 +234,25 @@
     syncing={trainingSyncState.syncing}
     synced={trainingSyncState.synced}
   />
-  {#if copySaveError}<p role="alert">{m.session_save_error()}</p>
-    <button
-      class="btn-ghost"
-      onclick={() => (copyBlocked ? void loadSavedCopy() : retryCopyCheckpoint())}
-      >{m.common_retry()}</button
-    >{/if}
-  {#if copyLoading}<p role="status">{m.common_loading()}</p>
-  {:else if copyBlocked}<p role="alert">{m.session_resume_error()}</p>
-  {:else if savedCopy}<SavedSessions
-      entries={[savedCopy]}
-      onContinue={(entry) => void continueSavedCopy(entry)}
-      onDiscard={(entry) => void discardSavedCopy(entry)}
+  {#if copyStore.blocked}<p role="alert">{m.session_resume_error()}</p>
+    <button class="btn-ghost" onclick={() => void copyStore.load()}>{m.common_retry()}</button>
+  {:else if copyStore.saveError}<p role="alert">{m.session_save_error()}</p>
+    <button class="btn-ghost" onclick={() => copyStore.retry()}>{m.common_retry()}</button>
+  {/if}
+  {#if copyStore.loading}<p role="status">{m.common_loading()}</p>
+  {:else if copyStore.saved && !copyStore.blocked}<SavedSessions
+      entries={[copyStore.saved]}
+      onContinue={(entry) => void copyStore.resume(entry)}
+      onDiscard={(entry) => void copyStore.discard(entry)}
     />
-  {:else}
-    {#if copyHasWork}<button class="btn-ghost" onclick={() => void saveCopyAndLeave()}
+  {:else if !copyStore.blocked}
+    {#if copyStore.hasWork}<button class="btn-ghost" onclick={() => void saveCopyAndLeave()}
         >{m.session_save_leave()}</button
       >{/if}
     {#key practiceOwner}
       <ContinuousCopyPractice
-        resume={restoreCopy}
-        onCheckpoint={checkpointCopy}
+        resume={copyStore.restore}
+        onCheckpoint={copyStore.checkpoint}
         bind:this={practice}
         {...defaults}
         onFinish={() => void goto(localizedHref('/'))}
