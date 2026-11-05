@@ -51,6 +51,8 @@ guidance outcomes and fail when a source injection seam changes.
 
 [package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally.
 
+Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
+
 `npm run check` compiles Paraglide before Svelte checking and runs `check:worker` against the separate [service-worker TypeScript config](src/service-worker/tsconfig.json); `npm run build` compiles Paraglide through the Vite plugin. Tests run in Node via [vitest.config.ts](vitest.config.ts), including domain, controller, audio, sync, and repository tests. IndexedDB tests use the `fake-indexeddb` development dependency declared in [package.json](package.json).
 
 For targeted Svelte reviews, use the pinned `@sveltejs/mcp` development dependency:
