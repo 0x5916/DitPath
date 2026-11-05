@@ -1,6 +1,6 @@
-# OpenCW
+# DitPath
 
-OpenCW is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Existing deployment identifiers and repository URLs retain their legacy names.
+DitPath is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Existing deployment identifiers and repository URLs retain their legacy OpenCW names.
 
 ## Start developing
 
@@ -17,19 +17,20 @@ Set `PUBLIC_API_BASE` in the frontend environment to the backend's `/v1` URL. Gu
 
 ## Documentation
 
-| Guide                                                  | Owns                                                |
-| ------------------------------------------------------ | --------------------------------------------------- |
-| [Frontend](frontend/README.md)                         | Setup, scripts, static build, localization          |
-| [Learning architecture](frontend/docs/learning.md)     | Training, timing, storage, UI acceptance rules      |
-| [UI backlog](frontend/docs/ui-ux-audit.md)             | Source findings and remaining design work           |
-| [Backend](backend/README.md)                           | Local API development and tests                     |
-| [API](backend/API.md)                                  | Registered endpoints and request/response contracts |
-| [V1 training sync](backend/docs/training-events-v2.md) | Current batch ingestion, snapshots, compatibility aliases |
+| Guide                                                                      | Owns                                                                                            |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Product brief](PRODUCT.md)                                                | Audiences, capabilities, constraints, brand commitments                                         |
+| [Frontend](frontend/README.md)                                             | Setup, scripts, static build, localization                                                      |
+| [Learning architecture](frontend/docs/learning.md)                         | Training, timing, storage, UI acceptance rules                                                  |
+| [UI backlog](frontend/docs/ui-ux-audit.md)                                 | Source findings and remaining design work                                                       |
+| [Backend](backend/README.md)                                               | Local API development and tests                                                                 |
+| [API](backend/API.md)                                                      | Registered endpoints and request/response contracts                                             |
+| [V1 training sync](backend/docs/training-events-v2.md)                     | Current batch ingestion, snapshots, compatibility aliases                                       |
 | [Approved history specification](backend/docs/training-history-v1-spec.md) | Implemented history storage, change downloads, account synchronization, and compatibility gates |
-| [Deployment](DEPLOYMENT.md)                            | Host setup, configuration, exposure, recovery       |
-| [Operational scripts](scripts/README.md)               | Commands, flags, safety behavior                    |
-| [Database tuning](db/README.md)                        | Resource detection and PostgreSQL overrides         |
-| [Agent rules](AGENTS.md)                               | Repository boundaries and verification evidence     |
+| [Deployment](DEPLOYMENT.md)                                                | Host setup, configuration, exposure, recovery                                                   |
+| [Operational scripts](scripts/README.md)                                   | Commands, flags, safety behavior                                                                |
+| [Database tuning](db/README.md)                                            | Resource detection and PostgreSQL overrides                                                     |
+| [Agent rules](AGENTS.md)                                                   | Repository boundaries and verification evidence                                                 |
 
 For the full stack, configure the root `example.env` as `.env`, then follow the deployment guide. `make` lists operational commands; `make check` validates configuration. Do not substitute the backend development Compose file for the root deployment stack.
 
@@ -39,6 +40,6 @@ For the full stack, configure the root `example.env` as `.env`, then follow the 
 
 ## License
 
-OpenCW's original code and documentation are licensed under the [Apache License 2.0](LICENSE.md). Copyright 2026 Alan; see [NOTICE](NOTICE).
+DitPath's original code and documentation are licensed under the [Apache License 2.0](LICENSE.md). Copyright 2026 Alan; see [NOTICE](NOTICE).
 
 Third-party dependencies and bundled materials retain their own licenses and notices, including [PGTune](db/PGTUNE-LICENSE) and the bundled [agent skills](.agents/skills/). These materials are not relicensed by the project license. Bundled agent skills and generated/dependency documentation are separate from the project guides above.

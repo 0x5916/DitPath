@@ -18,3 +18,7 @@ backups/
 # Local MCP install
 .penpot-mcp/
 .playwright-mcp/
+
+# Local design review output
+/.artifacts/
+/.impeccable/critique/
