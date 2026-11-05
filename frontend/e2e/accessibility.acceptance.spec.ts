@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { resetAcceptance, resetToHome, TRAINING_DB } from './helpers';
 
+// Firefox can report a 48px CSS box as 47.99997px because layout is fractional.
+// Keep a sub-pixel tolerance while still enforcing the intended minimum target.
+const TARGET_EPSILON = 0.01;
+
 test('keyboard-only practice starts, checks, and closes the result', async ({ page }) => {
   await resetToHome(page);
   await page.goto('/morse/practice');
@@ -37,13 +41,13 @@ test('the Practice title tip matches the Penpot heading and close treatment', as
   const triggerBox = await trigger.boundingBox();
   const closeBox = await close.boundingBox();
   const dialogBox = await dialog.boundingBox();
-  expect(triggerBox?.width ?? 0).toBeGreaterThanOrEqual(48);
-  expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-  expect(closeBox?.width ?? 0).toBeGreaterThanOrEqual(48);
-  expect(closeBox?.height ?? 0).toBeGreaterThanOrEqual(48);
+  expect(triggerBox?.width ?? 0).toBeGreaterThanOrEqual(48 - TARGET_EPSILON);
+  expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(48 - TARGET_EPSILON);
+  expect(closeBox?.width ?? 0).toBeGreaterThanOrEqual(48 - TARGET_EPSILON);
+  expect(closeBox?.height ?? 0).toBeGreaterThanOrEqual(48 - TARGET_EPSILON);
   expect(
     (dialogBox?.y ?? 0) - ((triggerBox?.y ?? 0) + (triggerBox?.height ?? 0))
-  ).toBeGreaterThanOrEqual(8);
+  ).toBeGreaterThanOrEqual(8 - TARGET_EPSILON);
 
   await close.click();
   await expect(dialog).toHaveCount(0);
@@ -95,8 +99,8 @@ test('Profile heatmap days meet 24px and support roving keyboard navigation', as
     })
   );
   expect(sizes.length).toBeGreaterThan(0);
-  expect(Math.min(...sizes.map((size) => size.width))).toBeGreaterThanOrEqual(24);
-  expect(Math.min(...sizes.map((size) => size.height))).toBeGreaterThanOrEqual(24);
+  expect(Math.min(...sizes.map((size) => size.width))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
+  expect(Math.min(...sizes.map((size) => size.height))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
 
   const tabbable = page.locator('button.profile-heatmap-cell[tabindex="0"]');
   await expect(tabbable).toHaveCount(1);
@@ -156,6 +160,6 @@ test('primary controls meet the 44px target and key routes do not overflow', asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/en/morse/practice');
   const box = await page.getByRole('button', { name: 'Start practice' }).boundingBox();
-  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-  expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
 });

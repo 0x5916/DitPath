@@ -208,18 +208,33 @@ test('retrying a failed practice save records exactly one session', async ({ pag
   await expect.poll(async () => readCopyCheckpoint(page)).toBeNull();
 });
 
+async function waitForClientRouting(page: import('@playwright/test').Page) {
+  const trigger = page.getByRole('button', { name: 'About Practice' });
+  await expect(trigger).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        if (await page.getByRole('dialog').count()) return true;
+        await trigger.click();
+        return (await page.getByRole('dialog').count()) > 0;
+      },
+      { timeout: 10_000 }
+    )
+    .toBe(true);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+
 test('browser Back preserves or discards the draft through the departure dialog', async ({
   page
 }) => {
   await resetToHome(page);
-  await page.evaluate(() => {
-    (window as unknown as { __e2eSpaMarker: string }).__e2eSpaMarker = 'keep';
-  });
-  await page.getByRole('link', { name: 'Already know Morse? Practice' }).click();
-  await page.waitForURL('**/en/morse/practice');
-  expect(
-    await page.evaluate(() => (window as unknown as { __e2eSpaMarker?: string }).__e2eSpaMarker)
-  ).toBe('keep');
+  await page.goto('/morse/practice', { waitUntil: 'networkidle' });
+  await waitForClientRouting(page);
+  await page.getByRole('link', { name: 'Progress' }).click();
+  await page.waitForURL(/\/en\/morse\/progress$/);
+  await page.getByRole('link', { name: 'Practice', exact: true }).click();
+  await page.waitForURL(/\/en\/morse\/practice$/);
   await startAndType(page);
   await expect.poll(async () => (await readCopyCheckpoint(page)) !== null).toBe(true);
 
@@ -231,6 +246,6 @@ test('browser Back preserves or discards the draft through the departure dialog'
 
   await page.evaluate(() => history.back());
   await page.getByRole('button', { name: 'Discard and leave' }).click();
-  await expect(page).toHaveURL(/\/en$/);
+  await expect(page).toHaveURL(/\/en\/morse\/progress$/);
   await expect.poll(async () => readCopyCheckpoint(page)).toBeNull();
 });

@@ -1,5 +1,63 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { readGuidedCheckpoint, readOwnedAttempts, readOwnedSessions, resetToHome } from './helpers';
+
+/**
+ * Headless Firefox on Linux has no audio device: AudioContext.resume() never
+ * resolves and the introduction would remain on “Listening…” forever. This
+ * test exercises guided session transitions, while audio.acceptance.spec.ts
+ * keeps real Web Audio lifecycle coverage.
+ */
+async function installDeterministicAudioClock(page: Page) {
+  await page.addInitScript(() => {
+    class FakeParam {
+      value = 0;
+      setValueAtTime() {}
+      linearRampToValueAtTime() {}
+    }
+    class FakeGain {
+      gain = new FakeParam();
+      connect() {}
+      disconnect() {}
+    }
+    class FakeOscillator {
+      frequency = new FakeParam();
+      onended: (() => void) | null = null;
+      connect() {}
+      disconnect() {}
+      start() {}
+      stop(when = 0) {
+        setTimeout(() => this.onended?.(), Math.max(0, when * 1000));
+      }
+    }
+    class FakeAudioContext {
+      state = 'running';
+      currentTime = 0;
+      destination = {};
+      baseLatency = 0;
+      outputLatency = 0;
+      createOscillator() {
+        return new FakeOscillator();
+      }
+      createGain() {
+        return new FakeGain();
+      }
+      async resume() {
+        this.state = 'running';
+      }
+      async suspend() {
+        this.state = 'suspended';
+      }
+      async close() {
+        this.state = 'closed';
+      }
+    }
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      writable: true,
+      value: FakeAudioContext
+    });
+  });
+}
 
 type GuidedPrompt = {
   spec: { kind: string; expectedText: string };
@@ -16,6 +74,7 @@ type GuidedCheckpoint = {
 test('a guided lesson completes once and records one completed session', async ({ page }) => {
   test.setTimeout(120_000);
   await resetToHome(page);
+  await installDeterministicAudioClock(page);
   await page.goto('/morse/learn/session?step=1');
 
   await expect

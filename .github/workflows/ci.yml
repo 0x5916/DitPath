@@ -88,6 +88,14 @@ jobs:
         env:
           # Build ran in the previous step; avoid rebuilding under the preview web server.
           PLAYWRIGHT_SKIP_BUILD: "1"
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-failure-artifacts
+          path: frontend/test-results
+          if-no-files-found: ignore
+          retention-days: 7
 
   backend:
     name: Backend tests and vet
