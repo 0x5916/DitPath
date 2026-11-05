@@ -1,76 +1,38 @@
 <script lang="ts">
-  import { createLearningView } from '#lib/learning-view.svelte.ts';
-  import { learningRecommendationHref } from '#lib/data/learning-snapshot.ts';
-  import { recommendationTitle } from '#lib/components/learning/recommendation-copy.ts';
-  const learning = createLearningView();
   import { onMount } from 'svelte';
   import { ArrowRight, ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
+  import { user } from '#lib/auth.ts';
+  import { homeLessonLink } from '#lib/components/home/home-lesson-link.ts';
   import HomeLanding from '#lib/components/home/HomeLanding.svelte';
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
-  import { user } from '#lib/auth.ts';
-  import { openTrainingDb, closeTrainingDb } from '#lib/data/training-db.ts';
-  import { loadHomeDashboard } from '#lib/data/home-dashboard.ts';
-  import { LESSONS } from '#lib/training/sequence.ts';
+  import { loadLearningPilotHistory } from '#lib/data/learning-pilot.ts';
+  import { loadHomeDashboard, type HomeDashboard } from '#lib/data/home-dashboard.ts';
+  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
+  import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
   import {
     getTrainingOwner,
     subscribeTrainingSync,
     trainingSyncState
   } from '#lib/training-sync.svelte.ts';
-  import { localizedHref as href } from '#lib/i18n.svelte.ts';
-  import * as m from '#lib/paraglide/messages.js';
-  import { openLearningPilotDb, getLearningPilotHistory } from '#lib/data/learning-pilot.ts';
+
+  const learning = createLearningView();
 
   // Keep the prerendered landing page until local history chooses a layout.
   let dashboardVisible = $state(false);
   let loading = $state(true);
   let loadError = $state(false);
-  let dashboard = $state.raw<Awaited<ReturnType<typeof loadHomeDashboard>> | null>(null);
+  let dashboard = $state.raw<HomeDashboard | null>(null);
   let mounted = false;
   let loadVersion = 0;
   let loadedOwner: string | null = null;
   let activeDb: IDBDatabase | null = null;
   let recentReview = $state(false);
-  let lessonLink = $derived.by(() => {
-    const title = m.nav_learn();
-    const path = '/morse/learn';
-    if (!dashboard) return { title, hint: '', path };
-    const unfinished = dashboard.unfinishedSession;
-    const snapshot = learning.snapshot;
-    if (!unfinished && snapshot && snapshot.knownCharacters.length >= 2) {
-      const primary = snapshot.recommendation.primary;
-      return {
-        title: recommendationTitle(primary),
-        hint:
-          snapshot.coverage === 'partial'
-            ? m.learning_coverage_partial()
-            : m.learning_overview_profile({ speed: snapshot.profile.charWpm }),
-        path: learningRecommendationHref(primary, snapshot.knownCharacters)
-      };
-    }
-    if (dashboard.returning && !unfinished && !recentReview)
-      return {
-        title: m.review_return_title(),
-        hint: m.review_return_hint(),
-        path: '/morse/learn/session?review=return'
-      };
-    if (dashboard.guidance.courseComplete && !unfinished)
-      return { title, hint: m.learn_complete_title(), path };
-    const { currentStep, reviewChars } = dashboard.guidance;
-    const step = unfinished?.step ?? currentStep;
-    const characters = (LESSONS[step - 1] ?? '').split('').join(', ');
-    return {
-      title: unfinished
-        ? m.home_lesson_title({ step, characters })
-        : m.home_start_lesson_title({ step, characters }),
-      hint: unfinished
-        ? m.learn_restart_title({ step })
-        : reviewChars.length
-          ? m.learn_review_title({ characters: reviewChars.join(', ') })
-          : '',
-      path: unfinished ? path : `${path}/session?step=${step}`
-    };
-  });
+  const lessonLink = $derived(
+    homeLessonLink({ dashboard, snapshot: learning.snapshot, recentReview })
+  );
 
   async function loadHome() {
     const owner = getTrainingOwner();
@@ -92,10 +54,8 @@
       if (!current()) return;
       activeDb = db;
       const result = await loadHomeDashboard(db, owner, new Date().toISOString());
-      let pilotDb: IDBDatabase | null = null;
       try {
-        pilotDb = await openLearningPilotDb();
-        const reviews = await getLearningPilotHistory(pilotDb, owner);
+        const reviews = await loadLearningPilotHistory(owner);
         if (current())
           recentReview = reviews.some(
             (review) =>
@@ -107,8 +67,6 @@
       } catch {
         // Local review storage must not prevent access to existing lessons/history.
         if (current()) recentReview = false;
-      } finally {
-        pilotDb?.close();
       }
       if (current()) {
         dashboard = result;

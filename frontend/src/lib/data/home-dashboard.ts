@@ -1,7 +1,7 @@
 import { createAttemptRepository } from './attempt-repository';
 import { createSessionRepository } from './session-repository';
 import { deriveCourseGuidance } from '../training/v2/course-guidance';
-import { sessionOccurredAt, summarizeProgress } from '../training/v2/progress-summary';
+import { summarizeProgress } from '../training/v2/progress-summary';
 import { recordedCharacters, returningLearner } from '../training/targeted-review';
 
 /** Lifetime eligibility stays separate from the rolling learning/activity summaries. */
@@ -16,10 +16,6 @@ export async function loadHomeDashboard(db: IDBDatabase, owner: string, nowIso: 
   ]);
   const recentStart = new Date(now - 60 * 86400000).toISOString();
   const recentAttempts = allAttempts.filter((attempt) => attempt.createdAt >= recentStart);
-  const recentSessions = history.filter((session) => {
-    const occurred = Date.parse(sessionOccurredAt(session));
-    return occurred >= now - 7 * 86400000 && occurred <= now;
-  });
   const knownCharacters = recordedCharacters(allAttempts);
   return {
     knownCharacters,
@@ -33,7 +29,7 @@ export async function loadHomeDashboard(db: IDBDatabase, owner: string, nowIso: 
       history: allAttempts
     }),
     unfinishedSession,
-    summary: summarizeProgress(recentAttempts, recentSessions, nowIso)
+    summary: summarizeProgress(allAttempts, history, nowIso)
   };
 }
 

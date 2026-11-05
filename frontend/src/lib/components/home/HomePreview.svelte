@@ -24,6 +24,9 @@
   let quizAnswer = $state<string | null>(null);
   let previewFrame = $state<HTMLElement | null>(null);
   let audio: AudioEngine | null = null;
+  const quizCorrect = $derived(quizAnswer !== null && quizAnswer === quizCharacter);
+  const heard = $derived(new Set(heardCharacters));
+  const allHeard = $derived(heardCharacters.length === previewChars.length);
 
   function clearSample() {
     sampleCharacter = null;
@@ -156,11 +159,12 @@
       </div>
       <p class="sample-status body-text" role="status" aria-atomic="true">
         {#if quizAnswer}
-          {#if quizAnswer === quizCharacter}<CircleCheck
-              size={18}
-              aria-hidden="true"
-            />{:else}<CircleX size={18} aria-hidden="true" />{/if}
-          {quizAnswer === quizCharacter
+          {#if quizCorrect}
+            <CircleCheck size={18} aria-hidden="true" />
+          {:else}
+            <CircleX size={18} aria-hidden="true" />
+          {/if}
+          {quizCorrect
             ? m.home_quiz_correct({ character: quizCharacter })
             : m.home_quiz_incorrect({ character: quizCharacter })}
         {:else}{m.home_quiz_playing()}{/if}
@@ -186,7 +190,7 @@
             class="preview-char"
             aria-label={sampleCharacter === char
               ? m.home_sample_stop({ character: char })
-              : heardCharacters.includes(char)
+              : heard.has(char)
                 ? m.home_sample_replay({ character: char })
                 : m.home_sample_play({ character: char })}
             aria-pressed={sampleCharacter === char}
@@ -195,11 +199,11 @@
             <span class="sample-letter">{char}</span>
             <span class="sample-action">
               {#if sampleCharacter === char}<Square size={16} aria-hidden="true" />
-              {:else if heardCharacters.includes(char)}<CircleCheck size={16} aria-hidden="true" />
+              {:else if heard.has(char)}<CircleCheck size={16} aria-hidden="true" />
               {:else}<Play size={16} aria-hidden="true" />{/if}
               {sampleCharacter === char
                 ? m.player_stop()
-                : heardCharacters.includes(char)
+                : heard.has(char)
                   ? m.home_quiz_replay()
                   : m.home_step1_title()}
             </span>
@@ -209,11 +213,11 @@
       <p class="sample-status body-text" aria-live="polite" aria-atomic="true">
         {sampleCharacter
           ? m.home_sample_playing({ character: sampleCharacter })
-          : heardCharacters.length === previewChars.length
+          : allHeard
             ? m.home_sample_ready()
             : m.home_sample_hint()}
       </p>
-      {#if heardCharacters.length === previewChars.length}
+      {#if allHeard}
         <button type="button" class="btn-ghost preview-control" onclick={startQuiz}
           >{m.home_quiz_start()}</button
         >

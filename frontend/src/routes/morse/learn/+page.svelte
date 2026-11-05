@@ -1,11 +1,56 @@
 <script lang="ts">
-  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { user } from '#lib/auth.ts';
+  import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
+  import { migrateLegacyLocalStorage } from '#lib/data/legacy-migration.ts';
+  import { createSessionRepository, type SessionRepository } from '#lib/data/session-repository.ts';
   import {
     listCheckpoints,
     discardCheckpoint,
     type SessionCheckpoint
   } from '#lib/data/session-checkpoints.ts';
+  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { createLearningView } from '#lib/learning-view.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
+  import {
+    getTrainingOwner,
+    subscribeTrainingSync,
+    trainingSyncState
+  } from '#lib/training-sync.svelte.ts';
+  import { deriveCourseGuidance } from '#lib/training/v2/course-guidance.ts';
+  import { getMasteryBlockers } from '#lib/training/v2/mastery.ts';
+  import type { CharacterMastery, TrainingSessionRecord } from '#lib/training/v2/types.ts';
+  import { LESSONS } from '#lib/training/sequence.ts';
+  import CoursePath from '#lib/components/learning/CoursePath.svelte';
+  import LearnHero, { type HeroStateKind } from '#lib/components/learning/LearnHero.svelte';
+  import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
+  import LessonRequirements from '#lib/components/learning/LessonRequirements.svelte';
+  import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
+  import GuestNotice from '#lib/components/GuestNotice.svelte';
+  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
+
+  const learning = createLearningView();
+  let loading = $state(true);
+  let errorMsg = $state('');
+  let currentStep = $state(1);
+  let unlockedStep = $state(1);
+  let suggestedStep = $state<number | undefined>(undefined);
   let savedSessions = $state.raw<SessionCheckpoint[]>([]);
+  let inProgressSession = $state<TrainingSessionRecord | null>(null);
+  let masteryMap = $state.raw<Map<string, CharacterMastery>>(new Map());
+  let reviewChars = $state<string[]>([]);
+  let hasAttempts = $state(false);
+  let courseComplete = $state(false);
+  let mounted = false;
+  let loadVersion = 0;
+  let activeDb: IDBDatabase | null = null;
+  let sessionRepo: SessionRepository | null = null;
+  let sessionActionPending = $state(false);
+  let sessionActionError = $state('');
+  let loadedOwner: string | null = null;
+
   async function discardSaved(entry: SessionCheckpoint) {
     if (sessionActionPending) return;
     sessionActionPending = true;
@@ -19,56 +64,6 @@
       if (owner === getTrainingOwner()) sessionActionPending = false;
     }
   }
-
-  import { createLearningView } from '#lib/learning-view.svelte.ts';
-  import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
-  const learning = createLearningView();
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
-  import { CircleAlert } from '@lucide/svelte';
-  import { SvelteMap } from 'svelte/reactivity';
-  import { localizedHref } from '#lib/i18n.svelte.ts';
-  import { LESSONS } from '#lib/training/sequence.ts';
-  import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
-  import { createSessionRepository, type SessionRepository } from '#lib/data/session-repository.ts';
-  import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
-  import { migrateLegacyLocalStorage } from '#lib/data/legacy-migration.ts';
-  import { getMasteryBlockers } from '#lib/training/v2/mastery.ts';
-  import { deriveCourseGuidance } from '#lib/training/v2/course-guidance.ts';
-  import {
-    DEFAULT_MASTERY_POLICY as policy,
-    type CharacterMastery,
-    type TrainingSessionRecord
-  } from '#lib/training/v2/types.ts';
-  import LearnHero, { type HeroStateKind } from '#lib/components/learning/LearnHero.svelte';
-  import CoursePath from '#lib/components/learning/CoursePath.svelte';
-  import GuestNotice from '#lib/components/GuestNotice.svelte';
-  import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
-  import {
-    getTrainingOwner,
-    trainingSyncState,
-    subscribeTrainingSync
-  } from '#lib/training-sync.svelte.ts';
-  import { user } from '#lib/auth.ts';
-  import * as m from '#lib/paraglide/messages.js';
-
-  let loading = $state(true);
-  let errorMsg = $state('');
-  let currentStep = $state(1);
-  let unlockedStep = $state(1);
-  let suggestedStep = $state<number | undefined>(undefined);
-  let inProgressSession = $state<TrainingSessionRecord | null>(null);
-  let masteryMap = $state<Map<string, CharacterMastery>>(new Map());
-  let reviewChars = $state<string[]>([]);
-  let hasAttempts = $state(false);
-  let courseComplete = $state(false);
-  let mounted = false;
-  let loadVersion = 0;
-  let activeDb: IDBDatabase | null = null;
-  let sessionRepo: SessionRepository | null = null;
-  let sessionActionPending = $state(false);
-  let sessionActionError = $state('');
-  let loadedOwner: string | null = null;
 
   let heroKind = $derived.by<HeroStateKind>(() => {
     if (loading) return 'loading';
@@ -94,9 +89,7 @@
   let masteryChecks = $derived(
     currentIntroduced.split('').flatMap((character) => {
       const mastery = masteryMap.get(character);
-      if (!mastery) return [];
-      const blockers = getMasteryBlockers(mastery);
-      return blockers.length ? [{ character, mastery, blockers }] : [];
+      return mastery && getMasteryBlockers(mastery).length ? [{ character, mastery }] : [];
     })
   );
 
@@ -109,11 +102,12 @@
       sessionActionError = '';
     }
     const version = ++loadVersion;
+    const current = () => mounted && version === loadVersion && owner === getTrainingOwner();
     if (activeDb) closeTrainingDb(activeDb);
     activeDb = null;
     sessionRepo = null;
     inProgressSession = null;
-    masteryMap = new SvelteMap();
+    masteryMap = new Map();
     reviewChars = [];
     hasAttempts = false;
     currentStep = 1;
@@ -125,10 +119,10 @@
     let initialized = false;
     try {
       db = await openTrainingDb();
-      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
+      if (!current()) return;
       activeDb = db;
       const migration = await migrateLegacyLocalStorage(db);
-      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
+      if (!current()) return;
       const repository = createSessionRepository(db, owner);
       const attemptRepo = createAttemptRepository(db, owner);
       const now = Date.now();
@@ -139,7 +133,7 @@
         attemptRepo.countAttempts(),
         listCheckpoints(owner)
       ]);
-      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
+      if (!current()) return;
       const recentAttempts = allAttempts.filter(
         (attempt) => Date.parse(attempt.createdAt) >= now - 60 * 86400000
       );
@@ -148,7 +142,7 @@
       });
       currentStep = guidance.currentStep;
       unlockedStep = guidance.unlockedStep;
-      masteryMap = new SvelteMap(guidance.masteryMap);
+      masteryMap = guidance.masteryMap;
       reviewChars = guidance.reviewChars;
       courseComplete = guidance.courseComplete;
       hasAttempts = attemptCount > 0;
@@ -160,7 +154,7 @@
       sessionRepo = repository;
       initialized = true;
     } catch (error) {
-      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
+      if (current()) {
         console.error('Failed to load Learn home data:', error);
         errorMsg = m.learn_data_error_description();
       }
@@ -169,7 +163,7 @@
         closeTrainingDb(db);
         if (activeDb === db) activeDb = null;
       }
-      if (mounted && version === loadVersion && owner === getTrainingOwner()) loading = false;
+      if (current()) loading = false;
     }
   }
 
@@ -231,15 +225,6 @@
   <title>{m.nav_learn()} · OpenCW</title>
 </svelte:head>
 
-{#snippet masteryCheck(label: string, value: string, current?: number, target?: number)}
-  <div class="mastery-check">
-    <div class="check-values"><span>{label}</span><strong>{value}</strong></div>
-    {#if current !== undefined && target !== undefined}
-      <progress aria-hidden="true" value={current} max={target}></progress>
-    {/if}
-  </div>
-{/snippet}
-
 {#snippet currentLesson()}
   <SavedSessions
     entries={savedSessions}
@@ -269,74 +254,7 @@
 
 {#snippet lessonRequirements()}
   {#if !loading && !errorMsg && activeStep === currentStep && masteryChecks.length > 0 && !learning.snapshot?.knownCharacters.length}
-    <details
-      class={['unlock-checks', (heroKind === 'new' || heroKind === 'next') && 'with-start-row']}
-    >
-      <summary>{unlockTitle}</summary>
-      <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
-      <ul class="mastery-checks" role="list">
-        {#each masteryChecks as { character, mastery, blockers } (character)}
-          <li class="mastery-character">
-            <strong class="check-character">{character}</strong>
-            <div class="character-checks">
-              {#each blockers as blocker (blocker)}
-                {#if blocker === 'attempts'}
-                  {@render masteryCheck(
-                    m.learn_unlock_attempts_label(),
-                    m.learn_unlock_count({
-                      count: mastery.totalAttempts,
-                      required: policy.minAttemptsForStability
-                    }),
-                    mastery.totalAttempts,
-                    policy.minAttemptsForStability
-                  )}
-                {:else if blocker === 'sessions'}
-                  {@render masteryCheck(
-                    m.learn_unlock_sessions_label(),
-                    m.learn_unlock_count({
-                      count: mastery.sessionCount,
-                      required: policy.minSessionsForStability
-                    }),
-                    mastery.sessionCount,
-                    policy.minSessionsForStability
-                  )}
-                {:else if blocker === 'accuracy'}
-                  {@render masteryCheck(
-                    m.learn_unlock_accuracy_label(),
-                    mastery.totalAttempts === 0
-                      ? m.learn_unlock_accuracy_missing_value({
-                          required: Math.round(policy.targetAccuracy * 100)
-                        })
-                      : m.learn_unlock_accuracy_value({
-                          current: (mastery.rollingAccuracy * 100).toFixed(1),
-                          required: Math.round(policy.targetAccuracy * 100)
-                        }),
-                    mastery.totalAttempts === 0 ? undefined : mastery.rollingAccuracy,
-                    policy.targetAccuracy
-                  )}
-                {:else if blocker === 'speed'}
-                  {@render masteryCheck(
-                    m.learn_unlock_speed_label(),
-                    mastery.medianLatencyMs === null
-                      ? m.learn_unlock_speed_missing_value({
-                          required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
-                        })
-                      : m.learn_unlock_speed_value({
-                          current: (Math.ceil(mastery.medianLatencyMs) / 1000).toFixed(3),
-                          required: (policy.maxAutomaticLatencyMs / 1000).toFixed(3)
-                        })
-                  )}
-                {:else}
-                  <p class="review-check">
-                    <CircleAlert size={16} aria-hidden="true" />{m.learn_unlock_review_due()}
-                  </p>
-                {/if}
-              {/each}
-            </div>
-          </li>
-        {/each}
-      </ul>
-    </details>
+    <LessonRequirements {unlockTitle} checks={masteryChecks} />
   {/if}
 {/snippet}
 
@@ -401,100 +319,6 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
   }
-  .unlock-checks summary {
-    min-height: var(--answer-target-min);
-    padding-block: var(--space-3);
-    color: var(--text-secondary);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .unlock-checks summary:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .unlock-hint {
-    margin: 0 0 var(--space-4);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-
-  .mastery-checks {
-    display: grid;
-    gap: var(--space-6);
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .mastery-character {
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr);
-    gap: var(--space-3);
-  }
-
-  .check-character {
-    font-size: var(--text-xl);
-    color: var(--text-primary);
-  }
-
-  .character-checks {
-    display: grid;
-    gap: var(--space-3);
-    min-width: 0;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-
-  .check-values {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-3);
-    overflow-wrap: anywhere;
-  }
-
-  .check-values strong {
-    color: var(--text-primary);
-    font-weight: 500;
-  }
-
-  .mastery-check progress {
-    appearance: none;
-    display: block;
-    width: 100%;
-    height: var(--space-1);
-    margin-top: var(--space-2);
-    border: 0;
-    background: var(--border);
-  }
-
-  .mastery-check progress::-webkit-progress-bar {
-    background: var(--border);
-  }
-
-  .mastery-check progress::-webkit-progress-value {
-    background: var(--accent);
-  }
-
-  .mastery-check progress::-moz-progress-bar {
-    background: var(--accent);
-  }
-
-  .review-check {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-    margin: 0;
-  }
-
-  .review-check :global(svg) {
-    flex-shrink: 0;
-    margin-top: var(--space-1);
-  }
-
   .learn-home-container {
     display: flex;
     flex-direction: column;
