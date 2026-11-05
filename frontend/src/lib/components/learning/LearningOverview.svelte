@@ -3,8 +3,9 @@
   import { LEARNING_POLICY } from '#lib/training/learning-policy/policy.ts';
   import type { LearningSnapshot } from '../../data/learning-snapshot';
   import { learningRecommendationHref } from '../../data/learning-snapshot';
-  import { recommendationTitle } from './recommendation-copy';
-  import { localizedHref, lang } from '#lib/i18n.svelte.ts';
+  import { recommendationTitle, criterionLabel } from './recommendation-copy';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { formatDateTime } from '#lib/format.ts';
   import type { Attainment } from '../../training/learning-policy/types';
   import * as m from '#lib/paraglide/messages.js';
   let {
@@ -84,9 +85,6 @@
           ? !['met', 'not-met'].includes(c.current.criterion)
           : c.current.criterion === filter)
     )
-  );
-  const dateFormat = $derived(
-    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
   );
   const award = (value: Attainment | null) =>
     !value
@@ -201,13 +199,7 @@
               <details class="character-evidence">
                 <summary>
                   <strong>{character.character}</strong>
-                  <span
-                    >{character.current.criterion === 'met'
-                      ? m.learning_current_met()
-                      : character.current.criterion === 'not-met'
-                        ? m.learning_current_notmet()
-                        : m.learning_current_stale()}</span
-                  >
+                  <span>{criterionLabel(character.current.criterion)}</span>
                   <ChevronDown size={20} aria-hidden="true" />
                 </summary>
                 <div class="evidence-details">
@@ -238,7 +230,7 @@
                         ? m.learning_review_due()
                         : character.review.reason === 'upcoming'
                           ? m.learning_review_on({
-                              date: dateFormat.format(new Date(character.review.dueAt))
+                              date: formatDateTime(character.review.dueAt)
                             })
                           : m.learning_review_wait()}
                     </p>{/if}

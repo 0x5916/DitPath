@@ -1,5 +1,18 @@
 import type { Recommendation } from '../../training/learning-policy/recommendation';
 import * as m from '#lib/paraglide/messages.js';
+
+/** Localized label for a character's current proficiency criterion. */
+export function criterionLabel(criterion: string): string {
+  switch (criterion) {
+    case 'met':
+      return m.learning_current_met();
+    case 'not-met':
+      return m.learning_current_notmet();
+    default:
+      return m.learning_current_stale();
+  }
+}
+
 export function recommendationTitle(value: Recommendation): string {
   const characters = value.targets.join(', ');
   switch (value.reason) {

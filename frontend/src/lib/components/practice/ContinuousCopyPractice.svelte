@@ -14,7 +14,7 @@
   } from '../../practice/copy-attempt';
   import { normalizePlaybackSettings } from '../../practice/playback';
   import { practiceKeyIntent } from '../../practice/keyboard';
-  import { percentage } from '../../format';
+  import { formatPercent } from '../../format';
   import MorsePlayer from '../MorsePlayer.svelte';
   import ResultOverlay from '../ResultOverlay.svelte';
   import ExitSessionDialog from '../learning/ExitSessionDialog.svelte';
@@ -339,7 +339,7 @@
 
     {#if !showOverlay && result >= 0}
       <p class="result-line" aria-live="polite">
-        {m.trainer_result_last({ percent: percentage(result) })}
+        {m.trainer_result_last({ percent: formatPercent(result) })}
         <button type="button" class="quiet-btn" onclick={() => (showOverlay = true)}>
           {m.trainer_result_review()}
         </button>

@@ -386,12 +386,7 @@
               ? 'btn-ghost player-play-btn'
               : 'btn-primary player-play-btn'}
           onclick={() => transport.toggle(text)}
-          {@attach (button) => {
-            playButton = button;
-            return () => {
-              playButton = null;
-            };
-          }}
+          bind:this={playButton}
           disabled={playback.busy}
           aria-label={started && !paused ? m.player_pause() : effectivePlayLabel}
         >

@@ -10,6 +10,7 @@
     progressRecordDays,
     utcDayStart
   } from '#lib/profile-heatmap.ts';
+  import { placeFloatingPanel } from '#lib/floating-panel.ts';
   import { getLocale } from '#lib/paraglide/runtime.js';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -117,20 +118,15 @@
 
   function positionTooltip() {
     if (!tooltipCell || !tooltipPanel || !tooltipAnchor) return;
-    const anchor = tooltipAnchor.getBoundingClientRect();
-    if (
-      anchor.bottom <= 0 ||
-      anchor.top >= window.innerHeight ||
-      anchor.right <= 0 ||
-      anchor.left >= window.innerWidth
-    )
-      return closeTooltip();
     const bounds = tooltipPanel.getBoundingClientRect();
-    tooltipLeft = Math.max(16, Math.min(anchor.left, window.innerWidth - bounds.width - 16));
-    tooltipTop =
-      anchor.bottom + bounds.height + 4 <= window.innerHeight - 16
-        ? anchor.bottom + 4
-        : Math.max(16, anchor.top - bounds.height - 4);
+    const placement = placeFloatingPanel({
+      anchor: tooltipAnchor.getBoundingClientRect(),
+      panel: { width: bounds.width, height: bounds.height },
+      viewport: { width: window.innerWidth, height: window.innerHeight }
+    });
+    if (!placement) return closeTooltip();
+    tooltipLeft = placement.left;
+    tooltipTop = placement.top;
   }
 
   function navigateDay(event: KeyboardEvent, cell: HeatmapCell) {
@@ -404,7 +400,8 @@
 
 <style>
   .panel {
-    --heatmap-cell-size: 1.25rem;
+    /* 24px is the WCAG 2.5.8 minimum for each interactive day target. */
+    --heatmap-cell-size: 1.5rem;
     --heatmap-gap: 0.25rem;
   }
   button.profile-heatmap-cell {

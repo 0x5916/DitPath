@@ -298,10 +298,6 @@ export interface CombinedSettings {
   page_settings: PageSettings;
 }
 
-export async function getCWSettings(): Promise<CWSettings> {
-  return apiGetJson<CWSettings>('/settings/cw', 'SETTINGS_FETCH_FAILED');
-}
-
 export async function saveCWSettings(settings: CWSettings): Promise<void> {
   await apiSendJson('/settings/cw', 'POST', settings, 'SETTINGS_UPDATE_FAILED');
 }
@@ -334,10 +330,6 @@ export async function updateCallSign(callSign: string): Promise<void> {
   await apiSendJson('/user/callsign', 'PUT', { call_sign: callSign }, 'INTERNAL_SERVER_ERROR');
 }
 
-export interface ProgressDay {
-  date: string;
-  count: number;
-}
 export async function updatePassword(oldPassword: string, newPassword: string): Promise<void> {
   const session = getAuthSession();
   await apiSendJson(
