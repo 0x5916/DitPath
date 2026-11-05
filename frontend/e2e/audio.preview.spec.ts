@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { resetToHome, startAndType } from './helpers';
+import { startAndType } from './helpers';
 
 type AudioStats = { created: number; closed: number };
 
@@ -25,8 +25,7 @@ test('rapid replay and navigation leave no open audio context', async ({ page })
     });
   });
 
-  await resetToHome(page);
-  await page.goto('/morse/practice');
+  await page.goto('/en/morse/practice', { waitUntil: 'networkidle' });
   const answer = await startAndType(page);
   await expect(answer).toBeVisible();
   await page.waitForTimeout(500);

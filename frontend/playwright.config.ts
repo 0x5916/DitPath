@@ -41,8 +41,8 @@ export default defineConfig({
         use: { ...device, baseURL: 'http://127.0.0.1:4174' }
       },
       {
-        name: `offline-${id}`,
-        testMatch: '**/*.offline.spec.ts',
+        name: `preview-${id}`,
+        testMatch: ['**/*.offline.spec.ts', '**/*.preview.spec.ts'],
         use: { ...device, baseURL: 'http://127.0.0.1:4177' }
       }
     ])
