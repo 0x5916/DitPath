@@ -49,7 +49,7 @@ normal builds do not import its fixtures or fault hooks. The
 [fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
 guidance outcomes and fail when a source injection seam changes.
 
-[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally.
+[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
 
 Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
 

@@ -21,19 +21,19 @@ describe('buildAudioPlan', () => {
     expect(plan.totalDuration).toBeCloseTo(0.42, 12);
   });
 
-  it('uses letter and word gaps for multi-character text', () => {
+  it('uses a word gap in place of the letter gap between words', () => {
     const plan = buildAudioPlan('E E', { charWpm: 20, effWpm: 10 });
-    const { charDot, letterSpace, wordSpace } = getFarnsworthWpmSet(20, 10);
+    const { charDot, wordSpace } = getFarnsworthWpmSet(20, 10);
     expect(plan.events[0]).toEqual({ start: 0, duration: charDot });
-    expect(plan.events[1]).toEqual({ start: charDot + letterSpace + wordSpace, duration: charDot });
-    expect(plan.totalDuration).toBeCloseTo(charDot + letterSpace + wordSpace + charDot, 12);
+    expect(plan.events[1]).toEqual({ start: charDot + wordSpace, duration: charDot });
+    expect(plan.totalDuration).toBeCloseTo(charDot + wordSpace + charDot, 12);
   });
 
   it('preserves leading, repeated and trailing gaps without trimming unknown characters', () => {
     const text = ' e\t!e ';
-    const { charDot, letterSpace, wordSpace } = getFarnsworthWpmSet(20, 10);
-    const secondStart = wordSpace + charDot + letterSpace + wordSpace + wordSpace;
-    const duration = secondStart + charDot + letterSpace + wordSpace;
+    const { charDot, wordSpace } = getFarnsworthWpmSet(20, 10);
+    const secondStart = wordSpace + charDot + wordSpace + wordSpace;
+    const duration = secondStart + charDot + wordSpace;
     const plan = buildAudioPlan(text, { charWpm: 20, effWpm: 10 });
 
     expect(plan.text).toBe(' E\t!E ');
@@ -43,6 +43,19 @@ describe('buildAudioPlan', () => {
     ]);
     expect(plan.totalDuration).toBe(duration);
     expect(calculateDuration(text, 20, 10)).toBe(duration);
+  });
+
+  it('matches the selected effective WPM over a complete word', () => {
+    // PARIS plus its trailing word gap is exactly 31 character units + 19
+    // Farnsworth spacing units, the standard definition of effective WPM.
+    for (const [charWpm, effWpm] of [
+      [20, 10],
+      [25, 12],
+      [30, 15],
+      [20, 20]
+    ]) {
+      expect(60 / calculateDuration('PARIS ', charWpm, effWpm)).toBeCloseTo(effWpm, 10);
+    }
   });
 
   it('keeps silence in passages containing only unknown characters', () => {
@@ -56,8 +69,8 @@ describe('buildAudioPlan', () => {
   });
 
   it('keeps a word gap for each unsupported UTF-16 code unit', () => {
-    const { charDot, letterSpace, wordSpace } = getFarnsworthWpmSet(20, 10);
-    const duration = charDot + letterSpace + wordSpace + wordSpace + wordSpace;
+    const { charDot, wordSpace } = getFarnsworthWpmSet(20, 10);
+    const duration = charDot + wordSpace + wordSpace + wordSpace;
     const plan = buildAudioPlan('E🙂\n', { charWpm: 20, effWpm: 10 });
 
     expect(plan.events).toEqual([{ start: 0, duration: charDot }]);

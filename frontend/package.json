@@ -22,6 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "audio:audit": "node scripts/audio-audit.mjs",
     "verify": "npm run messages:validate && npm run seo:validate && npm run check && npm run check:scripts && npm run test",
     "seo:validate": "node --experimental-strip-types scripts/validate-seo.ts",
     "messages:validate": "node --experimental-strip-types scripts/validate-messages.ts",

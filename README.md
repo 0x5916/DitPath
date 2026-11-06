@@ -13,7 +13,7 @@ cp example.env .env
 npm run dev
 ```
 
-Set `PUBLIC_API_BASE` in the frontend environment to the backend's `/v1` URL. Guided training stores events locally in IndexedDB; account and forum features need the API. Follow the [backend setup](backend/README.md) to start it.
+Set `PUBLIC_API_BASE` in the frontend environment to the backend's `/v1` URL. Guided training stores events locally in IndexedDB; account and forum features need the API. Follow the [backend setup](backend/README.md) to start it. For isolated full-stack manual acceptance, use the [disposable test stack](scripts/test-stack/README.md).
 
 ## Documentation
 

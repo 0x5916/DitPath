@@ -85,10 +85,7 @@ describe('Farnsworth timing', () => {
 
   it('inserts letter gaps between characters and word gaps at spaces', () => {
     expect(calculateDuration('EE', 20, 10)).toBeCloseTo(charDot + letterSpace + charDot, 12);
-    expect(calculateDuration('E E', 20, 10)).toBeCloseTo(
-      charDot + letterSpace + wordSpace + charDot,
-      12
-    );
+    expect(calculateDuration('E E', 20, 10)).toBeCloseTo(charDot + wordSpace + charDot, 12);
     expect(calculateDuration('KK', 20, 10)).toBeCloseTo(
       2 * (2 * dash + 3 * charDot) + letterSpace,
       12

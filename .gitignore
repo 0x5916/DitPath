@@ -22,3 +22,6 @@ backups/
 # Local design review output
 /.artifacts/
 /.impeccable/critique/
+
+# Disposable local acceptance stack credentials and runtime configuration
+/scripts/test-stack/runtime/
