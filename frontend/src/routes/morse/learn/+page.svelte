@@ -20,6 +20,7 @@
     trainingSyncState
   } from '#lib/training-sync.svelte.ts';
   import { deriveCourseGuidance } from '#lib/training/v2/course-guidance.ts';
+  import { isRecommendationLessonLocked } from '#lib/training/v2/lesson-access.ts';
   import { getMasteryBlockers } from '#lib/training/v2/mastery.ts';
   import type { CharacterMastery, TrainingSessionRecord } from '#lib/training/v2/types.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
@@ -91,6 +92,11 @@
       const mastery = masteryMap.get(character);
       return mastery && getMasteryBlockers(mastery).length ? [{ character, mastery }] : [];
     })
+  );
+  let recommendationLocked = $derived(
+    learning.snapshot
+      ? isRecommendationLessonLocked(learning.snapshot.recommendation.primary, unlockedStep)
+      : false
   );
 
   async function loadLessons() {
@@ -231,8 +237,8 @@
     onDiscard={(entry) => void discardSaved(entry)}
     busy={sessionActionPending}
   />
-  {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2 && !inProgressSession && activeStep === currentStep}
-    <LearningOverview snapshot={learning.snapshot} />
+  {#if learning.snapshot && learning.snapshot.knownCharacters.length >= 2 && !inProgressSession && activeStep === currentStep && !recommendationLocked}
+    <LearningOverview snapshot={learning.snapshot} unlockedLesson={unlockedStep} />
   {:else}<LearnHero
       embedded
       kind={heroKind}

@@ -10,6 +10,7 @@
     result = null,
     snapshot = null,
     busy = false,
+    unlockedLesson = null,
     storageStatus,
     onRepeatCheck,
     onFinish
@@ -18,6 +19,7 @@
     result?: EvaluatedCheck | null;
     snapshot?: LearningSnapshot | null;
     busy?: boolean;
+    unlockedLesson?: number | null;
     storageStatus?: Snippet;
     onRepeatCheck?: () => void;
     onFinish: () => void;
@@ -44,7 +46,12 @@
   {#if storageStatus}{@render storageStatus()}{/if}
   <p>{m.mixed_criteria()}</p>
   <p>{m.mixed_gap_hint()}</p>
-  {#if snapshot && !busy}<LearningOverview {snapshot} compact onAction={onRepeatCheck} />{/if}
+  {#if snapshot && !busy}<LearningOverview
+      {snapshot}
+      {unlockedLesson}
+      compact
+      onAction={onRepeatCheck}
+    />{/if}
   <button
     class={snapshot ? 'btn-ghost' : 'btn-primary'}
     type="button"

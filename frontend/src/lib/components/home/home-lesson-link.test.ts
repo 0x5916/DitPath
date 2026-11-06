@@ -9,6 +9,7 @@ function dashboard(
     unfinishedStep?: number | null;
     courseComplete?: boolean;
     currentStep?: number;
+    unlockedStep?: number;
     reviewChars?: string[];
   } = {}
 ) {
@@ -17,12 +18,13 @@ function dashboard(
     unfinishedStep = null,
     courseComplete = false,
     currentStep = 1,
+    unlockedStep = currentStep,
     reviewChars = []
   } = overrides;
   return {
     returning,
     unfinishedSession: unfinishedStep === null ? null : { step: unfinishedStep },
-    guidance: { courseComplete, currentStep, reviewChars }
+    guidance: { courseComplete, currentStep, unlockedStep, reviewChars }
   };
 }
 
@@ -62,9 +64,9 @@ describe('homeLessonLink', () => {
     });
   });
 
-  it('uses the prospective recommendation when recorded characters are known', () => {
+  it('uses the prospective recommendation when the guided lesson is unlocked', () => {
     const link = homeLessonLink({
-      dashboard: dashboard(),
+      dashboard: dashboard({ unlockedStep: 2 }),
       snapshot: snapshot({ reason: 'new-lesson', targets: ['M'], lesson: 2 }),
       recentReview: false
     });
@@ -73,9 +75,19 @@ describe('homeLessonLink', () => {
     expect(link.hint).toBe(m.learning_overview_profile({ speed: 20 }));
   });
 
+  it('does not link to a learning recommendation above the guided unlock', () => {
+    const link = homeLessonLink({
+      dashboard: dashboard({ currentStep: 1, unlockedStep: 1 }),
+      snapshot: snapshot({ reason: 'new-lesson', targets: ['M'], lesson: 2 }),
+      recentReview: false
+    });
+    expect(link.path).toBe('/morse/learn/session?step=1');
+    expect(link.title).toBe(m.home_start_lesson_title({ step: 1, characters: 'K, M' }));
+  });
+
   it('marks partial coverage in the hint', () => {
     const link = homeLessonLink({
-      dashboard: dashboard(),
+      dashboard: dashboard({ unlockedStep: 2 }),
       snapshot: snapshot(
         { reason: 'new-lesson', targets: ['M'], lesson: 2 },
         ['K', 'M'],

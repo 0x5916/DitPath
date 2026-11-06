@@ -4,6 +4,7 @@
   import type { LearningSnapshot } from '../../data/learning-snapshot';
   import { learningRecommendationHref } from '../../data/learning-snapshot';
   import { recommendationTitle, criterionLabel } from './recommendation-copy';
+  import { isRecommendationLessonLocked } from '#lib/training/v2/lesson-access.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import { formatDateTime } from '#lib/format.ts';
   import type { Attainment } from '../../training/learning-policy/types';
@@ -13,12 +14,15 @@
     details = false,
     compact = false,
     progressView = null,
+    unlockedLesson = null,
     onAction
   }: {
     snapshot: LearningSnapshot;
     details?: boolean;
     compact?: boolean;
     progressView?: string | null;
+    /** Guided-course unlock boundary; learning evidence cannot exceed it. */
+    unlockedLesson?: number | null;
     onAction?: () => void;
   } = $props();
   import { browser } from '$app/env';
@@ -46,8 +50,15 @@
       filterControl.scrollIntoView({ block: 'start' });
   }
   const primary = $derived(snapshot.recommendation.primary);
+  const recommendationLocked = $derived(
+    unlockedLesson !== null && isRecommendationLessonLocked(primary, unlockedLesson)
+  );
   const nextHref = $derived(
-    localizedHref(learningRecommendationHref(primary, snapshot.knownCharacters))
+    localizedHref(
+      recommendationLocked
+        ? '/morse/learn'
+        : learningRecommendationHref(primary, snapshot.knownCharacters)
+    )
   );
   const checkTargets = $derived(
     new URL(nextHref, 'https://local.invalid').searchParams.get('check')
@@ -108,7 +119,12 @@
               : m.learning_overview_profile({ speed: snapshot.profile.charWpm })}
           </p>
         </header>{/if}
-      {#if onAction}<button type="button" class="btn-primary" onclick={onAction}
+      {#if recommendationLocked}
+        <p role="status">
+          {m.learning_next_locked({ step: primary.lesson ?? 1 })}
+        </p>
+        <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.progress_return_course()}</a>
+      {:else if onAction}<button type="button" class="btn-primary" onclick={onAction}
           >{recommendationTitle(primary)}</button
         >
       {:else}

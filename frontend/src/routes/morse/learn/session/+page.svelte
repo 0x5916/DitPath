@@ -30,6 +30,10 @@
     buildMixedCheck,
     type MixedCheckSession
   } from '#lib/training/learning-policy/mixed-plan.ts';
+  import {
+    deriveGuidedLessonAccess,
+    isGuidedLessonUnlocked
+  } from '#lib/training/v2/lesson-access.ts';
   import { createSessionId } from '#lib/training/v2/ids.ts';
   import MixedCheckPanel from '#lib/components/learning/MixedCheckPanel.svelte';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
@@ -49,7 +53,7 @@
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { retainTrainingPersistence } from '#lib/pending-training-persistence.ts';
-  import { AlertCircle, Check, Pause } from '@lucide/svelte';
+  import { AlertCircle, Check, Lock, Pause } from '@lucide/svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import {
     getTrainingOwner,
@@ -70,6 +74,8 @@
   let db: IDBDatabase | null = null;
   let initializing = $state(true);
   let initializationError = $state(false);
+  let lockedLesson = $state<{ step: number; unlockedStep: number } | null>(null);
+  let guidedUnlockedStep = $state(1);
   let leaving = $state(false);
   let pendingAction = $state<'exit' | 'repeat' | 'next' | null>(null);
   let pendingNavigation = $state.raw<PendingSessionNavigation | null>(null);
@@ -128,7 +134,7 @@
       });
   }
 
-  async function startSession(requestedStep: number, beginReview = false, continueSaved = true) {
+  async function startSession(beginReview = false, continueSaved = true) {
     entryHidden = document.hidden;
     let entryAudio = consumeCheckStart(page.url.pathname + page.url.search);
     const {
@@ -157,6 +163,7 @@
     db = null;
     initializing = true;
     initializationError = false;
+    lockedLesson = null;
     pendingAction = null;
     pendingNavigation = null;
     resumeAfterExit = false;
@@ -174,19 +181,38 @@
       }
       let attemptRepo = createAttemptRepository(database, owner);
       let sessionRepo = createSessionRepository(database, owner);
-      const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
-        new Date(Date.now() - 30 * 86400000).toISOString(),
-        new Date().toISOString()
+      const nowIso = new Date().toISOString();
+      const allAttempts = await attemptRepo.getAttemptsByTimeRange(
+        '0001-01-01T00:00:00.000Z',
+        nowIso
+      );
+      const recentAttempts = allAttempts.filter(
+        (attempt) => Date.parse(attempt.createdAt) >= Date.now() - 30 * 86400000
       );
       if (!current()) {
         database.close();
         return;
       }
+      const guidedAccess = deriveGuidedLessonAccess(allAttempts, nowIso);
+      guidedUnlockedStep = guidedAccess.unlockedStep;
       const sound = readClientCwSettings();
       const loaded = continueSaved && resumeValue ? await loadCheckpoint(owner, resumeValue) : null;
       if (continueSaved && resumeValue && loaded?.kind !== 'guided')
         throw Error('Saved session unavailable');
       const resume = loaded?.kind === 'guided' ? loaded : null;
+      const resumeIsAssessment = Boolean(resume?.review || resume?.mixed);
+      const guidedStep = resume?.record.step ?? step;
+      if (
+        !reviewRequest &&
+        !checkTargets &&
+        !resumeIsAssessment &&
+        !isGuidedLessonUnlocked(guidedStep, guidedAccess)
+      ) {
+        lockedLesson = { step: guidedStep, unlockedStep: guidedAccess.unlockedStep };
+        database.close();
+        database = null;
+        return;
+      }
       const id = resume?.id ?? createSessionId();
       let firstPresentation: (id: string) => EvidencePresentation | null = () => null;
       let captureFirst: ((prompt: import('#lib/training/v2/types.ts').Prompt) => void) | undefined;
@@ -399,7 +425,7 @@
           await saveCheckpoint(owner, JSON.parse(JSON.stringify(value)));
         },
         sessionId: id,
-        step: requestedStep,
+        step: guidedStep,
         ...(mixedPlan
           ? {
               prompts: mixedPlan.prompts,
@@ -458,7 +484,7 @@
 
   onMount(() => {
     const stopLearning = learning.start();
-    void startSession(step);
+    void startSession();
     onVisibility = () => {
       if (document.hidden) entryHidden = true;
       controller?.handleVisibilityChange(document.hidden);
@@ -493,7 +519,7 @@
     allowUnload = false;
     if (!updatingSessionUrl && sessionKey !== null && sessionKey !== routeKey) {
       reviewRound = 0;
-      void startSession(step);
+      void startSession();
     }
   });
 
@@ -610,7 +636,7 @@
       controller = null;
       if (action === 'repeat') {
         if (reviewPlan) reviewRound += 1;
-        await startSession(step, Boolean(reviewPlan), false);
+        await startSession(Boolean(reviewPlan), false);
       } else {
         const destination = localizedHref(
           action === 'next'
@@ -729,13 +755,22 @@
       <a class="btn-ghost" href={localizedHref('/morse')}>{m.review_unavailable_familiarize()}</a>
     </div>
   </main>
+{:else if lockedLesson}
+  <main class="loading-stage">
+    <div class="recovery-panel" role="alert">
+      <Lock size={24} aria-hidden="true" />
+      <h1>{m.lesson_locked_title({ step: lockedLesson.step })}</h1>
+      <p>{m.lesson_locked_description()}</p>
+      <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.progress_return_course()}</a>
+    </div>
+  </main>
 {:else if initializationError}
   <main class="loading-stage">
     <div class="recovery-panel" role="alert">
       <AlertCircle size={24} aria-hidden="true" />
       <p>{resumeValue ? m.session_resume_error() : m.lesson_initialization_error()}</p>
       <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
-      <button type="button" class="btn-primary" onclick={() => startSession(step)}
+      <button type="button" class="btn-primary" onclick={() => startSession()}
         >{m.lesson_retry_start()}</button
       >
     </div>
@@ -744,7 +779,7 @@
   <main class="loading-stage review-setup">
     <ReviewPanel
       plan={reviewPlan}
-      onStart={() => startSession(step, true)}
+      onStart={() => startSession(true)}
       onRepeat={handleRepeatLesson}
       onFinish={handleExit}
     />
@@ -849,12 +884,13 @@
       {#if mixedPlan}<MixedCheckPanel
           plan={mixedPlan}
           snapshot={learning.snapshot}
+          unlockedLesson={guidedUnlockedStep}
           onRepeatCheck={learning.snapshot &&
           learningRecommendationHref(
             learning.snapshot.recommendation.primary,
             learning.snapshot.knownCharacters
           ) === `/morse/learn/session?check=${checkValue}`
-            ? () => startSession(step, true, false)
+            ? () => startSession(true, false)
             : undefined}
           result={learning.snapshot?.checks.find((c) => c.id === controller?.state.sessionId) ??
             null}

@@ -30,6 +30,7 @@
     summarizeProgress,
     type ProgressSummary
   } from '#lib/training/v2/progress-summary.ts';
+  import { deriveGuidedLessonAccess } from '#lib/training/v2/lesson-access.ts';
   import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import CharacterMasteryGrid from '#lib/components/progress/CharacterMasteryGrid.svelte';
@@ -52,6 +53,7 @@
   let summary = $state.raw<ProgressSummary | null>(null);
   let history = $state.raw<HistorySessionRecord[]>([]);
   let knownCharacters = $state.raw<string[]>([]);
+  let guidedUnlockedStep = $state(1);
   let reviewHistory = $state.raw<LearningPilotHistory[]>([]);
   let reviewHistoryError = $state(false);
   let mounted = false;
@@ -69,6 +71,7 @@
       summary = null;
       history = [];
       knownCharacters = [];
+      guidedUnlockedStep = 1;
       reviewHistory = [];
       showHistory = false;
       loading = true;
@@ -89,6 +92,7 @@
       ]);
       if (!current()) return;
       knownCharacters = recordedCharacters(attempts);
+      guidedUnlockedStep = deriveGuidedLessonAccess(attempts, nowIso).unlockedStep;
       summary = summarizeProgress(attempts, sessions, nowIso);
       history = sessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
       loadedOwner = owner;
@@ -157,6 +161,7 @@
 
     {#if learning.snapshot && (view === 'characters' || (view === 'overview' && learning.snapshot.knownCharacters.length >= 2) || (view === 'history' && learning.snapshot.coverage === 'partial'))}<LearningOverview
         snapshot={learning.snapshot}
+        unlockedLesson={guidedUnlockedStep}
         details
         progressView={view}
       />{/if}

@@ -3,6 +3,7 @@ import { learningRecommendationHref } from '#lib/data/learning-snapshot.ts';
 import { LESSONS } from '#lib/training/sequence.ts';
 import type { Recommendation } from '#lib/training/learning-policy/recommendation.ts';
 import { recommendationTitle } from '#lib/components/learning/recommendation-copy.ts';
+import { isRecommendationLessonLocked } from '#lib/training/v2/lesson-access.ts';
 
 interface HomeLessonLink {
   title: string;
@@ -17,6 +18,7 @@ interface HomeLessonInput {
     guidance: {
       courseComplete: boolean;
       currentStep: number;
+      unlockedStep: number;
       reviewChars: string[];
     };
   } | null;
@@ -42,14 +44,16 @@ export function homeLessonLink({
   const unfinished = dashboard.unfinishedSession;
   if (!unfinished && snapshot && snapshot.knownCharacters.length >= 2) {
     const primary = snapshot.recommendation.primary;
-    return {
-      title: recommendationTitle(primary),
-      hint:
-        snapshot.coverage === 'partial'
-          ? m.learning_coverage_partial()
-          : m.learning_overview_profile({ speed: snapshot.profile.charWpm }),
-      path: learningRecommendationHref(primary, snapshot.knownCharacters)
-    };
+    if (!isRecommendationLessonLocked(primary, dashboard.guidance.unlockedStep)) {
+      return {
+        title: recommendationTitle(primary),
+        hint:
+          snapshot.coverage === 'partial'
+            ? m.learning_coverage_partial()
+            : m.learning_overview_profile({ speed: snapshot.profile.charWpm }),
+        path: learningRecommendationHref(primary, snapshot.knownCharacters)
+      };
+    }
   }
   if (dashboard.returning && !unfinished && !recentReview)
     return {
