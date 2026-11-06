@@ -21,6 +21,7 @@
     subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { SITE_NAME } from '#lib/seo.ts';
   import { formatDateTime, formatPercent } from '#lib/format.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
@@ -140,7 +141,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_progress()} · OpenCW</title>
+  <title>{m.nav_progress()} · {SITE_NAME}</title>
 </svelte:head>
 
 <div class="progress-page">

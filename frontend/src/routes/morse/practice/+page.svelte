@@ -14,6 +14,7 @@
   import { waitForHistoryRestore, type HistoryRestore } from '#lib/history-restore.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { SITE_NAME } from '#lib/seo.ts';
   import { createPracticeSessionRecord, type CopyAttempt } from '#lib/practice/copy-attempt.ts';
   import { createCopyCheckpointStore } from '#lib/practice/copy-checkpoint.svelte.ts';
   import { createPracticeDeparture } from '#lib/practice/departure.ts';
@@ -214,7 +215,7 @@
 <svelte:window onbeforeunload={handleBeforeUnload} />
 
 <svelte:head>
-  <title>{m.nav_practice()} · OpenCW</title>
+  <title>{m.nav_practice()} · {SITE_NAME}</title>
 </svelte:head>
 
 <div class="practice-page">

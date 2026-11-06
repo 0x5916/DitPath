@@ -10,14 +10,14 @@ describe('Progress document metadata', () => {
       const siteDefault = resolveSeoMetadata(null, locale);
 
       expect(metadata.title).not.toBe(siteDefault.title);
-      expect(metadata.title).toMatch(/OpenCW$/);
+      expect(metadata.title).toMatch(/DitPath$/);
       expect(metadata.description).not.toBe(siteDefault.description);
       expect(metadata.robots).toContain('noindex');
     }
   });
 
   it('still matches the title the Progress page used to render directly', () => {
-    expect(resolveSeoMetadata('/morse/progress', 'en').title).toBe('Progress · OpenCW');
-    expect(resolveSeoMetadata('/morse/progress', 'de').title).toBe('Fortschritt · OpenCW');
+    expect(resolveSeoMetadata('/morse/progress', 'en').title).toBe('Progress · DitPath');
+    expect(resolveSeoMetadata('/morse/progress', 'de').title).toBe('Fortschritt · DitPath');
   });
 });

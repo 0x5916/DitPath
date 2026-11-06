@@ -9,7 +9,7 @@
   import { initializeLearningSync } from '#lib/learning-sync.svelte.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import { reconcileSettingsWithServer } from '#lib/cwSync.ts';
-  import { GITHUB_URL } from '#lib/seo.ts';
+  import { GITHUB_URL, SITE_NAME } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import {
@@ -227,7 +227,7 @@
         >
           <!-- The wordmark next to it already names the link. -->
           <span class="navbar-mark" aria-hidden="true"></span>
-          OpenCW
+          {SITE_NAME}
         </a>
 
         <!-- Desktop: all links + user menu on the right -->
