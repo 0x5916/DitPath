@@ -8,7 +8,15 @@ vi.mock('#lib/api.ts', () => ({
 }));
 
 import { getSettings, saveCWSettings, savePageSettings } from '#lib/api.ts';
-import { reconcileSettingsWithServer, restoreSettingsFromServer } from '#lib/cwSync.ts';
+import {
+  readClientCwSettings,
+  reconcileSettingsWithServer,
+  restoreSettingsFromServer,
+  saveClientCwSettings
+} from '#lib/cwSync.ts';
+
+const ALICE_ID = '11111111-1111-4111-8111-111111111111';
+const BOB_ID = '22222222-2222-4222-8222-222222222222';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -18,9 +26,15 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function tokenFor(subject: string): string {
+  const payload = btoa(JSON.stringify({ sub: subject, exp: Math.floor(Date.now() / 1000) + 3600 }));
+  return `fixture.${payload}.fixture`;
+}
+
 function setAccount(username: string): void {
+  const subject = username === 'alice' ? ALICE_ID : BOB_ID;
   localStorage.setItem(AUTH_STORAGE_KEYS.username, username);
-  localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, `token-${username}`);
+  localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, tokenFor(subject));
 }
 
 const settings = {
@@ -73,7 +87,7 @@ describe('settings synchronization session boundaries', () => {
   });
 
   it('does not continue reconciliation after an account changes during CW upload', async () => {
-    localStorage.setItem(CW_STORAGE_KEYS.cwSettingsUpdatedAt, '2026-01-01T00:00:00Z');
+    saveClientCwSettings({ char_wpm: 22, eff_wpm: 12, freq: 620, start_delay: 0.5 });
     const pending = deferred<void>();
     vi.mocked(saveCWSettings).mockReturnValueOnce(pending.promise);
     const onLocale = vi.fn();
@@ -93,7 +107,7 @@ describe('settings synchronization session boundaries', () => {
   });
 
   it('uses page edits made while a CW upload is pending', async () => {
-    localStorage.setItem(CW_STORAGE_KEYS.cwSettingsUpdatedAt, '2026-01-01T00:00:00Z');
+    saveClientCwSettings({ char_wpm: 22, eff_wpm: 12, freq: 620, start_delay: 0.5 });
     const pending = deferred<void>();
     vi.mocked(saveCWSettings).mockReturnValueOnce(pending.promise);
     const onLocale = vi.fn();
@@ -118,12 +132,67 @@ describe('settings synchronization session boundaries', () => {
       fallbackLanguagePreference: 'en',
       onLocale
     });
-    expect(JSON.parse(localStorage.getItem(CW_STORAGE_KEYS.cwSettings)!)).toMatchObject({
+    expect(readClientCwSettings()).toMatchObject({
       char_wpm: 25,
       freq: 650
     });
     expect(localStorage.getItem(CW_STORAGE_KEYS.lesson)).toBe('3');
     expect(onLocale).toHaveBeenCalledWith('ja', { navigate: false });
+  });
+
+  it('keeps sound settings partitioned by immutable account ID', () => {
+    setAccount('alice');
+    saveClientCwSettings({ char_wpm: 22, eff_wpm: 10, freq: 620, start_delay: 0.5 });
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 22, freq: 620 });
+
+    setAccount('bob');
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 20, freq: 600 });
+
+    setAccount('alice');
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 22, freq: 620 });
+  });
+
+  it('does not upload the previous account settings to a new account', async () => {
+    setAccount('alice');
+    saveClientCwSettings({ char_wpm: 22, eff_wpm: 10, freq: 620, start_delay: 0.5 });
+    setAccount('bob');
+    vi.mocked(getSettings).mockResolvedValueOnce({
+      cw_settings: {
+        char_wpm: 20,
+        eff_wpm: 12,
+        freq: 600,
+        start_delay: 0.5,
+        updated_at: '0001-01-01T00:00:00Z'
+      },
+      page_settings: {
+        language: 'en',
+        cur_lesson: 1,
+        updated_at: '0001-01-01T00:00:00Z'
+      }
+    });
+
+    await reconcileSettingsWithServer({
+      maxLesson: 40,
+      fallbackLanguagePreference: 'en',
+      onLocale: vi.fn()
+    });
+
+    expect(saveCWSettings).not.toHaveBeenCalled();
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 20, freq: 600 });
+  });
+
+  it('keeps guest sound settings separate from signed-in accounts', () => {
+    setAccount('alice');
+    saveClientCwSettings({ char_wpm: 22, eff_wpm: 10, freq: 620, start_delay: 0.5 });
+
+    localStorage.removeItem(AUTH_STORAGE_KEYS.username);
+    localStorage.removeItem(AUTH_STORAGE_KEYS.accessToken);
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 20, freq: 600 });
+    saveClientCwSettings({ char_wpm: 18, eff_wpm: 9, freq: 700, start_delay: 0 });
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 18, freq: 700 });
+
+    setAccount('alice');
+    expect(readClientCwSettings()).toMatchObject({ char_wpm: 22, freq: 620 });
   });
 
   it('fences restore results after switching accounts', async () => {
