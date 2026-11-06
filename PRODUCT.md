@@ -98,7 +98,7 @@ The repository and acceptance notes document implemented behavior. Editable Penp
 
 The About page documents the author's radio amateur background. No verified testimonials, user statistics, performance benchmarks, or partnerships are available.
 
-Some existing interface copy still uses OpenCW and requires migration. Do not interpret planned functionality or design concepts as implemented features.
+Legacy technical identifiers and deployment domains retain their existing OpenCW names. Do not interpret planned functionality or design concepts as implemented features.
 
 ## Product Principles
 
