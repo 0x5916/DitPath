@@ -1,0 +1,88 @@
+name: ditpath-final-acceptance
+
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+    container_name: ditpath-final-acceptance-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Run scripts/test-stack/manage.sh start first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/test-stack/manage.sh start first}
+      POSTGRES_DB: ${POSTGRES_DB:?Run scripts/test-stack/manage.sh start first}
+      PGDATA: /var/lib/postgresql/18/docker
+    ports:
+      - "127.0.0.1:${TEST_DB_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [internal]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  backend:
+    image: ditpath-final-acceptance-backend:${SOURCE_REVISION:-local}
+    container_name: ditpath-final-acceptance-backend
+    restart: unless-stopped
+    build:
+      context: ../../backend
+      labels:
+        com.ditpath.test-stack: "true"
+    environment:
+      PORT: "8080"
+      GIN_MODE: release
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      RESEND_API_KEY: ditpath-test-disabled
+      RESEND_FROM_EMAIL: DitPath Test <no-reply@example.invalid>
+      CORS_ORIGINS: http://127.0.0.1:${TEST_FRONTEND_PORT:-13000},http://localhost:${TEST_FRONTEND_PORT:-13000}
+      AUTH_TRUSTED_PROXY_CIDRS: ""
+      GOOGLE_CLIENT_ID: ""
+    ports:
+      - "127.0.0.1:${TEST_API_PORT:-18080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, edge]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  frontend:
+    image: nginx:alpine
+    container_name: ditpath-final-acceptance-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TEST_FRONTEND_PORT:-13000}:80"
+    volumes:
+      - ../../frontend/build:/usr/share/nginx/html:ro
+      - ./runtime/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    healthcheck:
+      test: [CMD-SHELL, "wget -q --spider http://127.0.0.1/en || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    networks: [edge]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  postgres-data:

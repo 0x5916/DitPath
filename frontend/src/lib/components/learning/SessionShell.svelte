@@ -48,6 +48,12 @@
   let exitButton = $state<HTMLButtonElement | null>(null);
   let returnFocusTo = $state<HTMLElement | null>(null);
 
+  const exitLabel = $derived.by(() => (review ? m.review_exit() : m.lesson_exit()));
+  const pauseLabel = $derived.by(() => {
+    if (isPaused) return assessment ? m.check_resume() : m.lesson_resume();
+    return assessment ? m.mixed_pause() : review ? m.review_pause() : m.lesson_pause();
+  });
+
   function handleExitClick() {
     if (showExitConfirm || busy) return;
     if (complete) return onExit();
@@ -123,27 +129,10 @@
     {#if !assessment}<button
         type="button"
         class="btn-icon"
-        aria-label={complete
-          ? m.lesson_result_finish()
-          : assessment
-            ? m.mixed_exit()
-            : review
-              ? m.review_exit()
-              : m.lesson_exit()}
-        title={complete
-          ? m.lesson_result_finish()
-          : assessment
-            ? m.mixed_exit()
-            : review
-              ? m.review_exit()
-              : m.lesson_exit()}
+        aria-label={exitLabel}
+        title={exitLabel}
         disabled={busy}
-        {@attach (button) => {
-          exitButton = button;
-          return () => {
-            exitButton = null;
-          };
-        }}
+        bind:this={exitButton}
         onclick={handleExitClick}
       >
         <ArrowLeft size={18} />
@@ -166,24 +155,8 @@
       <button
         type="button"
         class="btn-icon"
-        aria-label={isPaused
-          ? assessment
-            ? m.check_resume()
-            : m.lesson_resume()
-          : assessment
-            ? m.mixed_pause()
-            : review
-              ? m.review_pause()
-              : m.lesson_pause()}
-        title={isPaused
-          ? assessment
-            ? m.check_resume()
-            : m.lesson_resume()
-          : assessment
-            ? m.mixed_pause()
-            : review
-              ? m.review_pause()
-              : m.lesson_pause()}
+        aria-label={pauseLabel}
+        title={pauseLabel}
         onclick={onPauseToggle}
       >
         {#if isPaused}

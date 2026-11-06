@@ -21,6 +21,8 @@
     "check:worker": "tsc --noEmit -p src/service-worker/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "audio:audit": "node scripts/audio-audit.mjs",
     "verify": "npm run messages:validate && npm run seo:validate && npm run check && npm run check:scripts && npm run test",
     "seo:validate": "node --experimental-strip-types scripts/validate-seo.ts",
     "messages:validate": "node --experimental-strip-types scripts/validate-messages.ts",
@@ -31,6 +33,7 @@
   "devDependencies": {
     "@eslint/compat": "^2.1.1",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@sveltejs/adapter-static": "^4.0.0",
     "@sveltejs/kit": "^3.0.1",
     "@sveltejs/mcp": "0.1.27",

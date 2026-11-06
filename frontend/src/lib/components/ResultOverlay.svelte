@@ -3,7 +3,7 @@
   import { dialogFocusables, dialogFocusTarget } from './dialog-focus';
   import { LESSONS } from '#lib/training/sequence.ts';
   import { scoreGrade, type DiffToken } from '#lib/score.ts';
-  import { percentage } from '#lib/format.ts';
+  import { formatPercent } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
   import { onMount } from 'svelte';
 
@@ -43,7 +43,7 @@
         ? m.trainer_score_good()
         : m.trainer_score_bad()
   );
-  let pct = $derived(percentage(result));
+  let pct = $derived(formatPercent(result));
   let savePending = $derived(persistenceStatus === 'saving' || persistenceStatus === 'failed');
 
   let panelRef = $state<HTMLDivElement | null>(null);

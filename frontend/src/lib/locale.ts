@@ -14,12 +14,12 @@ export function localizeAppHref(path: string, locale: Locale): string {
     : href;
 }
 
-const LOCALE_DISPLAY: Record<Locale, { short: string; native: string }> = {
-  en: { short: 'EN', native: 'English' },
-  de: { short: 'DE', native: 'Deutsch' },
-  ja: { short: 'JA', native: '日本語' },
-  'zh-Hans': { short: '简', native: '简体中文' },
-  'zh-Hant': { short: '繁', native: '繁體中文' }
+const LOCALE_DISPLAY: Record<Locale, string> = {
+  en: 'English',
+  de: 'Deutsch',
+  ja: '日本語',
+  'zh-Hans': '简体中文',
+  'zh-Hant': '繁體中文'
 };
 
 export function normalizeLocalePreference(value: string | null | undefined): LocalePreference {
@@ -69,10 +69,6 @@ export function detectLocaleFromAcceptedLanguages(candidates: readonly string[])
   return baseLocale as Locale;
 }
 
-export function getLocaleShortLabel(locale: Locale): string {
-  return LOCALE_DISPLAY[locale]?.short ?? locale.toUpperCase();
-}
-
 export function getLocaleLongLabel(locale: Locale): string {
-  return LOCALE_DISPLAY[locale]?.native ?? locale;
+  return LOCALE_DISPLAY[locale] ?? locale;
 }

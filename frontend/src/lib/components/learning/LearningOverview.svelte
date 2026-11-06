@@ -3,8 +3,10 @@
   import { LEARNING_POLICY } from '#lib/training/learning-policy/policy.ts';
   import type { LearningSnapshot } from '../../data/learning-snapshot';
   import { learningRecommendationHref } from '../../data/learning-snapshot';
-  import { recommendationTitle } from './recommendation-copy';
-  import { localizedHref, lang } from '#lib/i18n.svelte.ts';
+  import { recommendationTitle, criterionLabel } from './recommendation-copy';
+  import { isRecommendationLessonLocked } from '#lib/training/v2/lesson-access.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { formatDateTime } from '#lib/format.ts';
   import type { Attainment } from '../../training/learning-policy/types';
   import * as m from '#lib/paraglide/messages.js';
   let {
@@ -12,12 +14,15 @@
     details = false,
     compact = false,
     progressView = null,
+    unlockedLesson = null,
     onAction
   }: {
     snapshot: LearningSnapshot;
     details?: boolean;
     compact?: boolean;
     progressView?: string | null;
+    /** Guided-course unlock boundary; learning evidence cannot exceed it. */
+    unlockedLesson?: number | null;
     onAction?: () => void;
   } = $props();
   import { browser } from '$app/env';
@@ -45,8 +50,15 @@
       filterControl.scrollIntoView({ block: 'start' });
   }
   const primary = $derived(snapshot.recommendation.primary);
+  const recommendationLocked = $derived(
+    unlockedLesson !== null && isRecommendationLessonLocked(primary, unlockedLesson)
+  );
   const nextHref = $derived(
-    localizedHref(learningRecommendationHref(primary, snapshot.knownCharacters))
+    localizedHref(
+      recommendationLocked
+        ? '/morse/learn'
+        : learningRecommendationHref(primary, snapshot.knownCharacters)
+    )
   );
   const checkTargets = $derived(
     new URL(nextHref, 'https://local.invalid').searchParams.get('check')
@@ -85,9 +97,6 @@
           : c.current.criterion === filter)
     )
   );
-  const dateFormat = $derived(
-    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
-  );
   const award = (value: Attainment | null) =>
     !value
       ? m.learning_notyet()
@@ -110,7 +119,12 @@
               : m.learning_overview_profile({ speed: snapshot.profile.charWpm })}
           </p>
         </header>{/if}
-      {#if onAction}<button type="button" class="btn-primary" onclick={onAction}
+      {#if recommendationLocked}
+        <p role="status">
+          {m.learning_next_locked({ step: primary.lesson ?? 1 })}
+        </p>
+        <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.progress_return_course()}</a>
+      {:else if onAction}<button type="button" class="btn-primary" onclick={onAction}
           >{recommendationTitle(primary)}</button
         >
       {:else}
@@ -201,13 +215,7 @@
               <details class="character-evidence">
                 <summary>
                   <strong>{character.character}</strong>
-                  <span
-                    >{character.current.criterion === 'met'
-                      ? m.learning_current_met()
-                      : character.current.criterion === 'not-met'
-                        ? m.learning_current_notmet()
-                        : m.learning_current_stale()}</span
-                  >
+                  <span>{criterionLabel(character.current.criterion)}</span>
                   <ChevronDown size={20} aria-hidden="true" />
                 </summary>
                 <div class="evidence-details">
@@ -238,7 +246,7 @@
                         ? m.learning_review_due()
                         : character.review.reason === 'upcoming'
                           ? m.learning_review_on({
-                              date: dateFormat.format(new Date(character.review.dueAt))
+                              date: formatDateTime(character.review.dueAt)
                             })
                           : m.learning_review_wait()}
                     </p>{/if}

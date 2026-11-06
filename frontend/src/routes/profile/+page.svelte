@@ -20,9 +20,9 @@
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import { localizeApiError } from '#lib/errorLocalization.ts';
+  import { formatLongDate, formatWeekday } from '#lib/format.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
-  import { getLocale } from '#lib/paraglide/runtime.js';
 
   const loadScope = createSessionScope();
   onDestroy(() => {
@@ -50,9 +50,7 @@
   const favoriteWeekday = $derived(
     habits.favoriteWeekday === null
       ? m.progress_unmeasured()
-      : new Intl.DateTimeFormat(getLocale(), { weekday: 'long', timeZone: 'UTC' }).format(
-          Date.UTC(2024, 0, 7 + habits.favoriteWeekday)
-        )
+      : formatWeekday(habits.favoriteWeekday)
   );
 
   onMount(() => {
@@ -129,11 +127,7 @@
   }
 
   function formatMemberSince(createdMs: number): string {
-    return new Date(createdMs).toLocaleDateString(getLocale(), {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    return formatLongDate(createdMs);
   }
 </script>
 

@@ -4,11 +4,15 @@
  * Pure UTC date math; the component owns locale labels and scrolling.
  */
 
-import type { ProgressDay } from '#lib/api.ts';
 import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
 import { sessionOccurredAt } from '#lib/training/v2/progress-summary.ts';
 
 export const DAY_MS = 86_400_000;
+
+export interface ProgressDay {
+  date: string;
+  count: number;
+}
 
 export interface HeatmapCell {
   dateMs: number;
@@ -98,10 +102,6 @@ function addDaysMs(ms: number, days: number): number {
   return ms + days * DAY_MS;
 }
 
-function toDateKey(ms: number): string {
-  return String(ms);
-}
-
 function monthLabelForWeek(
   weekStartMs: number,
   endMs: number,
@@ -177,7 +177,7 @@ export function buildHeatmap(
     if (createdAtMs !== null && dayMs < utcDayStart(createdAtMs)) continue;
     if (dayMs > todayMs) continue;
 
-    const key = toDateKey(dayMs);
+    const key = String(dayMs);
     byDay[key] = (byDay[key] ?? 0) + rec.count;
   }
 
@@ -194,7 +194,7 @@ export function buildHeatmap(
 
     for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
       const dateMs = addDaysMs(weekStartMs, dayIndex);
-      const dateKey = toDateKey(dateMs);
+      const dateKey = String(dateMs);
       const outsideYear = dateMs < yearStartMs || dateMs > yearEndMs;
       const beforeAccount = createdAtMs !== null && dateMs < utcDayStart(createdAtMs);
       const inFuture = dateMs > todayMs;

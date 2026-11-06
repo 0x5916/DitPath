@@ -28,9 +28,12 @@
   } from '#lib/data/learning-snapshot.ts';
   import {
     buildMixedCheck,
-    parseMixedTargets,
     type MixedCheckSession
   } from '#lib/training/learning-policy/mixed-plan.ts';
+  import {
+    deriveGuidedLessonAccess,
+    isGuidedLessonUnlocked
+  } from '#lib/training/v2/lesson-access.ts';
   import { createSessionId } from '#lib/training/v2/ids.ts';
   import MixedCheckPanel from '#lib/components/learning/MixedCheckPanel.svelte';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
@@ -45,17 +48,12 @@
   import RecognitionPrompt from '#lib/components/learning/RecognitionPrompt.svelte';
   import SessionResult from '#lib/components/learning/SessionResult.svelte';
   import ReviewPanel from '#lib/components/learning/ReviewPanel.svelte';
-  import {
-    buildReviewPlan,
-    parseReviewRequest,
-    type ReviewPlan
-  } from '#lib/training/targeted-review.ts';
+  import { buildReviewPlan, type ReviewPlan } from '#lib/training/targeted-review.ts';
   import { readClientCwSettings } from '#lib/cwSync.ts';
   import { acceptsSessionContinue } from '#lib/components/learning/keyboard.ts';
   import * as m from '#lib/paraglide/messages.js';
-  import { LESSONS } from '#lib/training/sequence.ts';
   import { retainTrainingPersistence } from '#lib/pending-training-persistence.ts';
-  import { AlertCircle, Check, Pause } from '@lucide/svelte';
+  import { AlertCircle, Check, Lock, Pause } from '@lucide/svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import {
     getTrainingOwner,
@@ -63,20 +61,27 @@
     subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
   import { saveBeforeSessionNavigation, type PendingSessionNavigation } from './navigation';
+  import { readSessionIntent } from './intent';
+  import { waitForHistoryRestore, type HistoryRestore } from '#lib/history-restore.ts';
 
   const learning = createLearningView();
   let mixedPlan = $state.raw<MixedCheckSession | null>(null);
-  const checkValue = $derived(browser ? page.url.searchParams.get('check') : null);
+  const intent = $derived(
+    readSessionIntent(browser ? page.url.searchParams : new URLSearchParams())
+  );
+  const checkValue = $derived(intent.check);
   let controller = $state<GuidedSessionController | null>(null);
   let db: IDBDatabase | null = null;
   let initializing = $state(true);
   let initializationError = $state(false);
+  let lockedLesson = $state<{ step: number; unlockedStep: number } | null>(null);
+  let guidedUnlockedStep = $state(1);
   let leaving = $state(false);
   let pendingAction = $state<'exit' | 'repeat' | 'next' | null>(null);
   let pendingNavigation = $state.raw<PendingSessionNavigation | null>(null);
   let bypassDestination: string | null = null;
   let allowUnload = false;
-  let cancelHistoryRestore: (() => void) | null = null;
+  let historyRestore: HistoryRestore | null = null;
   let answerDraft = $state('');
   let onVisibility: (() => void) | null = null;
   let initialization = 0;
@@ -88,8 +93,7 @@
   let reviewStarted = $state(false);
   let reviewUnavailable = $state(false);
   let reviewRound = $state(0);
-  const reviewValue = $derived(browser ? page.url.searchParams.get('review') : null);
-  const reviewTargetsValue = $derived(browser ? page.url.searchParams.get('targets') : null);
+  const reviewValue = $derived(intent.review);
   let resumeAfterExit = $state(false);
   let showCheckExitConfirm = $state(false);
   let sessionOwner: string | null = null;
@@ -97,18 +101,9 @@
   let discardPersistence = false;
   const suspendedControllers = new WeakSet<GuidedSessionController>();
   const sessionLeases = new WeakMap<GuidedSessionController, () => Promise<void>>();
-  const resumeValue = $derived(browser ? page.url.searchParams.get('resume') : null);
-
-  let step = $derived.by(() => {
-    if (!browser) return 1;
-    const s = page.url.searchParams.get('step');
-    const parsed = s ? parseInt(s, 10) : 1;
-    return Number.isFinite(parsed) && parsed >= 1 ? Math.min(parsed, LESSONS.length) : 1;
-  });
-
-  const routeKey = $derived(
-    `${step}:${reviewValue ?? ''}:${reviewTargetsValue ?? ''}:${checkValue ?? ''}:${resumeValue ?? ''}`
-  );
+  const resumeValue = $derived(intent.resume);
+  const step = $derived(intent.step);
+  const routeKey = $derived(intent.key);
 
   async function releaseSession(
     ctrl: GuidedSessionController | null,
@@ -139,27 +134,27 @@
       });
   }
 
-  async function startSession(requestedStep: number, beginReview = false, continueSaved = true) {
+  async function startSession(beginReview = false, continueSaved = true) {
     entryHidden = document.hidden;
     let entryAudio = consumeCheckStart(page.url.pathname + page.url.search);
-    const requestedReview = reviewValue;
-    const requestedReviewTargets = reviewTargetsValue;
-    const reviewRequest = parseReviewRequest(requestedReview, requestedReviewTargets);
-    const requestedCheck = checkValue;
-    const checkTargets = parseMixedTargets(requestedCheck);
+    const {
+      reviewTargets: requestedReviewTargets,
+      reviewRequest,
+      check: requestedCheck,
+      checkTargets,
+      invalid
+    } = intent;
     mixedPlan = null;
     reviewPlan = null;
-    reviewUnavailable =
-      (requestedReview !== null && !reviewRequest) ||
-      (requestedReviewTargets !== null && requestedReview !== 'return') ||
-      (requestedCheck !== null && !checkTargets) ||
-      (requestedReview !== null && requestedCheck !== null);
+    reviewUnavailable = invalid;
     beginReview ||= requestedCheck !== null;
     reviewStarted = beginReview;
     answerDraft = '';
     const owner = getTrainingOwner();
     sessionOwner = owner;
     const generation = ++initialization;
+    const current = () =>
+      !destroyed && generation === initialization && owner === getTrainingOwner();
     sessionKey = routeKey;
     discardPersistence = false;
     const previousController = controller;
@@ -168,6 +163,7 @@
     db = null;
     initializing = true;
     initializationError = false;
+    lockedLesson = null;
     pendingAction = null;
     pendingNavigation = null;
     resumeAfterExit = false;
@@ -176,28 +172,47 @@
     let pendingLease: (() => Promise<void>) | null = null;
     try {
       await releaseSession(previousController, previousDb);
-      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) return;
+      if (!current()) return;
       if (reviewUnavailable) return;
       database = await openTrainingDb();
-      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+      if (!current()) {
         database.close();
         return;
       }
       let attemptRepo = createAttemptRepository(database, owner);
       let sessionRepo = createSessionRepository(database, owner);
-      const recentAttempts = await attemptRepo.getAttemptsByTimeRange(
-        new Date(Date.now() - 30 * 86400000).toISOString(),
-        new Date().toISOString()
+      const nowIso = new Date().toISOString();
+      const allAttempts = await attemptRepo.getAttemptsByTimeRange(
+        '0001-01-01T00:00:00.000Z',
+        nowIso
       );
-      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+      const recentAttempts = allAttempts.filter(
+        (attempt) => Date.parse(attempt.createdAt) >= Date.now() - 30 * 86400000
+      );
+      if (!current()) {
         database.close();
         return;
       }
+      const guidedAccess = deriveGuidedLessonAccess(allAttempts, nowIso);
+      guidedUnlockedStep = guidedAccess.unlockedStep;
       const sound = readClientCwSettings();
       const loaded = continueSaved && resumeValue ? await loadCheckpoint(owner, resumeValue) : null;
       if (continueSaved && resumeValue && loaded?.kind !== 'guided')
         throw Error('Saved session unavailable');
       const resume = loaded?.kind === 'guided' ? loaded : null;
+      const resumeIsAssessment = Boolean(resume?.review || resume?.mixed);
+      const guidedStep = resume?.record.step ?? step;
+      if (
+        !reviewRequest &&
+        !checkTargets &&
+        !resumeIsAssessment &&
+        !isGuidedLessonUnlocked(guidedStep, guidedAccess)
+      ) {
+        lockedLesson = { step: guidedStep, unlockedStep: guidedAccess.unlockedStep };
+        database.close();
+        database = null;
+        return;
+      }
       const id = resume?.id ?? createSessionId();
       let firstPresentation: (id: string) => EvidencePresentation | null = () => null;
       let captureFirst: ((prompt: import('#lib/training/v2/types.ts').Prompt) => void) | undefined;
@@ -268,7 +283,7 @@
         }
       } else if (reviewRequest || checkTargets) {
         const snapshot = await loadLearningSnapshot({ ownerKey: owner });
-        if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+        if (!current()) {
           database.close();
           return;
         }
@@ -327,7 +342,7 @@
         if (!beginReview) return;
         pendingLease = await claimSession(owner, id);
         database = await openLearningEvidenceDb();
-        if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+        if (!current()) {
           database.close();
           return;
         }
@@ -372,7 +387,7 @@
           source: 'guided'
         });
       }
-      if (destroyed || generation !== initialization || owner !== getTrainingOwner()) {
+      if (!current()) {
         await audio.dispose();
         database?.close();
         return;
@@ -380,7 +395,7 @@
       const checkpointContext = {
         review: reviewPlan,
         mixed: mixedPlan,
-        href: `/morse/learn/session?step=${requestedStep}${requestedReview ? `&review=${encodeURIComponent(requestedReview)}` : ''}${requestedReviewTargets !== null ? `&targets=${encodeURIComponent(requestedReviewTargets)}` : ''}${requestedCheck ? `&check=${encodeURIComponent(requestedCheck)}` : ''}`
+        href: intent.checkpointHref
       };
       const ctrl = new GuidedSessionController({
         ...(resume
@@ -410,7 +425,7 @@
           await saveCheckpoint(owner, JSON.parse(JSON.stringify(value)));
         },
         sessionId: id,
-        step: requestedStep,
+        step: guidedStep,
         ...(mixedPlan
           ? {
               prompts: mixedPlan.prompts,
@@ -434,13 +449,7 @@
       controller = ctrl;
       db = database;
       await ctrl.start();
-      if (
-        mixedPlan &&
-        !resume &&
-        !destroyed &&
-        generation === initialization &&
-        owner === getTrainingOwner()
-      ) {
+      if (mixedPlan && !resume && current()) {
         if (ctrl.phase === 'idle' || !(await ctrl.flushPersistence())) {
           initializationError = true;
           return;
@@ -457,35 +466,25 @@
           updatingSessionUrl = false;
         }
       }
-      if (
-        mixedPlan &&
-        beginReview &&
-        !resume &&
-        owner === getTrainingOwner() &&
-        !destroyed &&
-        generation === initialization &&
-        !entryHidden &&
-        !document.hidden
-      )
+      if (mixedPlan && beginReview && !resume && current() && !entryHidden && !document.hidden)
         ctrl.play();
       else if (mixedPlan && (document.hidden || entryHidden)) ctrl.pause();
     } catch (err) {
       database?.close();
-      if (!destroyed && generation === initialization && owner === getTrainingOwner()) {
+      if (current()) {
         initializationError = true;
         console.error('Failed to initialize guided session:', err);
       }
     } finally {
       void entryAudio?.dispose();
       await pendingLease?.();
-      if (!destroyed && generation === initialization && owner === getTrainingOwner())
-        initializing = false;
+      if (current()) initializing = false;
     }
   }
 
   onMount(() => {
     const stopLearning = learning.start();
-    void startSession(step);
+    void startSession();
     onVisibility = () => {
       if (document.hidden) entryHidden = true;
       controller?.handleVisibilityChange(document.hidden);
@@ -520,14 +519,14 @@
     allowUnload = false;
     if (!updatingSessionUrl && sessionKey !== null && sessionKey !== routeKey) {
       reviewRound = 0;
-      void startSession(step);
+      void startSession();
     }
   });
 
   onDestroy(() => {
     destroyed = true;
     initialization += 1;
-    cancelHistoryRestore?.();
+    historyRestore?.cancel();
     if (onVisibility && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibility);
       onVisibility = null;
@@ -539,22 +538,6 @@
     controller = null;
     db = null;
   });
-
-  function waitForHistoryRestore(sourceHref: string): Promise<void> {
-    if (window.location.href === sourceHref) return Promise.resolve();
-    return new Promise((resolve) => {
-      const finish = () => {
-        window.removeEventListener('popstate', onPop);
-        cancelHistoryRestore = null;
-        resolve();
-      };
-      const onPop = () => {
-        if (window.location.href === sourceHref) finish();
-      };
-      cancelHistoryRestore = finish;
-      window.addEventListener('popstate', onPop);
-    });
-  }
 
   async function continueNavigation(navigation: PendingSessionNavigation, discard = false) {
     if (leaving || !controller) return;
@@ -593,8 +576,10 @@
     if (leaving) return;
     const delta = navigation.type === 'popstate' ? navigation.delta : null;
     const destination = target.href;
+    const restore = delta === null ? null : waitForHistoryRestore(source.href);
+    historyRestore = restore;
     const pending: PendingSessionNavigation = {
-      restored: delta === null ? Promise.resolve() : waitForHistoryRestore(source.href),
+      restored: restore?.promise ?? Promise.resolve(),
       resume: () => {
         bypassDestination = destination;
         if (delta !== null) window.history.go(delta);
@@ -651,7 +636,7 @@
       controller = null;
       if (action === 'repeat') {
         if (reviewPlan) reviewRound += 1;
-        await startSession(step, Boolean(reviewPlan), false);
+        await startSession(Boolean(reviewPlan), false);
       } else {
         const destination = localizedHref(
           action === 'next'
@@ -708,6 +693,8 @@
 
   function handleExitCancel() {
     pendingNavigation = null;
+    historyRestore?.cancel();
+    historyRestore = null;
     if (resumeAfterExit) controller?.resume();
     resumeAfterExit = false;
   }
@@ -768,13 +755,22 @@
       <a class="btn-ghost" href={localizedHref('/morse')}>{m.review_unavailable_familiarize()}</a>
     </div>
   </main>
+{:else if lockedLesson}
+  <main class="loading-stage">
+    <div class="recovery-panel" role="alert">
+      <Lock size={24} aria-hidden="true" />
+      <h1>{m.lesson_locked_title({ step: lockedLesson.step })}</h1>
+      <p>{m.lesson_locked_description()}</p>
+      <a class="btn-primary" href={localizedHref('/morse/learn')}>{m.progress_return_course()}</a>
+    </div>
+  </main>
 {:else if initializationError}
   <main class="loading-stage">
     <div class="recovery-panel" role="alert">
       <AlertCircle size={24} aria-hidden="true" />
       <p>{resumeValue ? m.session_resume_error() : m.lesson_initialization_error()}</p>
       <a class="btn-ghost" href={localizedHref('/morse/learn')}>{m.home_all_lessons()}</a>
-      <button type="button" class="btn-primary" onclick={() => startSession(step)}
+      <button type="button" class="btn-primary" onclick={() => startSession()}
         >{m.lesson_retry_start()}</button
       >
     </div>
@@ -783,7 +779,7 @@
   <main class="loading-stage review-setup">
     <ReviewPanel
       plan={reviewPlan}
-      onStart={() => startSession(step, true)}
+      onStart={() => startSession(true)}
       onRepeat={handleRepeatLesson}
       onFinish={handleExit}
     />
@@ -888,12 +884,13 @@
       {#if mixedPlan}<MixedCheckPanel
           plan={mixedPlan}
           snapshot={learning.snapshot}
+          unlockedLesson={guidedUnlockedStep}
           onRepeatCheck={learning.snapshot &&
           learningRecommendationHref(
             learning.snapshot.recommendation.primary,
             learning.snapshot.knownCharacters
           ) === `/morse/learn/session?check=${checkValue}`
-            ? () => startSession(step, true, false)
+            ? () => startSession(true, false)
             : undefined}
           result={learning.snapshot?.checks.find((c) => c.id === controller?.state.sessionId) ??
             null}

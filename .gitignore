@@ -18,3 +18,10 @@ backups/
 # Local MCP install
 .penpot-mcp/
 .playwright-mcp/
+
+# Local design review output
+/.artifacts/
+/.impeccable/critique/
+
+# Disposable local acceptance stack credentials and runtime configuration
+/scripts/test-stack/runtime/

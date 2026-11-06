@@ -2,13 +2,6 @@ import { UI_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 export type Theme = 'auto' | 'light' | 'dark';
 
-/** Order cycled by the navbar theme toggle. */
-export const THEME_CYCLE: Record<Theme, Theme> = {
-  auto: 'light',
-  light: 'dark',
-  dark: 'auto'
-};
-
 /** Narrow an arbitrary stored value to a known theme. */
 function normalizeTheme(value: string | null | undefined): Theme {
   return value === 'light' || value === 'dark' ? value : 'auto';

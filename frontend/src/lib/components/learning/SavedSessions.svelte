@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SessionCheckpoint } from '../../data/session-checkpoints';
-  import { localizedHref, lang } from '#lib/i18n.svelte.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { formatDateTime } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
   let {
     entries,
@@ -13,9 +14,6 @@
     onContinue?: (entry: SessionCheckpoint) => void;
     busy?: boolean;
   } = $props();
-  const dates = $derived(
-    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
-  );
 </script>
 
 {#if entries.length}<section class="saved-sessions">
@@ -34,7 +32,7 @@
                     characters: entry.state.currentPrompt?.spec.characters.join(', ') ?? ''
                   })}</strong
         >
-        <time datetime={entry.savedAt}>{dates.format(new Date(entry.savedAt))}</time>
+        <time datetime={entry.savedAt}>{formatDateTime(entry.savedAt)}</time>
         {#if entry.kind === 'guided'}<p>
             {m.session_position({
               current: entry.state.currentPromptIndex + 1,

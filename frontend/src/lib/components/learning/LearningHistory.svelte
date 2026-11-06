@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LearningHistoryEntry } from '../../data/learning-history';
-  import { lang } from '#lib/i18n.svelte.ts';
+  import { formatDateTime } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
   let { entries }: { entries: LearningHistoryEntry[] } = $props();
   let purpose = $state('all'),
@@ -12,27 +12,27 @@
         (purpose === 'all' || r.purpose === purpose) && (outcome === 'all' || r.status === outcome)
     )
   );
-  const dates = $derived(
-    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
-  );
-  const purposeLabel = (p: string) =>
-    p === 'coaching'
-      ? m.history_coaching()
-      : p === 'screening'
-        ? m.review_return_title()
-        : m.mixed_title();
-  const statusLabel = (status: string, recordedStatus?: string, evidenceStatus?: string) =>
-    status === 'completed'
-      ? m.history_completed()
-      : status === 'incomplete'
-        ? evidenceStatus === 'rejected'
-          ? m.history_evidence_rejected()
-          : recordedStatus === 'completed'
-            ? m.history_incomplete_evidence()
-            : m.history_incomplete()
-        : status === 'abandoned'
-          ? m.history_abandoned()
-          : m.history_inprogress();
+  const purposeLabel = (purpose: string) => {
+    switch (purpose) {
+      case 'coaching':
+        return m.history_coaching();
+      case 'screening':
+        return m.review_return_title();
+      default:
+        return m.mixed_title();
+    }
+  };
+  const statusLabel = (status: string, recordedStatus?: string, evidenceStatus?: string) => {
+    if (status === 'completed') return m.history_completed();
+    if (status === 'incomplete') {
+      if (evidenceStatus === 'rejected') return m.history_evidence_rejected();
+      return recordedStatus === 'completed'
+        ? m.history_incomplete_evidence()
+        : m.history_incomplete();
+    }
+    if (status === 'abandoned') return m.history_abandoned();
+    return m.history_inprogress();
+  };
 </script>
 
 <section class="learning-history">
@@ -81,7 +81,7 @@
               entry.evidenceStatus ?? undefined
             )}{#if entry.status === 'incomplete' && entry.recordedStatus === 'completed'}<span
                 class="recorded-status">· {m.history_recorded_completed()}</span
-              >{/if}<time datetime={entry.at}>{dates.format(new Date(entry.at))}</time></summary
+              >{/if}<time datetime={entry.at}>{formatDateTime(entry.at)}</time></summary
           >
           <p>{m.practice_speed_summary({ character: entry.charWpm, effective: entry.effWpm })}</p>
           <p>{m.history_answers({ answered: entry.answered, planned: entry.planned })}</p>

@@ -2,7 +2,7 @@
 
 The root [Makefile](../Makefile) delegates deployment tasks to these Bash scripts. Run them on the Linux deployment host with Bash 4 or newer, Docker Compose v2, Git, gzip, GNU utilities, and curl or wget. The pgAdmin renderer uses Python already included in its image. OpenSSL supports initial JWT generation. The scripts resolve repository paths from their own location and always operate on the root stack.
 
-[DEPLOYMENT.md](../DEPLOYMENT.md) owns installation, public access, credentials, and recovery. [example.env](../example.env) owns Compose configuration defaults; [db/README.md](../db/README.md) owns database tuning.
+[DEPLOYMENT.md](../DEPLOYMENT.md) owns installation, public access, credentials, and recovery. [example.env](../example.env) owns Compose configuration defaults; [db/README.md](../db/README.md) owns database tuning. The separate [local test stack](test-stack/README.md) is a loopback-only, disposable environment for full-stack manual acceptance; it is not a deployment script and never uses the production Compose project.
 
 ## Script reference
 

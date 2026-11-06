@@ -3,16 +3,14 @@
   import HomePreview from '#lib/components/home/HomePreview.svelte';
   import WelcomeIllustration from './WelcomeIllustration.svelte';
   import { lang, setLangPreference, localizedHref as href, type Locale } from '#lib/i18n.svelte.ts';
+  import { getLocaleLongLabel } from '#lib/locale.ts';
   import * as m from '#lib/paraglide/messages.js';
 
   let demoOpen = $state(false);
-  const languages: { value: Locale; label: string }[] = [
-    { value: 'en', label: 'English' },
-    { value: 'de', label: 'Deutsch' },
-    { value: 'ja', label: '日本語' },
-    { value: 'zh-Hans', label: '简体中文' },
-    { value: 'zh-Hant', label: '繁體中文' }
-  ];
+  const languages = (['en', 'de', 'ja', 'zh-Hans', 'zh-Hant'] as const).map((value) => ({
+    value,
+    label: getLocaleLongLabel(value)
+  }));
   const steps = [
     { title: m.home_step1_title, body: m.home_step1_body },
     { title: m.home_step2_title, body: m.home_step2_body },

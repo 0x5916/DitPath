@@ -1,4 +1,4 @@
-import { assertAuthSessionCurrent, getAuthSession } from '#lib/auth.ts';
+import { assertAuthSessionCurrent, getAuthAccountId, getAuthSession } from '#lib/auth.ts';
 import {
   getSettings,
   saveCWSettings,
@@ -19,6 +19,17 @@ export type { CWSettings, PageSettings };
 const CW_SETTINGS_STORAGE_KEY = CW_STORAGE_KEYS.cwSettings;
 const CW_SETTINGS_UPDATED_AT_STORAGE_KEY = CW_STORAGE_KEYS.cwSettingsUpdatedAt;
 const PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY = CW_STORAGE_KEYS.pageSettingsUpdatedAt;
+
+/**
+ * Sound settings are account data, not device data. Guest settings keep the
+ * legacy unscoped keys; signed-in settings are partitioned by immutable JWT
+ * subject so a new login cannot inherit or upload the previous account's
+ * preferences.
+ */
+function accountScopedStorageKey(base: string): string {
+  const accountId = getAuthAccountId();
+  return accountId ? `${base}.account.${accountId}` : base;
+}
 
 const DEFAULT_CW_SETTINGS: CWSettings = {
   char_wpm: 20,
@@ -81,7 +92,7 @@ export function applyPageLanguagePreference(
 }
 
 function touchLocalCwSettingsUpdatedAt(isoTimestamp: string = nowIso()): void {
-  writeLocalUpdatedAt(CW_SETTINGS_UPDATED_AT_STORAGE_KEY, isoTimestamp);
+  writeLocalUpdatedAt(accountScopedStorageKey(CW_SETTINGS_UPDATED_AT_STORAGE_KEY), isoTimestamp);
 }
 
 /** Read the locally stored lesson number, clamped to the available lessons. */
@@ -106,7 +117,7 @@ export function readClientCwSettings(): CWSettings {
     return { ...DEFAULT_CW_SETTINGS };
   }
 
-  const raw = localStorage.getItem(CW_SETTINGS_STORAGE_KEY);
+  const raw = localStorage.getItem(accountScopedStorageKey(CW_SETTINGS_STORAGE_KEY));
   if (!raw) {
     return { ...DEFAULT_CW_SETTINGS };
   }
@@ -123,7 +134,10 @@ export function saveClientCwSettings(settings: CWSettings): CWSettings {
   const normalized = normalizeClientCwSettings(settings);
 
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(CW_SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(
+      accountScopedStorageKey(CW_SETTINGS_STORAGE_KEY),
+      JSON.stringify(normalized)
+    );
   }
 
   touchLocalCwSettingsUpdatedAt();
@@ -207,7 +221,9 @@ export async function reconcileSettingsWithServer(args: {
 
   const localCw = readClientCwSettings();
   const serverCwUpdatedAt = parseUpdatedAt(settings.cw_settings.updated_at);
-  const localCwUpdatedAt = readLocalUpdatedAt(CW_SETTINGS_UPDATED_AT_STORAGE_KEY);
+  const localCwUpdatedAt = readLocalUpdatedAt(
+    accountScopedStorageKey(CW_SETTINGS_UPDATED_AT_STORAGE_KEY)
+  );
 
   if (localCwUpdatedAt > serverCwUpdatedAt) {
     await saveCWSettings(localCw);

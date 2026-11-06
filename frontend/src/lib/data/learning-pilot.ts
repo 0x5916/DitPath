@@ -307,6 +307,16 @@ export function createLearningPilotRepositories(
   };
 }
 
+/** Open the pilot ledger, read one owner's history, and close it again. */
+export async function loadLearningPilotHistory(ownerKey: string): Promise<LearningPilotHistory[]> {
+  const db = await openLearningPilotDb();
+  try {
+    return await getLearningPilotHistory(db, ownerKey);
+  } finally {
+    db.close();
+  }
+}
+
 export async function getLearningPilotHistory(
   db: IDBDatabase,
   ownerKey: string

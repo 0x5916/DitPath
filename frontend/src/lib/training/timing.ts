@@ -53,7 +53,10 @@ function walkTimeline(upper: string, timings: FarnsworthTimings, events?: ToneEv
       t += duration;
       if (j < morse.length - 1) t += symbolSpace;
     }
-    if (i < upper.length - 1) t += letterSpace;
+    // A word gap replaces the letter gap. The separator's own wordSpace below
+    // supplies the complete pause; adding both makes every word boundary 10
+    // Farnsworth units instead of the standard 7.
+    if (MORSE[upper[i + 1]]) t += letterSpace;
   }
 
   return t;

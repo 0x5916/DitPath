@@ -1,7 +1,6 @@
 <script lang="ts">
   import InfoTip from '#lib/components/InfoTip.svelte';
-  import { lang } from '#lib/i18n.svelte.ts';
-  import { accuracyClass } from '#lib/format.ts';
+  import { accuracyClass, formatPercent } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
 
   let {
@@ -23,10 +22,6 @@
     accuracyPercent: number | null;
     timedSessionCount: number;
   } = $props();
-
-  const percentFormat = $derived(
-    new Intl.NumberFormat(lang.value, { style: 'percent', maximumFractionDigits: 0 })
-  );
 </script>
 
 <div
@@ -71,7 +66,7 @@
         <span class="metric-val" class:is-unmeasured={accuracyPercent === null}
           >{accuracyPercent === null
             ? m.progress_unmeasured()
-            : percentFormat.format(accuracyPercent / 100)}</span
+            : formatPercent(accuracyPercent / 100)}</span
         >
         {#if accuracyPercent !== null}
           <span class="accuracy-bar" aria-hidden="true">

@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as m from '#lib/paraglide/messages.js';
-  import { Info } from '@lucide/svelte';
+  import { placeFloatingPanel } from '#lib/floating-panel.ts';
+  import { Info, X } from '@lucide/svelte';
   import { onMount, tick, type Snippet } from 'svelte';
 
   let {
@@ -64,20 +65,16 @@
 
   function position() {
     if (!open || !panel || !trigger) return;
-    const anchor = trigger.getBoundingClientRect();
-    if (
-      anchor.bottom <= 0 ||
-      anchor.top >= window.innerHeight ||
-      anchor.right <= 0 ||
-      anchor.left >= window.innerWidth
-    )
-      return dismiss();
     const bounds = panel.getBoundingClientRect();
-    left = Math.max(16, Math.min(anchor.left, window.innerWidth - bounds.width - 16));
-    top =
-      anchor.bottom + bounds.height + (heading ? 8 : 4) <= window.innerHeight - 16
-        ? anchor.bottom + (heading ? 8 : 4)
-        : Math.max(16, anchor.top - bounds.height - (heading ? 8 : 4));
+    const placement = placeFloatingPanel({
+      anchor: trigger.getBoundingClientRect(),
+      panel: { width: bounds.width, height: bounds.height },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      gap: heading ? 8 : 4
+    });
+    if (!placement) return dismiss();
+    left = placement.left;
+    top = placement.top;
   }
 
   $effect(() => {
@@ -155,17 +152,22 @@
       onpointerenter={enter}
       onpointerleave={leave}
     >
-      {text}
       {#if heading && pinned}
-        <button
-          type="button"
-          class="tip-close"
-          onclick={() => {
-            trigger.focus();
-            dismiss();
-          }}>{m.overlay_close()}</button
-        >
+        <span class="tip-header">
+          <strong class="tip-heading">{label}</strong>
+          <button
+            type="button"
+            class="tip-close"
+            aria-label={m.overlay_close()}
+            title={m.overlay_close()}
+            onclick={() => {
+              trigger.focus();
+              dismiss();
+            }}><X size={18} aria-hidden="true" /></button
+          >
+        </span>
       {/if}
+      <span class="tip-body">{text}</span>
     </span>
   {/if}
 </span>
@@ -197,20 +199,43 @@
     justify-content: flex-start;
     padding-left: 6px;
   }
+  .tip-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .tip-heading {
+    color: var(--text-primary);
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: 1.3;
+  }
   .tip-close {
-    display: block;
-    min-height: 48px;
-    margin-top: var(--space-2);
-    padding: 0 var(--space-3);
+    display: inline-flex;
+    flex: 0 0 48px;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin: -8px -8px 0 0;
+    padding: 0;
     background: transparent;
     border: 0;
-    color: var(--accent);
-    font: inherit;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
     cursor: pointer;
+  }
+  .tip-close:hover {
+    color: var(--accent);
   }
   .tip-close:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
+  }
+  .tip-body {
+    display: block;
   }
 
   .tip-trigger:hover,

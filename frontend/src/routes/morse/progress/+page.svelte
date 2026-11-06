@@ -20,7 +20,8 @@
     trainingSyncState,
     subscribeTrainingSync
   } from '#lib/training-sync.svelte.ts';
-  import { lang, localizedHref } from '#lib/i18n.svelte.ts';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import { formatDateTime, formatPercent } from '#lib/format.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
   import { createSessionRepository } from '#lib/data/session-repository.ts';
@@ -29,6 +30,7 @@
     summarizeProgress,
     type ProgressSummary
   } from '#lib/training/v2/progress-summary.ts';
+  import { deriveGuidedLessonAccess } from '#lib/training/v2/lesson-access.ts';
   import type { HistorySessionRecord } from '#lib/training/v2/types.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import CharacterMasteryGrid from '#lib/components/progress/CharacterMasteryGrid.svelte';
@@ -36,11 +38,14 @@
   import PracticeActivity from '#lib/components/progress/PracticeActivity.svelte';
   import * as m from '#lib/paraglide/messages.js';
   import { recordedCharacters } from '#lib/training/targeted-review.ts';
-  import {
-    openLearningPilotDb,
-    getLearningPilotHistory,
-    type LearningPilotHistory
-  } from '#lib/data/learning-pilot.ts';
+  import { criterionLabel } from '#lib/components/learning/recommendation-copy.ts';
+  import { loadLearningPilotHistory, type LearningPilotHistory } from '#lib/data/learning-pilot.ts';
+
+  const TABS = [
+    { value: 'overview', label: m.progress_tab_overview },
+    { value: 'characters', label: m.progress_tab_characters },
+    { value: 'history', label: m.progress_tab_history }
+  ] as const;
 
   let showHistory = $state(false);
   let loading = $state(true);
@@ -48,14 +53,9 @@
   let summary = $state.raw<ProgressSummary | null>(null);
   let history = $state.raw<HistorySessionRecord[]>([]);
   let knownCharacters = $state.raw<string[]>([]);
+  let guidedUnlockedStep = $state(1);
   let reviewHistory = $state.raw<LearningPilotHistory[]>([]);
   let reviewHistoryError = $state(false);
-  const dateFormat = $derived(
-    new Intl.DateTimeFormat(lang.value, { dateStyle: 'medium', timeStyle: 'short' })
-  );
-  const percentFormat = $derived(
-    new Intl.NumberFormat(lang.value, { style: 'percent', maximumFractionDigits: 0 })
-  );
   let mounted = false;
   let loadVersion = 0;
   let loadedOwner: string | null = null;
@@ -64,12 +64,14 @@
   async function loadProgress() {
     const owner = getTrainingOwner();
     const version = ++loadVersion;
+    const current = () => mounted && version === loadVersion && owner === getTrainingOwner();
     // Background history updates replace the result only after they finish.
     if (owner !== loadedOwner) {
       loadedOwner = null;
       summary = null;
       history = [];
       knownCharacters = [];
+      guidedUnlockedStep = 1;
       reviewHistory = [];
       showHistory = false;
       loading = true;
@@ -78,56 +80,42 @@
     let db: IDBDatabase | null = null;
     try {
       db = await openTrainingDb();
-      if (!mounted || version !== loadVersion || owner !== getTrainingOwner()) return;
+      if (!current()) return;
       activeDb = db;
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
       const repository = createSessionRepository(db, owner);
-      const [attempts, sessions, latestSessions, allAttempts] = await Promise.all([
-        createAttemptRepository(db, owner).getAttemptsByTimeRange(
-          new Date(now - 60 * 86400000).toISOString(),
-          nowIso
-        ),
-        repository.getSessionsByTimeRange(new Date(now - 7 * 86400000).toISOString(), nowIso),
-        repository.getSessions(),
-        createAttemptRepository(db, owner).getAttemptsByTimeRange(
-          '0001-01-01T00:00:00.000Z',
-          nowIso
-        )
+      const attemptRepository = createAttemptRepository(db, owner);
+      const [attempts, sessions] = await Promise.all([
+        attemptRepository.getAttemptsByTimeRange('0001-01-01T00:00:00.000Z', nowIso),
+        repository.getSessions()
       ]);
-      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
-        knownCharacters = recordedCharacters(allAttempts);
-        summary = summarizeProgress(attempts, sessions, nowIso);
-        history = latestSessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
-        loadedOwner = owner;
-        let pilotDb: IDBDatabase | null = null;
-        try {
-          pilotDb = await openLearningPilotDb();
-          const reviews = await getLearningPilotHistory(pilotDb, owner);
-          if (mounted && version === loadVersion && owner === getTrainingOwner()) {
-            reviewHistory = reviews
-              .filter(
-                (review) => review.status !== 'in-progress' || review.completedPromptCount > 0
-              )
-              .slice(0, 10);
-            reviewHistoryError = false;
-          }
-        } catch {
-          if (mounted && version === loadVersion && owner === getTrainingOwner())
-            reviewHistoryError = true;
-        } finally {
-          pilotDb?.close();
+      if (!current()) return;
+      knownCharacters = recordedCharacters(attempts);
+      guidedUnlockedStep = deriveGuidedLessonAccess(attempts, nowIso).unlockedStep;
+      summary = summarizeProgress(attempts, sessions, nowIso);
+      history = sessions.filter((session) => session.status !== 'in-progress').slice(0, 20);
+      loadedOwner = owner;
+      try {
+        const reviews = await loadLearningPilotHistory(owner);
+        if (current()) {
+          reviewHistory = reviews
+            .filter((review) => review.status !== 'in-progress' || review.completedPromptCount > 0)
+            .slice(0, 10);
+          reviewHistoryError = false;
         }
+      } catch {
+        if (current()) reviewHistoryError = true;
       }
     } catch (error) {
-      if (mounted && version === loadVersion && owner === getTrainingOwner()) {
+      if (current()) {
         console.error('Failed to load progress data:', error);
         loadError = true;
       }
     } finally {
       if (db) closeTrainingDb(db);
       if (activeDb === db) activeDb = null;
-      if (mounted && version === loadVersion && owner === getTrainingOwner()) loading = false;
+      if (current()) loading = false;
     }
   }
 
@@ -161,23 +149,19 @@
       <h1 class="page-title">{m.nav_progress()}</h1>
     </header>
     <nav class="progress-tabs" aria-label={m.nav_progress()}>
-      {#each ['overview', 'characters', 'history'] as tab (tab)}
+      {#each TABS as tab (tab.value)}
         <a
           href={localizedHref(
-            `/morse/progress?view=${tab}${browser && page.url.searchParams.has('status') ? `&status=${encodeURIComponent(page.url.searchParams.get('status')!)}` : ''}`
+            `/morse/progress?view=${tab.value}${browser && page.url.searchParams.has('status') ? `&status=${encodeURIComponent(page.url.searchParams.get('status')!)}` : ''}`
           )}
-          aria-current={view === tab ? 'page' : undefined}
-          >{tab === 'overview'
-            ? m.progress_tab_overview()
-            : tab === 'characters'
-              ? m.progress_tab_characters()
-              : m.progress_tab_history()}</a
+          aria-current={view === tab.value ? 'page' : undefined}>{tab.label()}</a
         >
       {/each}
     </nav>
 
     {#if learning.snapshot && (view === 'characters' || (view === 'overview' && learning.snapshot.knownCharacters.length >= 2) || (view === 'history' && learning.snapshot.coverage === 'partial'))}<LearningOverview
         snapshot={learning.snapshot}
+        unlockedLesson={guidedUnlockedStep}
         details
         progressView={view}
       />{/if}
@@ -240,13 +224,7 @@
           <section class="recall-summary" aria-label={m.progress_tab_characters()}>
             {#each ['not-met', 'met', 'stale'] as criterion (criterion)}
               <a href={localizedHref(`/morse/progress?view=characters&status=${criterion}`)}>
-                <span
-                  >{criterion === 'met'
-                    ? m.learning_current_met()
-                    : criterion === 'not-met'
-                      ? m.learning_current_notmet()
-                      : m.learning_current_stale()}</span
-                >
+                <span>{criterionLabel(criterion)}</span>
                 <strong
                   >{learning.snapshot.characters.filter(
                     (c) =>
@@ -296,7 +274,7 @@
                           {/if}
                         </strong>
                         <time datetime={sessionOccurredAt(session)}
-                          >{dateFormat.format(new Date(sessionOccurredAt(session)))}</time
+                          >{formatDateTime(sessionOccurredAt(session))}</time
                         >
                       </div>
                       <span class="session-status" class:abandoned={session.status === 'abandoned'}>
@@ -321,7 +299,7 @@
                         <dd>
                           {session.accuracy == null
                             ? m.progress_unmeasured()
-                            : percentFormat.format(session.accuracy)}
+                            : formatPercent(session.accuracy)}
                           {#if session.accuracy != null}
                             <span class="accuracy-bar" aria-hidden="true">
                               <span style:width={`${session.accuracy * 100}%`}></span>
@@ -377,7 +355,7 @@
                     ? m.review_title({ characters: review.targets.join(', ') })
                     : m.review_return_title()}</strong
                 ><time datetime={review.completedAt ?? review.startedAt}
-                  >{dateFormat.format(new Date(review.completedAt ?? review.startedAt))}</time
+                  >{formatDateTime(review.completedAt ?? review.startedAt)}</time
                 ><span>{m.review_answer_count({ count: review.attempts.length })}</span>
               </div>
               <span
