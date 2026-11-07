@@ -12,6 +12,9 @@ other known pages become available offline after an online visit.
 API, authenticated, and cross-origin requests bypass caching. On activation, the
 worker removes older DitPath caches, including legacy private entries, while
 preserving unrelated caches. Existing tabs finish before the new worker activates.
+The [web app manifest](static/manifest.webmanifest) supplies the DitPath install name,
+standalone display mode, and 192/512 plus maskable icons; the service worker is
+registered after page load and controls the page after the first reload.
 
 ## Development
 
@@ -49,7 +52,7 @@ normal builds do not import its fixtures or fault hooks. The
 [fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
 guidance outcomes and fail when a source injection seam changes.
 
-[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
+[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. Run `npm run icons` after changing the approved source artwork; it regenerates the favicon, PWA, Apple touch, and social card assets from [brand-assets.md](docs/brand-assets.md). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
 
 Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
 
@@ -77,6 +80,7 @@ docker run -p 3000:80 opencw-frontend
 - [Learning policy pilot](docs/learning-policy.md): prospective assessment criteria, local coaching/screening scope, and activation gates.
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
 - [Approved design handoff](docs/design-handoff.md): current Penpot authority, implementation status, instant check entry, and design-to-code acceptance workflow.
+- [Brand assets](docs/brand-assets.md): approved DitPath icon sources, usage split, maskable safe area, generated files, and regeneration command.
 - [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.
 - [project.inlang/settings.json](project.inlang/settings.json) and [Paraglide options](scripts/paraglide-options.ts): locale/compiler configuration. SDK-generated inlang notes/cache and `src/lib/paraglide/` are not maintained documentation.
