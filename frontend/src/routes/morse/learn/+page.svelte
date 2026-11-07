@@ -14,6 +14,7 @@
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { SITE_NAME } from '#lib/seo.ts';
   import {
     getTrainingOwner,
     subscribeTrainingSync,
@@ -228,7 +229,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_learn()} · OpenCW</title>
+  <title>{m.nav_learn()} · {SITE_NAME}</title>
 </svelte:head>
 
 {#snippet currentLesson()}

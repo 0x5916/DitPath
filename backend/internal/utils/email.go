@@ -19,21 +19,23 @@ func GenerateVerificationCode() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-func SendVerificationEmail(toEmail string, code string) error {
-	client := resend.NewClient(configs.App.ResendAPIKey)
-
-	params := &resend.SendEmailRequest{
+func verificationEmail(toEmail string, code string) *resend.SendEmailRequest {
+	return &resend.SendEmailRequest{
 		From:    configs.App.ResendFromEmail,
 		To:      []string{toEmail},
-		Subject: "Verify your OpenCW email",
+		Subject: "Verify your DitPath email",
 		Text: strings.Join([]string{
-			"Use this code to verify your OpenCW email:",
+			"Use this code to verify your DitPath email:",
 			code,
 			"",
 			"This code expires in 10 minutes.",
 		}, "\n"),
 	}
+}
 
-	_, err := client.Emails.Send(params)
+func SendVerificationEmail(toEmail string, code string) error {
+	client := resend.NewClient(configs.App.ResendAPIKey)
+
+	_, err := client.Emails.Send(verificationEmail(toEmail, code))
 	return err
 }

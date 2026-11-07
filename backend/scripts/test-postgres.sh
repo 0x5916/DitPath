@@ -36,7 +36,7 @@ HOST_TZ=0
 
 usage() {
   cat <<'EOF'
-Run the OpenCW backend Go suite against a disposable PostgreSQL container.
+Run the DitPath backend Go suite against a disposable PostgreSQL container.
 
 Usage
   backend/scripts/test-postgres.sh [options]

@@ -4,6 +4,7 @@
   import WelcomeIllustration from './WelcomeIllustration.svelte';
   import { lang, setLangPreference, localizedHref as href, type Locale } from '#lib/i18n.svelte.ts';
   import { getLocaleLongLabel } from '#lib/locale.ts';
+  import { SITE_NAME } from '#lib/seo.ts';
   import * as m from '#lib/paraglide/messages.js';
 
   let demoOpen = $state(false);
@@ -20,7 +21,7 @@
 
 <div class="welcome">
   <header class="welcome-header">
-    <a class="wordmark" href={href('/')} aria-label="OpenCW">OpenCW</a>
+    <a class="wordmark" href={href('/')} aria-label={SITE_NAME}>{SITE_NAME}</a>
     <div class="header-actions">
       <select
         aria-label={m.settings_language_label()}
@@ -85,7 +86,7 @@
     </details>
   </section>
   <footer class="welcome-footer">
-    <span>OpenCW</span><a href={href('/about')}>{m.nav_about()}</a><a href={href('/more')}
+    <span>{SITE_NAME}</span><a href={href('/about')}>{m.nav_about()}</a><a href={href('/more')}
       >{m.nav_more()}</a
     >
   </footer>
