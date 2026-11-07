@@ -38,6 +38,7 @@
     localizedHref as href
   } from '#lib/i18n.svelte.ts';
   import Dropdown from '#lib/components/Dropdown.svelte';
+  import MigrationBanner from '#lib/components/migration/MigrationBanner.svelte';
   import { applyTheme, readStoredTheme } from '#lib/theme.ts';
   import { navigationDestination } from '#lib/navigation.ts';
   import * as m from '#lib/paraglide/messages.js';
@@ -59,6 +60,10 @@
   let mobileSection = $derived(navigationDestination(page.route.id, true));
   let desktopSection = $derived(navigationDestination(page.route.id));
   let isTrainingSession = $derived(page.url.pathname.includes('/morse/learn/session'));
+  const MIGRATION_BANNER_HIDDEN_ROUTES = new Set(['/settings', '/login', '/register']);
+  let showMigrationBanner = $derived(
+    !isTrainingSession && !MIGRATION_BANNER_HIDDEN_ROUTES.has(page.route.id ?? '')
+  );
 
   const scope = createSessionScope();
   onDestroy(scope.dispose);
@@ -310,6 +315,9 @@
     tabindex="-1"
   >
     {#key lang.value}
+      {#if showMigrationBanner}
+        <MigrationBanner />
+      {/if}
       {@render children()}
     {/key}
   </main>
