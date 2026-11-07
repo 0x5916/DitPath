@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  pageAlert,
   readCopyCheckpoint,
   readSessionCount,
   resetAcceptance,
@@ -55,7 +56,7 @@ test('rapid continue clicks do not strand the resumed session', async ({ page })
   });
 
   await expect(page.getByRole('textbox', { name: 'Your copy' })).toHaveValue('KM');
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(pageAlert(page)).toHaveCount(0);
 });
 
 test('a second tab cannot resume while the first tab holds the session', async ({
@@ -82,7 +83,7 @@ test('a second tab cannot resume while the first tab holds the session', async (
 
   const winner = (await page.getByRole('textbox', { name: 'Your copy' }).count()) ? page : other;
   const loser = winner === page ? other : page;
-  await expect(loser.getByRole('alert')).toContainText('active in another tab');
+  await expect(pageAlert(loser)).toContainText('active in another tab');
   await expect(loser.getByRole('button', { name: 'Try again' })).toBeVisible();
 
   await winner.close();
@@ -156,7 +157,7 @@ test('a corrupt checkpoint is ignored without blocking a new practice', async ({
   await page.reload();
   await expect(page.getByRole('button', { name: 'Start practice' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue saved session' })).toHaveCount(0);
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(pageAlert(page)).toHaveCount(0);
 });
 
 test('account switching hides the guest checkpoint until sign-out', async ({ context, page }) => {
@@ -199,7 +200,7 @@ test('retrying a failed practice save records exactly one session', async ({ pag
   await startAndType(page);
   await page.getByRole('button', { name: 'Check transcription' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('has not been saved');
+  await expect(pageAlert(page)).toContainText('has not been saved');
   expect(await readSessionCount(page)).toBe(0);
 
   await page.getByRole('button', { name: 'Retry saving' }).last().click();

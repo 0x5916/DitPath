@@ -3,10 +3,17 @@ import type { Page } from '@playwright/test';
 export const EVIDENCE_DB = 'ditpath_ui_acceptance_evidence';
 export const TRAINING_DB = 'ditpath_ui_acceptance';
 
+/** Page-level alerts, excluding the intentional migration announcement. */
+export function pageAlert(page: Page) {
+  return page.locator('[role="alert"]:not(.migration-banner)');
+}
+
 type Scenario =
   | 'New learner / empty history'
   | 'Returning learner / populated history'
-  | 'Practice save fails once, then retry';
+  | 'Practice save fails once, then retry'
+  | 'Guest with saved unfinished practice'
+  | 'Synthetic account / pending sync';
 
 export async function resetAcceptance(page: Page, scenario: Scenario, expected: RegExp) {
   await page.goto('/__acceptance');

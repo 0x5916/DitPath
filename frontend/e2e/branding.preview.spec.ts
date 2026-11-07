@@ -1,6 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const LOCALES = ['en', 'de', 'ja', 'zh-Hans', 'zh-Hant'] as const;
+
+/**
+ * The migration banner deliberately names the former product. Branding belongs
+ * to every other visible element on the page.
+ */
+async function expectNoLegacyBrandOutsideBanner(page: Page) {
+  const text = await page.locator('body').evaluate((body) => {
+    const clone = body.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.migration-banner').forEach((banner) => banner.remove());
+    return clone.textContent ?? '';
+  });
+  expect(text).not.toContain('OpenCW');
+}
 const BRANDED_ROUTES = [
   '/about',
   '/morse/learn',
@@ -19,7 +32,7 @@ test.describe('DitPath public branding', () => {
 
       await expect(page).toHaveTitle(/DitPath/);
       await expect(page.getByRole('link', { name: 'DitPath', exact: true })).toBeVisible();
-      await expect(page.locator('body')).not.toContainText('OpenCW');
+      await expectNoLegacyBrandOutsideBanner(page);
     });
   }
 
@@ -45,7 +58,7 @@ test.describe('DitPath public branding', () => {
       await page.goto(`/en${route}`);
 
       await expect(page).toHaveTitle(/DitPath/);
-      await expect(page.locator('body')).not.toContainText('OpenCW');
+      await expectNoLegacyBrandOutsideBanner(page);
     });
   }
 });

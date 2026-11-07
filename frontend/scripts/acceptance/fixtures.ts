@@ -9,14 +9,17 @@ export const SCENARIOS = {
   loading: ['Loading history (10 seconds)', '/morse/progress'],
   'save-once': ['Practice save fails once, then retry', '/morse/practice'],
   'account-error': ['Account settings unavailable', '/settings'],
-  'pending-sync': ['Synthetic account / pending sync', '/settings']
+  'pending-sync': ['Synthetic account / pending sync', '/settings'],
+  'guest-checkpoint': ['Guest with saved unfinished practice', '/']
 } as const;
 export type Scenario = keyof typeof SCENARIOS;
 export const ACCOUNT_ID = '11111111-1111-4111-8111-111111111111';
 
 export function buildFixture(scenario: Scenario, now: number) {
   const characters = scenario === 'complete' ? LESSONS.join('') : 'KM';
-  const populated = !['newcomer', 'save-once', 'account-error'].includes(scenario);
+  const populated = !['newcomer', 'save-once', 'account-error', 'guest-checkpoint'].includes(
+    scenario
+  );
   const attempts: AttemptEvent[] = populated
     ? [...characters].flatMap((character) =>
         Array.from({ length: 12 }, (_, i): AttemptEvent => ({
