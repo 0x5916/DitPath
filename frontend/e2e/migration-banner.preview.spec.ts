@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 const NO_HISTORY_TITLES = {
-  en: 'OpenCW is becoming DitPath',
-  de: 'OpenCW wird DitPath',
-  ja: 'OpenCW は DitPath になります',
-  'zh-Hans': 'OpenCW 即将更名为 DitPath',
-  'zh-Hant': 'OpenCW 即將更名為 DitPath'
+  en: 'OpenCW is becoming DitPath!',
+  de: 'OpenCW wird DitPath!',
+  ja: 'OpenCW は DitPath になります！',
+  'zh-Hans': 'OpenCW 即将更名为 DitPath！',
+  'zh-Hant': 'OpenCW 即將更名為 DitPath！'
 } as const;
 
 test.describe('DitPath migration banner', () => {

@@ -699,7 +699,7 @@
   "check_keep_checking": "チェックを続ける",
   "check_type_character": "1文字入力して送信してください。",
   "migration_dismiss": "お知らせを閉じる",
-  "migration_empty_title": "OpenCW は DitPath になります",
+  "migration_empty_title": "OpenCW は DitPath になります！",
   "migration_guest_empty_body": "初めての方へ。進捗はこのブラウザに保存されます。端末間で同期したい場合はアカウントを作成してください。",
   "migration_register_cta": "アカウントを作成",
   "migration_guest_history_title": "OpenCW は DitPath になります！",
