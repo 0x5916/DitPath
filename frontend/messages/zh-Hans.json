@@ -698,7 +698,6 @@
   "check_resume": "继续检查",
   "check_keep_checking": "继续检查",
   "check_type_character": "输入一个字符即可提交。",
-  "migration_eyebrow": "OpenCW → DitPath",
   "migration_dismiss": "关闭公告",
   "migration_empty_title": "OpenCW 即将更名为 DitPath",
   "migration_guest_empty_body": "初次使用？进度保存在此浏览器中。如需跨设备同步，请创建账户。",

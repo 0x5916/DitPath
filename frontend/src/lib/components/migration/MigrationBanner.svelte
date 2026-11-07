@@ -240,7 +240,6 @@
     </div>
 
     <div class="migration-copy">
-      <p class="migration-eyebrow">{m.migration_eyebrow()}</p>
       <h2 id="migration-banner-title">{titleFor(bannerState.kind)}</h2>
       {#if bannerState.kind === 'guest-empty'}
         <p id="migration-banner-body" class="migration-body">
@@ -340,6 +339,7 @@
   }
 
   .migration-banner.compact .migration-body {
+    max-width: none;
     margin-top: var(--space-1);
   }
 
@@ -372,16 +372,6 @@
 
   .migration-copy {
     min-width: 0;
-  }
-
-  .migration-eyebrow {
-    margin: 0 0 var(--space-1);
-    color: var(--text-muted);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    line-height: var(--leading-snug);
-    text-transform: uppercase;
   }
 
   h2 {

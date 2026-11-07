@@ -698,7 +698,6 @@
   "check_resume": "Check fortsetzen",
   "check_keep_checking": "Weiter prüfen",
   "check_type_character": "Gib zum Absenden ein Zeichen ein.",
-  "migration_eyebrow": "OpenCW → DitPath",
   "migration_dismiss": "Ankündigung schließen",
   "migration_empty_title": "OpenCW wird DitPath",
   "migration_guest_empty_body": "Neu hier? Dein Fortschritt wird in diesem Browser gespeichert. Erstelle ein Konto, wenn er geräteübergreifend synchronisiert werden soll.",
