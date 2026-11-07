@@ -9,9 +9,10 @@ test.describe('DitPath migration data guidance', () => {
 
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText('Protect your progress before the move');
-    await expect(banner).toContainText('will not move automatically to ditpath.com');
-    await expect(banner).toContainText('import this device’s history');
+    await expect(banner).toContainText('OpenCW is becoming DitPath!');
+    await expect(banner).toContainText('will not transfer automatically');
+    await expect(banner).toContainText('import your device history');
+    await expect(banner).toContainText('confirm synchronization');
     await expect(banner.getByRole('link', { name: 'Create account' })).toHaveAttribute(
       'href',
       '/en/register'

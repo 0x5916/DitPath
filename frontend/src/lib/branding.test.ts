@@ -18,6 +18,7 @@ const BRANDED_MESSAGE_KEYS = [
 const LEGACY_BRAND_ALLOWED_KEYS = new Set([
   'migration_eyebrow',
   'migration_empty_title',
+  'migration_guest_history_title',
   'migration_signed_in_body',
   'migration_unknown_body'
 ]);
