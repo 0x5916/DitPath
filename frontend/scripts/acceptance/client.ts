@@ -3,7 +3,51 @@ import { createAttemptRepository } from '../../src/lib/data/attempt-repository';
 import { createSessionRepository } from '../../src/lib/data/session-repository';
 import { AUTH_STORAGE_KEYS, CW_STORAGE_KEYS } from '../../src/lib/storageKeys';
 import { ACCOUNT_ID, buildFixture, SCENARIOS, type Scenario } from './fixtures';
-import { resetLearningPilotFixture, resetEvidenceFixture } from './faults';
+import { FIXTURE_EVIDENCE_DB, resetLearningPilotFixture, resetEvidenceFixture } from './faults';
+
+/** Seed a valid copy checkpoint without importing app-env-dependent modules. */
+async function seedGuestCheckpoint() {
+  const now = new Date().toISOString();
+  const checkpoint = {
+    version: 1,
+    kind: 'copy',
+    id: 'copy',
+    href: '/morse/practice',
+    savedAt: now,
+    draft: 'K',
+    attempt: {
+      id: 'fixture-checkpoint-attempt',
+      exercise: { lesson: 1, text: 'KM' },
+      settings: { charWpm: 20, effWpm: 12, freq: 600, volume: 1, startDelay: 0 },
+      session: { status: 'ready', attempt: 1, recordedAttempt: null },
+      duration: 0,
+      startedAt: now,
+      review: null
+    }
+  };
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(FIXTURE_EVIDENCE_DB, 1);
+    request.onupgradeneeded = () => {
+      for (const store of ['records', 'outbox'])
+        request.result
+          .createObjectStore(store, { keyPath: ['owner', 'id'] })
+          .createIndex('owner', 'owner');
+      request.result.createObjectStore('meta', { keyPath: ['owner', 'key'] });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('meta', 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.objectStore('meta').put({ owner: 'unclaimed', key: 'checkpoint:copy', value: checkpoint });
+    });
+  } finally {
+    db.close();
+  }
+}
 
 async function selectScenario(scenario: Scenario) {
   if (location.origin !== 'http://127.0.0.1:4174') throw new Error('Wrong fixture origin');
@@ -43,6 +87,7 @@ async function selectScenario(scenario: Scenario) {
   if (scenario === 'save-once') sessionStorage.setItem('acceptance.failSave', 'once');
   if (scenario === 'loading')
     sessionStorage.setItem('acceptance.loadingUntil', String(Date.now() + 10_000));
+  if (scenario === 'guest-checkpoint') await seedGuestCheckpoint();
   location.assign(`/en${SCENARIOS[scenario][1]}`);
 }
 

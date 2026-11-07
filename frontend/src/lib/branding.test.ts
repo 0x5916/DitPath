@@ -13,6 +13,15 @@ const BRANDED_MESSAGE_KEYS = [
   'google_choose_username'
 ] as const;
 
+// The migration banner intentionally names the old product to explain the
+// transition. Every other public message must use DitPath.
+const LEGACY_BRAND_ALLOWED_KEYS = new Set([
+  'migration_eyebrow',
+  'migration_empty_title',
+  'migration_signed_in_body',
+  'migration_unknown_body'
+]);
+
 type Catalog = Record<string, string>;
 
 function readCatalog(locale: (typeof LOCALES)[number]): Catalog {
@@ -36,12 +45,19 @@ describe('DitPath public branding', () => {
     }
   });
 
-  it.each(LOCALES)('has no legacy brand in the %s catalog', (locale) => {
+  it.each(LOCALES)('confines the legacy brand to the %s migration messages', (locale) => {
     const messages = readCatalog(locale);
 
     for (const [key, value] of Object.entries(messages)) {
+      if (LEGACY_BRAND_ALLOWED_KEYS.has(key)) continue;
       expect(value, `${locale}.${key}`).not.toMatch(/OpenCW/i);
     }
+  });
+
+  it.each(LOCALES)('names both products only in the %s transition label', (locale) => {
+    const messages = readCatalog(locale);
+    expect(messages.migration_eyebrow).toContain('OpenCW');
+    expect(messages.migration_eyebrow).toContain('DitPath');
   });
 
   it.each(LOCALES)('has no legacy brand in %s SEO metadata', (locale) => {

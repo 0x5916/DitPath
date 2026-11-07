@@ -24,6 +24,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('acceptance fixture behavior', () => {
   it('reproduces empty, returning and complete guidance with synthetic evidence', () => {
     expect(buildFixture('newcomer', now).attempts).toHaveLength(0);
+    expect(buildFixture('guest-checkpoint', now)).toEqual({ attempts: [], sessions: [] });
     const guidance = (scenario: 'returning' | 'complete') =>
       deriveCourseGuidance(buildFixture(scenario, now).attempts, new Date(now).toISOString());
     expect(guidance('returning').currentStep).toBe(2);

@@ -151,8 +151,11 @@
     const button = heatmapScrollEl?.querySelector<HTMLButtonElement>(
       `button[data-date="${activeDateMs}"]`
     );
+    // Move the target into view before focusing it. The page uses smooth
+    // scrolling globally, which would otherwise still be animating when the
+    // focus handler positions the tooltip, causing it to close as offscreen.
+    button?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
     button?.focus({ preventScroll: true });
-    button?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   $effect(() => {

@@ -27,7 +27,7 @@ cp example.env .env
 npm run dev
 ```
 
-Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
+Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Unfinished guided/practice checkpoints are device-local and are not included in account import; complete them before creating an account or moving. Saving a checkpoint does not transfer it. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
 
 For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for a DitPath username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
 
@@ -81,6 +81,7 @@ docker run -p 3000:80 opencw-frontend
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
 - [Approved design handoff](docs/design-handoff.md): current Penpot authority, implementation status, instant check entry, and design-to-code acceptance workflow.
 - [Brand assets](docs/brand-assets.md): approved DitPath icon sources, usage split, maskable safe area, generated files, and regeneration command.
+- [Migration banner audit](docs/reports/2026-11-07-ditpath-migration-banner-audit.md): guest import behavior, checkpoint limits, sync states, and data-preservation messaging.
 - [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.
 - [project.inlang/settings.json](project.inlang/settings.json) and [Paraglide options](scripts/paraglide-options.ts): locale/compiler configuration. SDK-generated inlang notes/cache and `src/lib/paraglide/` are not maintained documentation.
