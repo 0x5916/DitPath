@@ -1,4 +1,4 @@
-# OpenCW production deployment
+# DitPath production deployment
 
 Deploy the root [Compose stack](docker-compose.yaml) on a Linux host. Use this procedure for installation and recovery, [scripts/README.md](scripts/README.md) for command flags, [example.env](example.env) for configuration defaults, and [db/README.md](db/README.md) for database tuning. Image versions live in Compose.
 
@@ -32,7 +32,7 @@ pct start "$CT_ID"
 pct enter "$CT_ID"
 ```
 
-You are now inside the LXC. Nested Docker compatibility depends on the Proxmox host's kernel and container configuration. The Docker smoke test below is the checkpoint before installing OpenCW. Proxmox recommends a QEMU VM when stronger isolation or live migration is required; see its [container guide](https://github.com/proxmox/pve-docs/blob/master/pct.adoc).
+You are now inside the LXC. Nested Docker compatibility depends on the Proxmox host's kernel and container configuration. The Docker smoke test below is the checkpoint before installing DitPath. Proxmox recommends a QEMU VM when stronger isolation or live migration is required; see its [container guide](https://github.com/proxmox/pve-docs/blob/master/pct.adoc).
 
 ### 2. Install the host tools inside the LXC
 
@@ -98,7 +98,7 @@ Proxmox backups exclude host bind-mount contents; enable the backup option for a
 Inside the LXC, clone the complete repository into `/opt/opencw`; Compose bind-mounts [db/tune.sh](db/tune.sh), so the Compose file alone is insufficient. Run all subsequent commands from the checkout root. If you already have a checkout and `.env`, use those rather than copying over your configuration.
 
 ```bash
-git clone https://github.com/0x5916/OpenCW.git /opt/opencw
+git clone https://github.com/0x5916/DitPath.git /opt/opencw
 cd /opt/opencw
 cp example.env .env
 chmod 600 .env
@@ -131,7 +131,7 @@ PUBLIC_API_BASE=http://192.168.1.50:8080/v1
 CORS_ORIGINS=http://192.168.1.50:3000
 ```
 
-The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this separate OpenCW policy and optional overrides.
+The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this separate legacy `opencw` policy and optional overrides.
 
 Fill `POSTGRES_PASSWORD`, `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`, `JWT_SECRET`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` as well. Use separate database and pgAdmin passwords, your Resend API key, and a sender configured in Resend.
 
@@ -164,7 +164,7 @@ Deployment can bootstrap `.env` and generate a missing JWT secret, but required 
 
 The [frontend image](frontend/Dockerfile) installs the locked development dependencies and runs `npm run verify` before building. IndexedDB tests use `fake-indexeddb`, which is declared in [frontend/package.json](frontend/package.json) and pinned by [frontend/package-lock.json](frontend/package-lock.json). A failed verification gate stops the image build; fix the reported failure in the repository before deployment.
 
-The frontend builder uses patched Node 26.12.1. Both the frontend runtime and the [derived pgAdmin image](pgadmin/Dockerfile) require patched system Brotli; pgAdmin also updates its independent Python binding. Both Compose stacks build that pgAdmin image for the web service and its configuration renderer. Rebuild these images when applying the [HTTP2Shell remediation contract](docs/http2shell-remediation.md); pulling the upstream pgAdmin image alone does not apply the OpenCW dependency patch. Runtime checks are documented in the [script guide](scripts/README.md#regression-checks).
+The frontend builder uses patched Node 26.12.1. Both the frontend runtime and the [derived pgAdmin image](pgadmin/Dockerfile) require patched system Brotli; pgAdmin also updates its independent Python binding. Both Compose stacks build that pgAdmin image for the web service and its configuration renderer. Rebuild these images when applying the [HTTP2Shell remediation contract](docs/http2shell-remediation.md); pulling the upstream pgAdmin image alone does not apply the DitPath dependency patch. Runtime checks are documented in the [script guide](scripts/README.md#regression-checks).
 
 Local endpoints are frontend `http://127.0.0.1:3000`, health `http://127.0.0.1:8080/v1/health`, and pgAdmin `http://127.0.0.1:5050` unless its port changed. `pgadmin-config` exits after rendering configuration; exit 0 is expected.
 
@@ -282,7 +282,7 @@ Backend startup runs GORM `AutoMigrate`. An image rollback does not undo databas
 
 pgAdmin's web login uses `PGADMIN_DEFAULT_*`; its database connection uses `POSTGRES_*`. Editing the former after the first initialization does not reset an existing account. Reset through the user interface or the container's `setup.py update-user` command, using the existing login email. Deleting its volume discards saved accounts, servers, and preferences.
 
-The shared [renderer](scripts/render-pgadmin.py) writes `servers.json` and a private per-login `.pgpass` into `pgadmin_data`, escapes all credential fields, and selects that passfile in the connection parameters. It uses host `db`, port 5432, and the configured database role. Startup replaces the configured pgAdmin account's saved server list with this managed OpenCW connection. Bring the stack up after credential changes so the renderer runs; restarting pgAdmin alone does not run it. A password saved separately in pgAdmin must also be updated. The volume holds the database password in plain text; protect it like `.env`. The configured connection uses `sslmode=prefer` and master-password protection is disabled.
+The shared [renderer](scripts/render-pgadmin.py) writes `servers.json` and a private per-login `.pgpass` into `pgadmin_data`, escapes all credential fields, and selects that passfile in the connection parameters. It uses host `db`, port 5432, and the configured database role. Startup replaces the configured pgAdmin account's saved server list with this managed DitPath connection. Bring the stack up after credential changes so the renderer runs; restarting pgAdmin alone does not run it. A password saved separately in pgAdmin must also be updated. The volume holds the database password in plain text; protect it like `.env`. The configured connection uses `sslmode=prefer` and master-password protection is disabled.
 
 ## Backups and recovery
 

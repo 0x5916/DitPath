@@ -4,7 +4,7 @@ Status: approved on 2026-10-25. The owner explicitly authorized implementation u
 
 ## Intended behavior and scope
 
-Add Google's standard sign-in button to Login and Register. Returning Google users receive the existing OpenCW access/refresh token pair. New Google users choose an OpenCW username before an account is created. Keep the static Svelte frontend, Go API, existing password sign-in, and immutable account UUIDs used by training synchronization.
+Add Google's standard sign-in button to Login and Register. Returning Google users receive the existing DitPath access/refresh token pair. New Google users choose a DitPath username before an account is created. Keep the static Svelte frontend, Go API, existing password sign-in, and immutable account UUIDs used by training synchronization.
 
 Use the Google Identity Services (GIS) JavaScript popup/callback integration. Load Google's hosted `https://accounts.google.com/gsi/client` only on configured authentication pages in the browser. Request identity only; no Google API access, Google refresh tokens, One Tap, automatic sign-in, or OAuth client secret is needed for this flow. Use the existing Go JWT library and standard library; add no package dependencies. Approval must include the hosted GIS script as an external browser integration.
 
@@ -49,7 +49,7 @@ Share one process-wide verifier, cache, and immediate-refusal gate of four activ
 
 ## Account persistence and password behavior
 
-Keep [User](../internal/models/user.go) as the OpenCW account and add [UserIdentity](../internal/models/user_identity.go) for external sign-in methods. Use the existing [Base](../internal/models/base.go) UUID and timestamp conventions:
+Keep [User](../internal/models/user.go) as the DitPath account and add [UserIdentity](../internal/models/user_identity.go) for external sign-in methods. Use the existing [Base](../internal/models/base.go) UUID and timestamp conventions:
 
 | Column                                   | Constraint / meaning                                                                        |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -109,4 +109,4 @@ The disposable database and temporary frontend servers were removed after verifi
 
 ## References
 
-Google's [callback integration and CSRF guidance](https://developers.google.com/identity/gsi/web/guides/integrate) supports the selected browser-to-API flow. Its [ID-token verification guide](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token) defines identity and email authority. The [JavaScript API](https://developers.google.com/identity/gsi/web/reference/js-reference) describes nonce and official button rendering; [setup guidance](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid) covers client IDs, allowed origins, and browser headers. [OpenID Connect claim stability](https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability) defines issuer-plus-subject identity for OIDC providers. The repository-specific schema, quotas, transaction behavior, error codes, and packet boundaries above are approved OpenCW decisions.
+Google's [callback integration and CSRF guidance](https://developers.google.com/identity/gsi/web/guides/integrate) supports the selected browser-to-API flow. Its [ID-token verification guide](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token) defines identity and email authority. The [JavaScript API](https://developers.google.com/identity/gsi/web/reference/js-reference) describes nonce and official button rendering; [setup guidance](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid) covers client IDs, allowed origins, and browser headers. [OpenID Connect claim stability](https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability) defines issuer-plus-subject identity for OIDC providers. The repository-specific schema, quotas, transaction behavior, error codes, and packet boundaries above are approved DitPath decisions.

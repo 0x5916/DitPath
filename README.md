@@ -1,6 +1,6 @@
 # DitPath
 
-DitPath is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Existing deployment identifiers and repository URLs retain their legacy OpenCW names.
+DitPath is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Legacy production domains, deployment paths, and internal identifiers retain their existing OpenCW names.
 
 ## Start developing
 

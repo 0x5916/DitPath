@@ -87,14 +87,14 @@
   color: var(--accent);
 }
 
-/* Share source artwork; the build fingerprints updates and the accent follows the theme. */
+/* Alpha silhouette of the approved DitPath key; the accent follows the theme. */
 .navbar-mark {
   display: block;
   flex-shrink: 0;
   width: var(--space-8);
   height: var(--space-8);
   background-color: var(--accent);
-  mask: url('../assets/favicon.svg') center / contain no-repeat;
+  mask: url('../assets/ditpath-mark.png') center / contain no-repeat;
 }
 
 /* The desktop cluster carries both classes, so the hide rule is not order

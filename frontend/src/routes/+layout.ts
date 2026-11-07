@@ -7,6 +7,7 @@ import {
   GITHUB_URL,
   getOpenGraphLocale,
   normalizePathname,
+  ORGANIZATION_LOGO_PATH,
   resolveSeoMetadata,
   SITE_NAME
 } from '#lib/seo.ts';
@@ -53,7 +54,7 @@ export const load: LayoutLoad = ({ url, route }) => {
           '@type': 'Organization',
           name: SITE_NAME,
           url: buildAbsoluteUrl(url.origin, '/'),
-          logo: buildAbsoluteUrl(url.origin, '/apple-touch-icon.png'),
+          logo: buildAbsoluteUrl(url.origin, ORGANIZATION_LOGO_PATH),
           sameAs: [GITHUB_URL]
         },
         {

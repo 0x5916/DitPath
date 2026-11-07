@@ -23,6 +23,7 @@
   import { formatLongDate, formatWeekday } from '#lib/format.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { SITE_NAME } from '#lib/seo.ts';
 
   const loadScope = createSessionScope();
   onDestroy(() => {
@@ -132,7 +133,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_profile()} · OpenCW</title>
+  <title>{m.nav_profile()} · {SITE_NAME}</title>
 </svelte:head>
 
 <div class="page-stack">
