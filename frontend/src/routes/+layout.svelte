@@ -9,7 +9,13 @@
   import { initializeLearningSync } from '#lib/learning-sync.svelte.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
   import { reconcileSettingsWithServer } from '#lib/cwSync.ts';
-  import { GITHUB_URL, SITE_NAME } from '#lib/seo.ts';
+  import {
+    DEFAULT_OG_IMAGE_ALT,
+    DEFAULT_OG_IMAGE_HEIGHT,
+    DEFAULT_OG_IMAGE_WIDTH,
+    GITHUB_URL,
+    SITE_NAME
+  } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import {
@@ -202,10 +208,15 @@
   <meta property="og:url" content={data.seo.canonicalUrl} />
   <meta property="og:locale" content={data.seo.openGraphLocale} />
   <meta property="og:image" content={data.seo.openGraphImage} />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content={String(DEFAULT_OG_IMAGE_WIDTH)} />
+  <meta property="og:image:height" content={String(DEFAULT_OG_IMAGE_HEIGHT)} />
+  <meta property="og:image:alt" content={DEFAULT_OG_IMAGE_ALT} />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={data.seo.title} />
   <meta name="twitter:description" content={data.seo.description} />
   <meta name="twitter:image" content={data.seo.openGraphImage} />
+  <meta name="twitter:image:alt" content={DEFAULT_OG_IMAGE_ALT} />
   {#each structuredDataScripts as scriptTag (scriptTag)}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- server-built JSON-LD, no user input -->
     {@html scriptTag}

@@ -12,6 +12,10 @@ export type SeoMetadata = {
 export const SITE_NAME = 'DitPath';
 export const GITHUB_URL = 'https://github.com/0x5916/DitPath';
 export const DEFAULT_OG_IMAGE_PATH = '/og-image.png';
+export const DEFAULT_OG_IMAGE_WIDTH = 1200;
+export const DEFAULT_OG_IMAGE_HEIGHT = 630;
+export const DEFAULT_OG_IMAGE_ALT = 'DitPath — learn Morse code by ear.';
+export const ORGANIZATION_LOGO_PATH = '/icon-512.png';
 
 // Indexable surfaces, derived from the one route list so a route cannot be
 // sitemapped without also being prerendered.
