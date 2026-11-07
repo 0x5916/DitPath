@@ -188,9 +188,9 @@ describe('migration banner state', () => {
 
 describe('migration data-preservation messaging', () => {
   it('states the supported limits without promising automatic or checkpoint transfer', () => {
-    expect(en.migration_guest_history_body).toContain('will not move automatically');
-    expect(en.migration_guest_history_body).toContain('import this device’s history');
-    expect(en.migration_guest_history_body).toContain('confirm it is synced');
+    expect(en.migration_guest_history_body).toContain('will not transfer automatically');
+    expect(en.migration_guest_history_body).toContain('import your device history');
+    expect(en.migration_guest_history_body).toContain('confirm synchronization');
     expect(en.migration_checkpoint_body).toContain(
       'Complete it before creating an account or moving'
     );
