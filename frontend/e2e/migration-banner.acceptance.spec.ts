@@ -9,7 +9,7 @@ test.describe('DitPath migration data guidance', () => {
 
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText('Save your progress before the move');
+    await expect(banner).toContainText('Protect your progress before the move');
     await expect(banner).toContainText('will not move automatically to ditpath.com');
     await expect(banner).toContainText('import this device’s history');
     await expect(banner.getByRole('link', { name: 'Create account' })).toHaveAttribute(
@@ -28,7 +28,7 @@ test.describe('DitPath migration data guidance', () => {
     await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
 
-  test('warns guests that unfinished saved sessions are not included in account import', async ({
+  test('warns guests to complete unfinished sessions because saving does not transfer them', async ({
     page
   }) => {
     await resetAcceptance(page, 'Guest with saved unfinished practice', /\/en$/);
@@ -36,8 +36,9 @@ test.describe('DitPath migration data guidance', () => {
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('unfinished lesson or practice session');
-    await expect(banner).toContainText('not included in account import');
-    await expect(banner.getByRole('link', { name: 'Finish saved session' })).toHaveAttribute(
+    await expect(banner).toContainText('Complete it before creating an account or moving');
+    await expect(banner).toContainText('does not transfer it to DitPath or your account');
+    await expect(banner.getByRole('link', { name: 'Complete saved session' })).toHaveAttribute(
       'href',
       '/en/morse/practice'
     );

@@ -190,8 +190,16 @@ describe('migration data-preservation messaging', () => {
   it('states the supported limits without promising automatic or checkpoint transfer', () => {
     expect(en.migration_guest_history_body).toContain('will not move automatically');
     expect(en.migration_guest_history_body).toContain('import this device’s history');
-    expect(en.migration_checkpoint_body).toContain('not included in account import');
-    expect(en.migration_unclaimed_body).toContain('unfinished sessions are not imported');
+    expect(en.migration_guest_history_body).toContain('confirm it is synced');
+    expect(en.migration_checkpoint_body).toContain(
+      'Complete it before creating an account or moving'
+    );
+    expect(en.migration_checkpoint_body).toContain(
+      'does not transfer it to DitPath or your account'
+    );
+    expect(en.migration_checkpoint_body).not.toContain('Finish or save');
+    expect(en.migration_unclaimed_body).toContain('sign out and complete any guest session');
+    expect(en.migration_unclaimed_body).toContain('Saved checkpoints are not imported');
     expect(en.migration_signed_in_body).toContain('latest sessions show as synced');
     expect(en.migration_signed_in_empty_body).toContain('New progress will sync');
   });

@@ -46,9 +46,9 @@ This is the critical limitation the banner must disclose.
 - After signing in, unclaimed checkpoints are not visible because the UI reads
   the current owner partition. They remain on the device but require signing out
   to resume.
-- Therefore the banner tells users to finish or save unfinished sessions before
-  signing in and explicitly says unfinished sessions are not included in account
-  import. It does not promise checkpoint transfer.
+- Therefore the banner tells users to complete unfinished sessions before
+  creating an account or moving, and explicitly says that saving or leaving a
+  checkpoint does not transfer it. It does not promise checkpoint transfer.
 
 ### Synchronization states
 
@@ -69,16 +69,16 @@ generic warning instead of claiming there is no history.
 
 ## Messaging matrix
 
-| State                                        | Message                                                                             | Dismissal     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------- | ------------- |
-| Guest, no history                            | Short DitPath announcement with an inline account link                              | Local storage |
-| Guest, history or checkpoint                 | Data stays in this browser; register, then import; finish unfinished sessions first | Session only  |
-| Signed-in, no history                        | Short signed-in announcement                                                        | Local storage |
-| Signed-in, history, no pending sync          | Account can retain synchronized progress; verify latest sessions                    | Local storage |
-| Signed-in, unimported device data/checkpoint | Import device history / finish guest sessions before moving                         | Session only  |
-| Pending sync                                 | Do not clear browser data or move devices; retry or open sync details               | Session only  |
-| Failed/permanent sync                        | Saved records remain local; review sync details before moving                       | Session only  |
-| Context unreadable                           | Conservative “check Sync & storage” warning                                         | Session only  |
+| State                                        | Message                                                                                                                     | Dismissal     |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Guest, no history                            | Short DitPath announcement with an inline account link                                                                      | Local storage |
+| Guest, history or checkpoint                 | Data stays in this browser; complete unfinished sessions, register, import, confirm sync; saved checkpoints do not transfer | Session only  |
+| Signed-in, no history                        | Short signed-in announcement                                                                                                | Local storage |
+| Signed-in, history, no pending sync          | Account can retain synchronized progress; verify latest sessions                                                            | Local storage |
+| Signed-in, unimported device data/checkpoint | Import device history, sign out and complete guest sessions; checkpoints do not transfer                                    | Session only  |
+| Pending sync                                 | Do not clear browser data or move devices; retry or open sync details                                                       | Session only  |
+| Failed/permanent sync                        | Saved records remain local; review sync details before moving                                                               | Session only  |
+| Context unreadable                           | Conservative “check Sync & storage” warning                                                                                 | Session only  |
 
 Critical dismissal keys include the warning signature. The same warning stays
 hidden for the current tab session, but a different warning or a new browser
