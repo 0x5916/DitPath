@@ -5,8 +5,10 @@
 //   src/lib/assets/ditpath-icon-small.svg     (flat small-size brand illustration)
 //
 // Approved usage:
-//   - full-detail artwork + warm paper background: 192/512 app icons, maskable
-//     icons, Apple touch icon, and the 1200x630 social card;
+//   - full-detail artwork cropped to its visible bounds, scaled to 75% of the
+//     tile width, and centered on warm paper: 192/512 app icons and Apple touch;
+//   - the same composition at 85% scale: maskable icons;
+//   - full-detail artwork on warm paper: the 1200x630 social card;
 //   - small-size colour artwork with a 0.75px warm-paper rim on a transparent
 //     background: favicon PNGs and ICO.
 //
@@ -38,6 +40,13 @@ const PAPER_RGB = { r: 0xf3, g: 0xf2, b: 0xed };
 // generated at 4x and downsampled, keeping its thickness near 0.75 CSS px.
 const RIM_SCALE = 4;
 const RIM_PX = 0.75;
+
+// App icons crop the full artwork to its visible bounds, scale that content to
+// 75% of the tile width, and center it on the paper canvas. Maskable icons use
+// the same composition at 85% scale to preserve the 40% safe radius.
+const MATERIAL_RENDER_SIZE = 1024;
+const MATERIAL_ALPHA_THRESHOLD = 32;
+const APP_ICON_VISIBLE_WIDTH = 0.75;
 const MASKABLE_SCALE = 0.85;
 
 function minifySvg(svg) {
@@ -92,11 +101,74 @@ function paperCanvas(width, height = width) {
   });
 }
 
-async function renderMaterialOnPaper(size, scale = 1) {
-  const artSize = Math.round(size * scale);
-  const art = await sharp(materialSource).resize(artSize, artSize).png().toBuffer();
+async function measureMaterialBounds() {
+  const { data, info } = await sharp(materialSource)
+    .resize(MATERIAL_RENDER_SIZE, MATERIAL_RENDER_SIZE, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * 4 + 3] > MATERIAL_ALPHA_THRESHOLD) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  return {
+    left: minX,
+    top: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1
+  };
+}
+
+async function renderAppIcon(size, bounds) {
+  const trimmed = await sharp(materialSource)
+    .resize(MATERIAL_RENDER_SIZE, MATERIAL_RENDER_SIZE, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    })
+    .ensureAlpha()
+    .extract(bounds)
+    .png()
+    .toBuffer();
+
+  const targetWidth = Math.round(size * APP_ICON_VISIBLE_WIDTH);
+  const targetHeight = Math.round((bounds.height / bounds.width) * targetWidth);
+  const art = await sharp(trimmed)
+    .resize(targetWidth, targetHeight, { kernel: 'lanczos3' })
+    .png()
+    .toBuffer();
+  const left = Math.round((size - targetWidth) / 2);
+  const top = Math.round((size - targetHeight) / 2);
+
+  return paperCanvas(size)
+    .composite([{ input: art, left, top }])
+    .flatten({ background: PAPER })
+    .removeAlpha()
+    .png()
+    .toBuffer();
+}
+
+async function renderMaskableIcon(size, bounds) {
+  const base = await renderAppIcon(size, bounds);
+  const artSize = Math.round(size * MASKABLE_SCALE);
+  const art = await sharp(base).resize(artSize, artSize, { kernel: 'lanczos3' }).png().toBuffer();
   const left = Math.round((size - artSize) / 2);
   const top = Math.round((size - artSize) / 2);
+
   return paperCanvas(size)
     .composite([{ input: art, left, top }])
     .flatten({ background: PAPER })
@@ -189,32 +261,25 @@ async function generate() {
   await writeFile(icoFile, buildIco(faviconPngs.filter(({ size }) => size <= 48)));
   console.log('wrote static/favicon.ico');
 
-  const apple = await renderMaterialOnPaper(512);
-  await sharp(apple)
-    .resize(180, 180)
-    .flatten({ background: PAPER })
-    .removeAlpha()
-    .png()
-    .toFile(path.join(outDir, 'apple-touch-icon.png'));
+  const materialBounds = await measureMaterialBounds();
+
+  const apple = await renderAppIcon(180, materialBounds);
+  await writeFile(path.join(outDir, 'apple-touch-icon.png'), apple);
   console.log('wrote static/apple-touch-icon.png');
 
-  const icon512 = await renderMaterialOnPaper(512);
-  const icon192 = await sharp(icon512).resize(192, 192).png().toBuffer();
-  await writeFile(
-    path.join(outDir, 'icon-512.png'),
-    await sharp(icon512).flatten({ background: PAPER }).removeAlpha().png().toBuffer()
-  );
-  await writeFile(path.join(outDir, 'icon-192.png'), icon192);
+  await writeFile(path.join(outDir, 'icon-512.png'), await renderAppIcon(512, materialBounds));
+  await writeFile(path.join(outDir, 'icon-192.png'), await renderAppIcon(192, materialBounds));
   console.log('wrote static/icon-192.png');
   console.log('wrote static/icon-512.png');
 
-  const maskable512 = await renderMaterialOnPaper(512, MASKABLE_SCALE);
-  const maskable192 = await sharp(maskable512).resize(192, 192).png().toBuffer();
   await writeFile(
     path.join(outDir, 'icon-maskable-512.png'),
-    await sharp(maskable512).flatten({ background: PAPER }).removeAlpha().png().toBuffer()
+    await renderMaskableIcon(512, materialBounds)
   );
-  await writeFile(path.join(outDir, 'icon-maskable-192.png'), maskable192);
+  await writeFile(
+    path.join(outDir, 'icon-maskable-192.png'),
+    await renderMaskableIcon(192, materialBounds)
+  );
   console.log('wrote static/icon-maskable-192.png');
   console.log('wrote static/icon-maskable-512.png');
 

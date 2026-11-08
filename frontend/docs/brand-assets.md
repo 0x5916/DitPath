@@ -28,17 +28,18 @@ the committed outputs.
 
 | Surface                                          | Artwork                                            | Background                       |
 | ------------------------------------------------ | -------------------------------------------------- | -------------------------------- |
-| `icon-192.png`, `icon-512.png`                   | Full-detail                                        | Opaque warm paper `#F3F2ED`      |
-| `icon-maskable-192.png`, `icon-maskable-512.png` | Full-detail at 85% scale                           | Opaque warm paper                |
-| `apple-touch-icon.png` (180)                     | Full-detail                                        | Opaque warm paper                |
+| `icon-192.png`, `icon-512.png`                   | Full-detail at 75% visible width, centered         | Opaque warm paper `#F3F2ED`      |
+| `icon-maskable-192.png`, `icon-maskable-512.png` | 75% composition at 85% scale                       | Opaque warm paper                |
+| `apple-touch-icon.png` (180)                     | Full-detail at 75% visible width, centered         | Opaque warm paper                |
 | `favicon.svg`                                    | Small-size colour artwork                          | Transparent, unlinked source     |
 | `favicon.ico`, `favicon-16/32/48/64.png`         | Small-size colour artwork with a 0.75 px paper rim | Transparent                      |
 | `og-image.png` (1200×630)                        | Full-detail                                        | Warm paper with DitPath wordmark |
 
-The maskable artwork is scaled to 85%, keeping its maximum content radius inside
-the 40% maskable safe radius. The source content occupies roughly 371×342 px in
-the 512 viewBox; its maximum content radius is about 231 px, so the native safe
-limit would be 88.7% without additional padding.
+The full artwork content occupies roughly 371×342 px in the 512 viewBox. App
+icons crop to those visible bounds, scale the content to 75% of the tile width,
+and center it. This replaces the previous full-canvas margins and makes the key
+larger in the Dock. The maskable variants apply 85% scale to the same composition;
+the maximum content radius remains inside the 40% maskable safe radius.
 
 The small artwork supplies its own tight optical crop, so the generator preserves
 its `64 64 416 416` viewBox. Favicon PNGs are rendered at 4× with a 0.75 px

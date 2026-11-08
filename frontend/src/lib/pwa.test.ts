@@ -67,6 +67,41 @@ async function cornerAlphas(relativePath: string) {
   ];
 }
 
+async function contentBounds(relativePath: string) {
+  const { data, info } = await sharp(file(relativePath))
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const paper = [data[0], data[1], data[2]];
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      const offset = (y * info.width + x) * info.channels;
+      const delta = Math.max(
+        Math.abs(data[offset] - paper[0]),
+        Math.abs(data[offset + 1] - paper[1]),
+        Math.abs(data[offset + 2] - paper[2])
+      );
+      if (delta > 24) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  return {
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2
+  };
+}
+
 async function maxContentRadius(relativePath: string) {
   const { data, info } = await sharp(file(relativePath))
     .raw()
@@ -137,6 +172,22 @@ describe('DitPath PWA assets', () => {
     await assertOpaquePng('static/icon-maskable-192.png', 192);
     await assertOpaquePng('static/icon-maskable-512.png', 512);
     await assertOpaquePng('static/apple-touch-icon.png', 180);
+  });
+
+  it('centers the app icon at 75% visible width', async () => {
+    for (const [path, size] of [
+      ['static/icon-192.png', 192],
+      ['static/icon-512.png', 512],
+      ['static/apple-touch-icon.png', 180]
+    ] as const) {
+      const bounds = await contentBounds(path);
+      expect(bounds.width / size, path).toBeGreaterThanOrEqual(0.74);
+      expect(bounds.width / size, path).toBeLessThanOrEqual(0.77);
+      expect(bounds.centerX, path).toBeGreaterThanOrEqual(size / 2 - 1.5);
+      expect(bounds.centerX, path).toBeLessThanOrEqual(size / 2 + 1.5);
+      expect(bounds.centerY, path).toBeGreaterThanOrEqual(size / 2 - 1.5);
+      expect(bounds.centerY, path).toBeLessThanOrEqual(size / 2 + 1.5);
+    }
   });
 
   it('keeps favicon PNGs transparent with a warm-paper rim', async () => {
