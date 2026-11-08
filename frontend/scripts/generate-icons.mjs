@@ -1,18 +1,18 @@
 // Generates the approved DitPath app-icon, favicon, PWA, Apple touch, and social-card assets.
 //
 // Authoritative artwork:
-//   src/lib/assets/ditpath-icon-flat.svg      (flat paddle-key study)
-//   src/lib/assets/ditpath-icon-material.svg  (material paddle-key study)
+//   src/lib/assets/ditpath-icon-material.svg  (full-detail brand illustration)
+//   src/lib/assets/ditpath-icon-small.svg     (flat small-size brand illustration)
 //
 // Approved usage:
-//   - material artwork + warm paper background: 192/512 app icons, maskable icons,
-//     Apple touch icon, and the 1200x630 social card;
-//   - flat artwork as a monochrome silhouette on warm paper: favicon PNG/ICO/SVG;
-//   - flat artwork as a transparent alpha silhouette: navbar mark.
+//   - full-detail artwork + warm paper background: 192/512 app icons, maskable
+//     icons, Apple touch icon, and the 1200x630 social card;
+//   - small-size colour artwork on warm paper: favicon PNG/ICO/SVG;
+//   - small-size artwork as a transparent alpha silhouette: navbar mark.
 //
 // Maskable artwork is scaled to 85% so the lever tips remain inside the 40% safe
-// radius. The favicon crop removes the source's transparent margins, improving
-// 16px legibility without changing the key geometry.
+// radius. The small artwork already uses its own tight optical crop, so its
+// supplied viewBox is preserved.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
@@ -22,8 +22,8 @@ import sharp from 'sharp';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = path.join(root, 'src/lib/assets');
 const outDir = path.join(root, 'static');
-const flatSource = path.join(sourceDir, 'ditpath-icon-flat.svg');
 const materialSource = path.join(sourceDir, 'ditpath-icon-material.svg');
+const smallSource = path.join(sourceDir, 'ditpath-icon-small.svg');
 const markPng = path.join(sourceDir, 'ditpath-mark.png');
 
 // Mirrors the light-theme paper and ink tokens in src/app.css.
@@ -33,10 +33,9 @@ const MUTED = '#4F5147';
 const FOREST = '#2F6B50';
 const KEY = '#161C23';
 
-// Square crop around the complete paddle-key content, preserving the source
-// framing while removing the generous transparent margins.
-const CONTENT_VIEWBOX = '72 66 400 400';
-const CONTENT_CROP = { x: 72, y: 66, width: 400, height: 400 };
+// The small artwork's supplied viewBox is its optical crop. Preserve it and use
+// the same rectangle for the paper tile behind the favicon.
+const SMALL_VIEWBOX = { x: 64, y: 64, width: 416, height: 416 };
 const MASKABLE_SCALE = 0.85;
 
 function minifySvg(svg) {
@@ -50,17 +49,15 @@ function minifySvg(svg) {
     .trim();
 }
 
-function deriveFlatArtwork(flatSourceText, { paper = false, color = KEY, cropped = true } = {}) {
-  let svg = flatSourceText.replace(/<\?xml[^>]*\?>\s*/i, '');
+function deriveSmallArtwork(smallSourceText, { paper = false, color = null } = {}) {
+  let svg = smallSourceText.replace(/<\?xml[^>]*\?>\s*/i, '');
 
-  if (cropped) {
-    svg = svg.replace(/viewBox="0 0 512 512"/, `viewBox="${CONTENT_VIEWBOX}"`);
+  if (color) {
+    svg = svg.replace(/(fill|stroke)="#[0-9a-fA-F]{6}"/g, `$1="${color}"`);
   }
 
-  svg = svg.replace(/(fill|stroke)="#[0-9a-fA-F]{6}"/g, `$1="${color}"`);
-
   if (paper) {
-    const { x, y, width, height } = CONTENT_CROP;
+    const { x, y, width, height } = SMALL_VIEWBOX;
     svg = svg.replace(
       /(<svg\b[^>]*>)/i,
       `$1<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${PAPER}"/>`
@@ -132,12 +129,12 @@ function socialCardText() {
 }
 
 async function generate() {
-  const flatSourceText = await readFile(flatSource, 'utf8');
+  const smallSourceText = await readFile(smallSource, 'utf8');
 
   await mkdir(outDir, { recursive: true });
 
-  const faviconSvg = deriveFlatArtwork(flatSourceText, { paper: true, color: KEY });
-  const markSvg = deriveFlatArtwork(flatSourceText, { paper: false, color: KEY });
+  const faviconSvg = deriveSmallArtwork(smallSourceText, { paper: true });
+  const markSvg = deriveSmallArtwork(smallSourceText, { color: KEY });
   const faviconSvgBuffer = Buffer.from(faviconSvg);
 
   await writeFile(path.join(outDir, 'favicon.svg'), faviconSvg);

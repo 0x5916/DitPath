@@ -74,11 +74,11 @@ async function maxContentRadius(relativePath: string) {
 
 describe('DitPath PWA assets', () => {
   it('keeps the approved source artwork byte-identical', () => {
-    expect(sha256('src/lib/assets/ditpath-icon-flat.svg')).toBe(
-      'c8c5dd54397fab2371e51facffdfac1fc07674b6c9feb222fccf81f2520059b9'
-    );
     expect(sha256('src/lib/assets/ditpath-icon-material.svg')).toBe(
-      '0ebb015764c6703538ac4b8fa0b346219ae1051d88b3b8db5ab953a6746f9022'
+      '2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f'
+    );
+    expect(sha256('src/lib/assets/ditpath-icon-small.svg')).toBe(
+      '4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434'
     );
   });
 
@@ -128,10 +128,14 @@ describe('DitPath PWA assets', () => {
     }
   });
 
-  it('uses the paper tile and monochrome silhouette for the favicon', () => {
+  it('uses the approved small colour artwork on the favicon paper tile', () => {
     const favicon = readFileSync(file('static/favicon.svg'), 'utf8');
+    expect(favicon).toContain('viewBox="64 64 416 416"');
     expect(favicon).toContain('fill="#F3F2ED"');
     expect(favicon).toContain('fill="#161C23"');
+    expect(favicon).toContain('fill="#D4B16D"');
+    expect(favicon).toContain('fill="#BAC6CC"');
+    expect(favicon).not.toContain('url(#');
   });
 
   it('ships a 1200x630 opaque social card and a transparent navbar mask', async () => {
