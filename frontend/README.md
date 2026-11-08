@@ -13,7 +13,7 @@ API, authenticated, and cross-origin requests bypass caching. On activation, the
 worker removes older DitPath caches, including legacy private entries, while
 preserving unrelated caches. Existing tabs finish before the new worker activates.
 The [web app manifest](static/manifest.webmanifest) supplies the DitPath install name,
-standalone display mode, and 192/512 plus maskable icons; the service worker is
+standalone display mode, and 192/512 icons; the service worker is
 registered after page load and controls the page after the first reload.
 
 ## Development
@@ -80,7 +80,7 @@ docker run -p 3000:80 opencw-frontend
 - [Learning policy pilot](docs/learning-policy.md): prospective assessment criteria, local coaching/screening scope, and activation gates.
 - [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
 - [Approved design handoff](docs/design-handoff.md): current Penpot authority, implementation status, instant check entry, and design-to-code acceptance workflow.
-- [Brand assets](docs/brand-assets.md): approved DitPath icon sources, usage split, maskable safe area, generated files, and regeneration command.
+- [Brand assets](docs/brand-assets.md): approved DitPath icon sources, usage split, 75% app-icon composition, generated files, and regeneration command.
 - [Migration banner audit](docs/reports/2026-11-07-ditpath-migration-banner-audit.md): guest import behavior, checkpoint limits, sync states, and data-preservation messaging.
 - [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.

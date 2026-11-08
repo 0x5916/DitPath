@@ -7,16 +7,18 @@
 // Approved usage:
 //   - full-detail artwork cropped to its visible bounds, scaled to 75% of the
 //     tile width, and centered on warm paper: 192/512 app icons and Apple touch;
-//   - the same composition at 85% scale: maskable icons;
 //   - full-detail artwork on warm paper: the 1200x630 social card;
 //   - small-size colour artwork with a 0.75px warm-paper rim on a transparent
 //     background: favicon PNGs and ICO.
 //
-// The navigation bar is text-only. Maskable artwork is scaled to 85% so the lever
-// tips remain inside the 40% safe radius. The small artwork already uses its own
-// tight optical crop, so its supplied viewBox is preserved. favicon.svg is a
-// transparent source artifact and is intentionally not linked; the linked PNG/ICO
-// set carries the paper rim so the dark artwork stays legible on dark browser chrome.
+// The manifest intentionally publishes only "any" icons. Chrome selects a
+// maskable icon for the installed app icon when one is available, which would
+// reduce the visible key to the maskable safe-area scale. The app icons therefore
+// use the full 75% composition and rely on the platform's normal icon mask.
+// The navigation bar is text-only. The small artwork already uses its own tight
+// optical crop, so its supplied viewBox is preserved. favicon.svg is a transparent
+// source artifact and is intentionally not linked; the linked PNG/ICO set carries
+// the paper rim so the dark artwork stays legible on dark browser chrome.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +49,6 @@ const RIM_PX = 0.75;
 const MATERIAL_RENDER_SIZE = 1024;
 const MATERIAL_ALPHA_THRESHOLD = 32;
 const APP_ICON_VISIBLE_WIDTH = 0.75;
-const MASKABLE_SCALE = 0.85;
 
 function minifySvg(svg) {
   return svg
@@ -162,21 +163,6 @@ async function renderAppIcon(size, bounds) {
     .toBuffer();
 }
 
-async function renderMaskableIcon(size, bounds) {
-  const base = await renderAppIcon(size, bounds);
-  const artSize = Math.round(size * MASKABLE_SCALE);
-  const art = await sharp(base).resize(artSize, artSize, { kernel: 'lanczos3' }).png().toBuffer();
-  const left = Math.round((size - artSize) / 2);
-  const top = Math.round((size - artSize) / 2);
-
-  return paperCanvas(size)
-    .composite([{ input: art, left, top }])
-    .flatten({ background: PAPER })
-    .removeAlpha()
-    .png()
-    .toBuffer();
-}
-
 function dilate(mask, width, height, radius) {
   const output = new Uint8Array(width * height);
   for (let y = 0; y < height; y += 1) {
@@ -272,17 +258,6 @@ async function generate() {
   console.log('wrote static/icon-192.png');
   console.log('wrote static/icon-512.png');
 
-  await writeFile(
-    path.join(outDir, 'icon-maskable-512.png'),
-    await renderMaskableIcon(512, materialBounds)
-  );
-  await writeFile(
-    path.join(outDir, 'icon-maskable-192.png'),
-    await renderMaskableIcon(192, materialBounds)
-  );
-  console.log('wrote static/icon-maskable-192.png');
-  console.log('wrote static/icon-maskable-512.png');
-
   const socialBase = await paperCanvas(1200, 630).png().toBuffer();
   const socialIcon = await sharp(materialSource).resize(420, 420).png().toBuffer();
   const social = await sharp(socialBase)
@@ -309,19 +284,7 @@ async function generate() {
     categories: ['education'],
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      {
-        src: '/icon-maskable-192.png',
-        sizes: '192x192',
-        type: 'image/png',
-        purpose: 'maskable'
-      },
-      {
-        src: '/icon-maskable-512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable'
-      }
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
     ]
   };
   await writeFile(

@@ -102,33 +102,6 @@ async function contentBounds(relativePath: string) {
   };
 }
 
-async function maxContentRadius(relativePath: string) {
-  const { data, info } = await sharp(file(relativePath))
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const paper = [data[0], data[1], data[2]];
-  let maximum = 0;
-
-  for (let y = 0; y < info.height; y += 1) {
-    for (let x = 0; x < info.width; x += 1) {
-      const offset = (y * info.width + x) * info.channels;
-      const delta = Math.max(
-        Math.abs(data[offset] - paper[0]),
-        Math.abs(data[offset + 1] - paper[1]),
-        Math.abs(data[offset + 2] - paper[2])
-      );
-      if (delta > 16) {
-        maximum = Math.max(
-          maximum,
-          Math.hypot(x - (info.width - 1) / 2, y - (info.height - 1) / 2)
-        );
-      }
-    }
-  }
-
-  return { maximum, safeRadius: info.width * 0.4 };
-}
-
 describe('DitPath PWA assets', () => {
   it('keeps the approved source artwork byte-identical', () => {
     expect(sha256('src/lib/assets/ditpath-icon-material.svg')).toBe(
@@ -148,29 +121,16 @@ describe('DitPath PWA assets', () => {
     expect(manifest.background_color).toBe('#F3F2ED');
     expect(manifest.theme_color).toBe('#191917');
 
-    expect(manifest.icons).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ src: '/icon-192.png', sizes: '192x192', purpose: 'any' }),
-        expect.objectContaining({ src: '/icon-512.png', sizes: '512x512', purpose: 'any' }),
-        expect.objectContaining({
-          src: '/icon-maskable-192.png',
-          sizes: '192x192',
-          purpose: 'maskable'
-        }),
-        expect.objectContaining({
-          src: '/icon-maskable-512.png',
-          sizes: '512x512',
-          purpose: 'maskable'
-        })
-      ])
-    );
+    expect(manifest.icons).toEqual([
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
+    ]);
+    expect(manifest.icons.some((icon) => icon.purpose.includes('maskable'))).toBe(false);
   });
 
   it('keeps app and Apple touch icons opaque at the required sizes', async () => {
     await assertOpaquePng('static/icon-192.png', 192);
     await assertOpaquePng('static/icon-512.png', 512);
-    await assertOpaquePng('static/icon-maskable-192.png', 192);
-    await assertOpaquePng('static/icon-maskable-512.png', 512);
     await assertOpaquePng('static/apple-touch-icon.png', 180);
   });
 
@@ -236,13 +196,6 @@ describe('DitPath PWA assets', () => {
       expect(info.width, `ICO entry ${i}`).toBe(size);
       expect(info.height, `ICO entry ${i}`).toBe(size);
       expect(info.hasAlpha, `ICO entry ${i}`).toBe(true);
-    }
-  });
-
-  it('keeps maskable content inside the 40% safe radius', async () => {
-    for (const path of ['static/icon-maskable-192.png', 'static/icon-maskable-512.png']) {
-      const { maximum, safeRadius } = await maxContentRadius(path);
-      expect(maximum, path).toBeLessThanOrEqual(safeRadius);
     }
   });
 

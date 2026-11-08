@@ -8,10 +8,10 @@ Docker build context is self-contained. The source hashes are asserted in
 
 ## Source artwork
 
-| Source                                                                   | SHA-256                                                            | Use                                                                    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [ditpath-icon-material.svg](../src/lib/assets/ditpath-icon-material.svg) | `2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f` | Full-detail artwork for app icons, maskable icons, Apple touch, social |
-| [ditpath-icon-small.svg](../src/lib/assets/ditpath-icon-small.svg)       | `4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434` | Small-size colour favicons                                             |
+| Source                                                                   | SHA-256                                                            | Use                                                    |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| [ditpath-icon-material.svg](../src/lib/assets/ditpath-icon-material.svg) | `2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f` | Full-detail artwork for app icons, Apple touch, social |
+| [ditpath-icon-small.svg](../src/lib/assets/ditpath-icon-small.svg)       | `4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434` | Small-size colour favicons                             |
 
 Do not redesign the key or edit the generated PNG/ICO assets by hand. Change the
 approved source SVG, then run:
@@ -26,20 +26,24 @@ the committed outputs.
 
 ## Approved usage
 
-| Surface                                          | Artwork                                            | Background                       |
-| ------------------------------------------------ | -------------------------------------------------- | -------------------------------- |
-| `icon-192.png`, `icon-512.png`                   | Full-detail at 75% visible width, centered         | Opaque warm paper `#F3F2ED`      |
-| `icon-maskable-192.png`, `icon-maskable-512.png` | 75% composition at 85% scale                       | Opaque warm paper                |
-| `apple-touch-icon.png` (180)                     | Full-detail at 75% visible width, centered         | Opaque warm paper                |
-| `favicon.svg`                                    | Small-size colour artwork                          | Transparent, unlinked source     |
-| `favicon.ico`, `favicon-16/32/48/64.png`         | Small-size colour artwork with a 0.75 px paper rim | Transparent                      |
-| `og-image.png` (1200×630)                        | Full-detail                                        | Warm paper with DitPath wordmark |
+| Surface                                  | Artwork                                            | Background                       |
+| ---------------------------------------- | -------------------------------------------------- | -------------------------------- |
+| `icon-192.png`, `icon-512.png`           | Full-detail at 75% visible width, centered         | Opaque warm paper `#F3F2ED`      |
+| `apple-touch-icon.png` (180)             | Full-detail at 75% visible width, centered         | Opaque warm paper                |
+| `favicon.svg`                            | Small-size colour artwork                          | Transparent, unlinked source     |
+| `favicon.ico`, `favicon-16/32/48/64.png` | Small-size colour artwork with a 0.75 px paper rim | Transparent                      |
+| `og-image.png` (1200×630)                | Full-detail                                        | Warm paper with DitPath wordmark |
 
 The full artwork content occupies roughly 371×342 px in the 512 viewBox. App
 icons crop to those visible bounds, scale the content to 75% of the tile width,
 and center it. This replaces the previous full-canvas margins and makes the key
-larger in the Dock. The maskable variants apply 85% scale to the same composition;
-the maximum content radius remains inside the 40% maskable safe radius.
+larger in the Dock.
+
+The manifest publishes only `any` icons. Chrome selects a maskable icon for the
+installed app icon when one is available, which reduced the visible key to the
+safe-area scale (63.9% width). Removing the maskable entries lets the installed
+icon use the full 75% composition. Android falls back to the same 75% any icon;
+its launcher mask may crop the outer paddle edges under aggressive masks.
 
 The small artwork supplies its own tight optical crop, so the generator preserves
 its `64 64 416 416` viewBox. Favicon PNGs are rendered at 4× with a 0.75 px
@@ -61,7 +65,6 @@ The icon generator writes:
 - `static/favicon.ico`, `static/favicon-16/32/48/64.png` (colour artwork with paper rim)
 - `static/apple-touch-icon.png`
 - `static/icon-192.png`, `static/icon-512.png`
-- `static/icon-maskable-192.png`, `static/icon-maskable-512.png`
 - `static/og-image.png` (1200×630)
 - `static/manifest.webmanifest`
 
