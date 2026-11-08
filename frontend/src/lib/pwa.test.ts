@@ -208,16 +208,11 @@ describe('DitPath PWA assets', () => {
     expect(html).not.toContain('href="/favicon.svg"');
   });
 
-  it('ships a 1200x630 opaque social card and a transparent navbar mask', async () => {
+  it('ships a 1200x630 opaque social card', async () => {
     const social = await metadata('static/og-image.png');
     expect(social.width).toBe(1200);
     expect(social.height).toBe(630);
     expect(social.hasAlpha).toBe(false);
-
-    const mark = await metadata('src/lib/assets/ditpath-mark.png');
-    expect(mark.width).toBe(256);
-    expect(mark.height).toBe(256);
-    expect(mark.hasAlpha).toBe(true);
   });
 
   it('links the manifest, app title, theme colours and icons from the document head', () => {

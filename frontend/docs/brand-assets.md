@@ -11,7 +11,7 @@ Docker build context is self-contained. The source hashes are asserted in
 | Source                                                                   | SHA-256                                                            | Use                                                                    |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
 | [ditpath-icon-material.svg](../src/lib/assets/ditpath-icon-material.svg) | `2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f` | Full-detail artwork for app icons, maskable icons, Apple touch, social |
-| [ditpath-icon-small.svg](../src/lib/assets/ditpath-icon-small.svg)       | `4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434` | Small-size colour favicons and accent navbar silhouette                |
+| [ditpath-icon-small.svg](../src/lib/assets/ditpath-icon-small.svg)       | `4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434` | Small-size colour favicons                                             |
 
 Do not redesign the key or edit the generated PNG/ICO assets by hand. Change the
 approved source SVG, then run:
@@ -26,15 +26,14 @@ the committed outputs.
 
 ## Approved usage
 
-| Surface                                          | Artwork                                            | Background                                |
-| ------------------------------------------------ | -------------------------------------------------- | ----------------------------------------- |
-| `icon-192.png`, `icon-512.png`                   | Full-detail                                        | Opaque warm paper `#F3F2ED`               |
-| `icon-maskable-192.png`, `icon-maskable-512.png` | Full-detail at 85% scale                           | Opaque warm paper                         |
-| `apple-touch-icon.png` (180)                     | Full-detail                                        | Opaque warm paper                         |
-| `favicon.svg`                                    | Small-size colour artwork                          | Transparent, unlinked source              |
-| `favicon.ico`, `favicon-16/32/48/64.png`         | Small-size colour artwork with a 0.75 px paper rim | Transparent                               |
-| Navbar `ditpath-mark.png`                        | Small-size transparent alpha silhouette            | Rendered in the current `--accent` colour |
-| `og-image.png` (1200×630)                        | Full-detail                                        | Warm paper with DitPath wordmark          |
+| Surface                                          | Artwork                                            | Background                       |
+| ------------------------------------------------ | -------------------------------------------------- | -------------------------------- |
+| `icon-192.png`, `icon-512.png`                   | Full-detail                                        | Opaque warm paper `#F3F2ED`      |
+| `icon-maskable-192.png`, `icon-maskable-512.png` | Full-detail at 85% scale                           | Opaque warm paper                |
+| `apple-touch-icon.png` (180)                     | Full-detail                                        | Opaque warm paper                |
+| `favicon.svg`                                    | Small-size colour artwork                          | Transparent, unlinked source     |
+| `favicon.ico`, `favicon-16/32/48/64.png`         | Small-size colour artwork with a 0.75 px paper rim | Transparent                      |
+| `og-image.png` (1200×630)                        | Full-detail                                        | Warm paper with DitPath wordmark |
 
 The maskable artwork is scaled to 85%, keeping its maximum content radius inside
 the 40% maskable safe radius. The source content occupies roughly 371×342 px in
@@ -51,8 +50,7 @@ is effectively invisible on the light paper theme.
 linked from the document head. Linking it would let browsers choose an unrimmed
 SVG and bypass the rimmed PNG/ICO set. The 16 px PNG is still the densest use and
 remains the least detailed; browsers use the larger favicon files when the tab
-size allows. The navbar mask is generated from the same small artwork so its
-silhouette matches the favicon while following the theme accent.
+size allows. The navigation bar is text-only.
 
 ## Generated outputs
 
@@ -65,7 +63,6 @@ The icon generator writes:
 - `static/icon-maskable-192.png`, `static/icon-maskable-512.png`
 - `static/og-image.png` (1200×630)
 - `static/manifest.webmanifest`
-- `src/lib/assets/ditpath-mark.png` (transparent navbar mask)
 
 `favicon.ico` contains the 16, 32, and 48 px colour entries; the 64 px PNG remains
 available to browsers that request it.

@@ -8,14 +8,13 @@
 //   - full-detail artwork + warm paper background: 192/512 app icons, maskable
 //     icons, Apple touch icon, and the 1200x630 social card;
 //   - small-size colour artwork with a 0.75px warm-paper rim on a transparent
-//     background: favicon PNGs and ICO;
-//   - small-size artwork as a transparent alpha silhouette: navbar mark.
+//     background: favicon PNGs and ICO.
 //
-// Maskable artwork is scaled to 85% so the lever tips remain inside the 40% safe
-// radius. The small artwork already uses its own tight optical crop, so its
-// supplied viewBox is preserved. favicon.svg is a transparent source artifact and
-// is intentionally not linked; the linked PNG/ICO set carries the paper rim so the
-// dark artwork stays legible on dark browser chrome.
+// The navigation bar is text-only. Maskable artwork is scaled to 85% so the lever
+// tips remain inside the 40% safe radius. The small artwork already uses its own
+// tight optical crop, so its supplied viewBox is preserved. favicon.svg is a
+// transparent source artifact and is intentionally not linked; the linked PNG/ICO
+// set carries the paper rim so the dark artwork stays legible on dark browser chrome.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
@@ -27,14 +26,12 @@ const sourceDir = path.join(root, 'src/lib/assets');
 const outDir = path.join(root, 'static');
 const materialSource = path.join(sourceDir, 'ditpath-icon-material.svg');
 const smallSource = path.join(sourceDir, 'ditpath-icon-small.svg');
-const markPng = path.join(sourceDir, 'ditpath-mark.png');
 
 // Mirrors the light-theme paper and ink tokens in src/app.css.
 const PAPER = '#F3F2ED';
 const INK = '#252620';
 const MUTED = '#4F5147';
 const FOREST = '#2F6B50';
-const KEY = '#161C23';
 const PAPER_RGB = { r: 0xf3, g: 0xf2, b: 0xed };
 
 // The small artwork's supplied viewBox is its optical crop. The favicon rim is
@@ -54,14 +51,8 @@ function minifySvg(svg) {
     .trim();
 }
 
-function deriveSmallArtwork(smallSourceText, { color = null } = {}) {
-  let svg = smallSourceText.replace(/<\?xml[^>]*\?>\s*/i, '');
-
-  if (color) {
-    svg = svg.replace(/(fill|stroke)="#[0-9a-fA-F]{6}"/g, `$1="${color}"`);
-  }
-
-  return minifySvg(svg);
+function deriveSmallArtwork(smallSourceText) {
+  return minifySvg(smallSourceText.replace(/<\?xml[^>]*\?>\s*/i, ''));
 }
 
 function buildIco(entries) {
@@ -181,7 +172,6 @@ async function generate() {
   await mkdir(outDir, { recursive: true });
 
   const faviconSvg = deriveSmallArtwork(smallSourceText);
-  const markSvg = deriveSmallArtwork(smallSourceText, { color: KEY });
 
   await writeFile(path.join(outDir, 'favicon.svg'), faviconSvg);
   console.log('wrote static/favicon.svg');
@@ -198,10 +188,6 @@ async function generate() {
   const icoFile = path.join(outDir, 'favicon.ico');
   await writeFile(icoFile, buildIco(faviconPngs.filter(({ size }) => size <= 48)));
   console.log('wrote static/favicon.ico');
-
-  const mark = await sharp(Buffer.from(markSvg)).resize(256, 256).png().toBuffer();
-  await writeFile(markPng, mark);
-  console.log('wrote src/lib/assets/ditpath-mark.png');
 
   const apple = await renderMaterialOnPaper(512);
   await sharp(apple)
