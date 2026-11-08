@@ -26,14 +26,15 @@ the committed outputs.
 
 ## Approved usage
 
-| Surface                                                 | Artwork                                       | Background                                |
-| ------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| `icon-192.png`, `icon-512.png`                          | Full-detail                                   | Opaque warm paper `#F3F2ED`               |
-| `icon-maskable-192.png`, `icon-maskable-512.png`        | Full-detail at 85% scale                      | Opaque warm paper                         |
-| `apple-touch-icon.png` (180)                            | Full-detail                                   | Opaque warm paper                         |
-| `favicon.svg`, `favicon.ico`, `favicon-16/32/48/64.png` | Small-size colour artwork, tight optical crop | Opaque warm paper                         |
-| Navbar `ditpath-mark.png`                               | Small-size transparent alpha silhouette       | Rendered in the current `--accent` colour |
-| `og-image.png` (1200×630)                               | Full-detail                                   | Warm paper with DitPath wordmark          |
+| Surface                                          | Artwork                                            | Background                                |
+| ------------------------------------------------ | -------------------------------------------------- | ----------------------------------------- |
+| `icon-192.png`, `icon-512.png`                   | Full-detail                                        | Opaque warm paper `#F3F2ED`               |
+| `icon-maskable-192.png`, `icon-maskable-512.png` | Full-detail at 85% scale                           | Opaque warm paper                         |
+| `apple-touch-icon.png` (180)                     | Full-detail                                        | Opaque warm paper                         |
+| `favicon.svg`                                    | Small-size colour artwork                          | Transparent, unlinked source              |
+| `favicon.ico`, `favicon-16/32/48/64.png`         | Small-size colour artwork with a 0.75 px paper rim | Transparent                               |
+| Navbar `ditpath-mark.png`                        | Small-size transparent alpha silhouette            | Rendered in the current `--accent` colour |
+| `og-image.png` (1200×630)                        | Full-detail                                        | Warm paper with DitPath wordmark          |
 
 The maskable artwork is scaled to 85%, keeping its maximum content radius inside
 the 40% maskable safe radius. The source content occupies roughly 371×342 px in
@@ -41,17 +42,24 @@ the 512 viewBox; its maximum content radius is about 231 px, so the native safe
 limit would be 88.7% without additional padding.
 
 The small artwork supplies its own tight optical crop, so the generator preserves
-its `64 64 416 416` viewBox. The favicon uses the small-size colour artwork on the
-warm-paper tile at every size. The 16 px file is the densest use and remains the
-least legible; browsers use the larger favicon files when the tab size allows.
-The navbar mask is generated from the same small artwork so its silhouette
-matches the favicon while following the theme accent.
+its `64 64 416 416` viewBox. Favicon PNGs are rendered at 4× with a 0.75 px
+warm-paper rim around the outer silhouette, then downsampled. The rim keeps the
+dark artwork separated from dark browser chrome without an opaque paper tile. It
+is effectively invisible on the light paper theme.
+
+`favicon.svg` remains a transparent source artifact but is intentionally not
+linked from the document head. Linking it would let browsers choose an unrimmed
+SVG and bypass the rimmed PNG/ICO set. The 16 px PNG is still the densest use and
+remains the least detailed; browsers use the larger favicon files when the tab
+size allows. The navbar mask is generated from the same small artwork so its
+silhouette matches the favicon while following the theme accent.
 
 ## Generated outputs
 
 The icon generator writes:
 
-- `static/favicon.svg`, `static/favicon.ico`, `static/favicon-16/32/48/64.png`
+- `static/favicon.svg` (transparent source; not linked)
+- `static/favicon.ico`, `static/favicon-16/32/48/64.png` (colour artwork with paper rim)
 - `static/apple-touch-icon.png`
 - `static/icon-192.png`, `static/icon-512.png`
 - `static/icon-maskable-192.png`, `static/icon-maskable-512.png`

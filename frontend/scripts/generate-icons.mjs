@@ -7,12 +7,15 @@
 // Approved usage:
 //   - full-detail artwork + warm paper background: 192/512 app icons, maskable
 //     icons, Apple touch icon, and the 1200x630 social card;
-//   - small-size colour artwork on warm paper: favicon PNG/ICO/SVG;
+//   - small-size colour artwork with a 0.75px warm-paper rim on a transparent
+//     background: favicon PNGs and ICO;
 //   - small-size artwork as a transparent alpha silhouette: navbar mark.
 //
 // Maskable artwork is scaled to 85% so the lever tips remain inside the 40% safe
 // radius. The small artwork already uses its own tight optical crop, so its
-// supplied viewBox is preserved.
+// supplied viewBox is preserved. favicon.svg is a transparent source artifact and
+// is intentionally not linked; the linked PNG/ICO set carries the paper rim so the
+// dark artwork stays legible on dark browser chrome.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +35,12 @@ const INK = '#252620';
 const MUTED = '#4F5147';
 const FOREST = '#2F6B50';
 const KEY = '#161C23';
+const PAPER_RGB = { r: 0xf3, g: 0xf2, b: 0xed };
 
-// The small artwork's supplied viewBox is its optical crop. Preserve it and use
-// the same rectangle for the paper tile behind the favicon.
-const SMALL_VIEWBOX = { x: 64, y: 64, width: 416, height: 416 };
+// The small artwork's supplied viewBox is its optical crop. The favicon rim is
+// generated at 4x and downsampled, keeping its thickness near 0.75 CSS px.
+const RIM_SCALE = 4;
+const RIM_PX = 0.75;
 const MASKABLE_SCALE = 0.85;
 
 function minifySvg(svg) {
@@ -49,19 +54,11 @@ function minifySvg(svg) {
     .trim();
 }
 
-function deriveSmallArtwork(smallSourceText, { paper = false, color = null } = {}) {
+function deriveSmallArtwork(smallSourceText, { color = null } = {}) {
   let svg = smallSourceText.replace(/<\?xml[^>]*\?>\s*/i, '');
 
   if (color) {
     svg = svg.replace(/(fill|stroke)="#[0-9a-fA-F]{6}"/g, `$1="${color}"`);
-  }
-
-  if (paper) {
-    const { x, y, width, height } = SMALL_VIEWBOX;
-    svg = svg.replace(
-      /(<svg\b[^>]*>)/i,
-      `$1<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${PAPER}"/>`
-    );
   }
 
   return minifySvg(svg);
@@ -117,6 +114,56 @@ async function renderMaterialOnPaper(size, scale = 1) {
     .toBuffer();
 }
 
+function dilate(mask, width, height, radius) {
+  const output = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (!mask[y * width + x]) continue;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= height) continue;
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (dx * dx + dy * dy > radius * radius) continue;
+          const nx = x + dx;
+          if (nx < 0 || nx >= width) continue;
+          output[ny * width + nx] = 1;
+        }
+      }
+    }
+  }
+  return output;
+}
+
+async function renderFavicon(size) {
+  const base = size * RIM_SCALE;
+  const art = await sharp(smallSource)
+    .resize(base, base, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const coverage = new Uint8Array(base * base);
+  for (let i = 0; i < base * base; i += 1) {
+    if (art.data[i * 4 + 3] > 8) coverage[i] = 1;
+  }
+  const outlined = dilate(coverage, base, base, Math.max(1, Math.round(RIM_PX * RIM_SCALE)));
+
+  const rgba = Buffer.alloc(base * base * 4);
+  for (let i = 0; i < base * base; i += 1) {
+    const alpha = art.data[i * 4 + 3] / 255;
+    const inverse = 1 - alpha;
+    rgba[i * 4] = Math.round(art.data[i * 4] * alpha + PAPER_RGB.r * inverse);
+    rgba[i * 4 + 1] = Math.round(art.data[i * 4 + 1] * alpha + PAPER_RGB.g * inverse);
+    rgba[i * 4 + 2] = Math.round(art.data[i * 4 + 2] * alpha + PAPER_RGB.b * inverse);
+    rgba[i * 4 + 3] = outlined[i] ? 255 : 0;
+  }
+
+  return sharp(rgba, { raw: { width: base, height: base, channels: 4 } })
+    .resize(size, size, { kernel: 'lanczos3' })
+    .png()
+    .toBuffer();
+}
+
 function socialCardText() {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect x="560" y="180" width="56" height="4" rx="2" fill="${FOREST}"/>
@@ -133,9 +180,8 @@ async function generate() {
 
   await mkdir(outDir, { recursive: true });
 
-  const faviconSvg = deriveSmallArtwork(smallSourceText, { paper: true });
+  const faviconSvg = deriveSmallArtwork(smallSourceText);
   const markSvg = deriveSmallArtwork(smallSourceText, { color: KEY });
-  const faviconSvgBuffer = Buffer.from(faviconSvg);
 
   await writeFile(path.join(outDir, 'favicon.svg'), faviconSvg);
   console.log('wrote static/favicon.svg');
@@ -143,12 +189,7 @@ async function generate() {
   const faviconSizes = [16, 32, 48, 64];
   const faviconPngs = [];
   for (const size of faviconSizes) {
-    const png = await sharp(faviconSvgBuffer)
-      .resize(size, size)
-      .flatten({ background: PAPER })
-      .removeAlpha()
-      .png()
-      .toBuffer();
+    const png = await renderFavicon(size);
     faviconPngs.push({ size, data: png });
     await writeFile(path.join(outDir, `favicon-${size}.png`), png);
     console.log(`wrote static/favicon-${size}.png`);

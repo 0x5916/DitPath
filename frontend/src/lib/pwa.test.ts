@@ -45,6 +45,28 @@ async function assertOpaquePng(relativePath: string, size: number) {
   expect(info.hasAlpha, relativePath).toBe(false);
 }
 
+async function assertTransparentPng(relativePath: string, size: number) {
+  const info = await metadata(relativePath);
+  expect(info.format, relativePath).toBe('png');
+  expect(info.width, relativePath).toBe(size);
+  expect(info.height, relativePath).toBe(size);
+  expect(info.hasAlpha, relativePath).toBe(true);
+}
+
+async function cornerAlphas(relativePath: string) {
+  const { data, info } = await sharp(file(relativePath))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const alpha = (x: number, y: number) => data[(y * info.width + x) * 4 + 3];
+  return [
+    alpha(0, 0),
+    alpha(info.width - 1, 0),
+    alpha(0, info.height - 1),
+    alpha(info.width - 1, info.height - 1)
+  ];
+}
+
 async function maxContentRadius(relativePath: string) {
   const { data, info } = await sharp(file(relativePath))
     .raw()
@@ -115,10 +137,55 @@ describe('DitPath PWA assets', () => {
     await assertOpaquePng('static/icon-maskable-192.png', 192);
     await assertOpaquePng('static/icon-maskable-512.png', 512);
     await assertOpaquePng('static/apple-touch-icon.png', 180);
-    await assertOpaquePng('static/favicon-16.png', 16);
-    await assertOpaquePng('static/favicon-32.png', 32);
-    await assertOpaquePng('static/favicon-48.png', 48);
-    await assertOpaquePng('static/favicon-64.png', 64);
+  });
+
+  it('keeps favicon PNGs transparent with a warm-paper rim', async () => {
+    for (const size of [16, 32, 48, 64]) {
+      const path = `static/favicon-${size}.png`;
+      await assertTransparentPng(path, size);
+      const corners = await cornerAlphas(path);
+      expect(
+        corners.every((alpha) => alpha < 8),
+        `${path}: ${corners.join(', ')}`
+      ).toBe(true);
+    }
+
+    const { data, info } = await sharp(file('static/favicon-64.png'))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    let paper = 0;
+    let artwork = 0;
+    for (let i = 0; i < info.width * info.height; i += 1) {
+      if (data[i * 4 + 3] < 8) continue;
+      const delta = (target: number[]) =>
+        Math.max(
+          Math.abs(data[i * 4] - target[0]),
+          Math.abs(data[i * 4 + 1] - target[1]),
+          Math.abs(data[i * 4 + 2] - target[2])
+        );
+      if (delta([0xf3, 0xf2, 0xed]) <= 8) paper += 1;
+      if (delta([0x16, 0x1c, 0x23]) <= 8) artwork += 1;
+    }
+    expect(paper).toBeGreaterThan(0);
+    expect(artwork).toBeGreaterThan(0);
+  });
+
+  it('packs transparent 16, 32 and 48 px entries into the ICO', async () => {
+    const ico = readFileSync(file('static/favicon.ico'));
+    const count = ico.readUInt16LE(4);
+    expect(count).toBe(3);
+
+    for (let i = 0; i < count; i += 1) {
+      const base = 6 + i * 16;
+      const size = ico[base] || 256;
+      const length = ico.readUInt32LE(base + 8);
+      const offset = ico.readUInt32LE(base + 12);
+      const info = await sharp(ico.subarray(offset, offset + length)).metadata();
+      expect(info.width, `ICO entry ${i}`).toBe(size);
+      expect(info.height, `ICO entry ${i}`).toBe(size);
+      expect(info.hasAlpha, `ICO entry ${i}`).toBe(true);
+    }
   });
 
   it('keeps maskable content inside the 40% safe radius', async () => {
@@ -128,14 +195,17 @@ describe('DitPath PWA assets', () => {
     }
   });
 
-  it('uses the approved small colour artwork on the favicon paper tile', () => {
+  it('ships an unlinked transparent favicon source', () => {
     const favicon = readFileSync(file('static/favicon.svg'), 'utf8');
     expect(favicon).toContain('viewBox="64 64 416 416"');
-    expect(favicon).toContain('fill="#F3F2ED"');
     expect(favicon).toContain('fill="#161C23"');
     expect(favicon).toContain('fill="#D4B16D"');
     expect(favicon).toContain('fill="#BAC6CC"');
+    expect(favicon).not.toContain('fill="#F3F2ED"');
     expect(favicon).not.toContain('url(#');
+
+    const html = readFileSync(file('src/app.html'), 'utf8');
+    expect(html).not.toContain('href="/favicon.svg"');
   });
 
   it('ships a 1200x630 opaque social card and a transparent navbar mask', async () => {
