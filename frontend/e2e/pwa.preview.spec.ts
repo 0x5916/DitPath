@@ -49,22 +49,11 @@ test.describe('DitPath PWA behavior', () => {
     expect(manifest.name).toBe('DitPath');
     expect(manifest.short_name).toBe('DitPath');
     expect(manifest.display).toBe('standalone');
-    expect(manifest.icons).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ src: '/icon-192.png', sizes: '192x192', purpose: 'any' }),
-        expect.objectContaining({ src: '/icon-512.png', sizes: '512x512', purpose: 'any' }),
-        expect.objectContaining({
-          src: '/icon-maskable-192.png',
-          sizes: '192x192',
-          purpose: 'maskable'
-        }),
-        expect.objectContaining({
-          src: '/icon-maskable-512.png',
-          sizes: '512x512',
-          purpose: 'maskable'
-        })
-      ])
-    );
+    expect(manifest.icons).toEqual([
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
+    ]);
+    expect(manifest.icons.some((icon) => icon.purpose.includes('maskable'))).toBe(false);
 
     for (const icon of manifest.icons) {
       const iconResponse = await request.get(icon.src);

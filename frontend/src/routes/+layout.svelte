@@ -241,8 +241,6 @@
           title={m.nav_home()}
           aria-current={isActive('/') ? 'page' : undefined}
         >
-          <!-- The wordmark next to it already names the link. -->
-          <span class="navbar-mark" aria-hidden="true"></span>
           {SITE_NAME}
         </a>
 

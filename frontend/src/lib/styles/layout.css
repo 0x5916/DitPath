@@ -87,16 +87,6 @@
   color: var(--accent);
 }
 
-/* Alpha silhouette of the approved DitPath key; the accent follows the theme. */
-.navbar-mark {
-  display: block;
-  flex-shrink: 0;
-  width: var(--space-8);
-  height: var(--space-8);
-  background-color: var(--accent);
-  mask: url('../assets/ditpath-mark.png') center / contain no-repeat;
-}
-
 /* The desktop cluster carries both classes, so the hide rule is not order
    dependent against `.navbar-right { display: flex }`. */
 .navbar-right.navbar-desktop {
