@@ -1,8 +1,10 @@
 import type { LayoutLoad } from './$types';
 import type { LocalePreference } from '#lib/locale.ts';
-import { baseLocale, deLocalizeHref, locales, localizeHref } from '#lib/paraglide/runtime.js';
+import { baseLocale, deLocalizeHref, locales } from '#lib/paraglide/runtime.js';
 import {
   buildAbsoluteUrl,
+  buildCanonicalPath,
+  buildLocalizedAlternates,
   DEFAULT_OG_IMAGE_PATH,
   GITHUB_URL,
   getOpenGraphLocale,
@@ -30,19 +32,14 @@ export const load: LayoutLoad = ({ url, route }) => {
   // Always canonicalise to the locale-explicit URL (e.g. `/en/about`) so the
   // canonical is one of the `hreflang` alternates below instead of a
   // locale-ambiguous bare path that depends on the visitor's preference.
-  const canonicalUrl = buildAbsoluteUrl(url.origin, localizeHref(basePath, { locale }));
+  // Forum threads have one shared body for every locale prefix, so they
+  // canonicalize to English and publish no false translation alternates.
+  const canonicalUrl = buildAbsoluteUrl(url.origin, buildCanonicalPath(basePath, locale, route.id));
   // An unmatched route (`route.id === null`) still renders the root layout, so
   // make sure the 404 it renders can never be indexed.
   const robots = route.id === null ? 'noindex,follow' : metadata.robots;
 
-  const alternates = locales.map((alternateLocale) => {
-    const localizedPath = localizeHref(basePath, { locale: alternateLocale });
-
-    return {
-      locale: alternateLocale,
-      href: buildAbsoluteUrl(url.origin, localizedPath)
-    };
-  });
+  const alternates = buildLocalizedAlternates(url.origin, basePath, route.id, locales);
 
   const xDefaultHref =
     alternates.find((alternate) => alternate.locale === 'en')?.href ?? canonicalUrl;

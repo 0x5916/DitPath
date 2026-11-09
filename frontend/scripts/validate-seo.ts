@@ -137,22 +137,72 @@ function validateInfra(): CheckResult[] {
 
   if (!alternation) {
     checks.push({ ok: false, message: 'nginx.conf: forum locale location not found' });
-    return checks;
+  } else {
+    const nginxLocales = alternation[1].split('|');
+    const localeCodes: readonly string[] = locales;
+    const missing = locales.filter((locale) => !nginxLocales.includes(locale));
+    const extra = nginxLocales.filter((locale) => !localeCodes.includes(locale));
+
+    if (missing.length > 0) {
+      checks.push({ ok: false, message: `nginx.conf is missing locales: ${missing.join(', ')}` });
+    }
+    if (extra.length > 0) {
+      checks.push({ ok: false, message: `nginx.conf has unknown locales: ${extra.join(', ')}` });
+    }
+    if (missing.length === 0 && extra.length === 0) {
+      checks.push({ ok: true, message: 'nginx.conf locale list matches the inlang project' });
+    }
   }
 
-  const nginxLocales = alternation[1].split('|');
-  const localeCodes: readonly string[] = locales;
-  const missing = locales.filter((locale) => !nginxLocales.includes(locale));
-  const extra = nginxLocales.filter((locale) => !localeCodes.includes(locale));
+  // Canonical routes are slashless. The redirect must run before the forum SPA
+  // fallback so `/en/forum/<id>/` cannot be served as a 200 alias.
+  const slashRedirectIndex = nginxConfig.indexOf('location ~ ^(.+)/$');
+  const forumIndex = alternation?.index ?? -1;
+  if (
+    slashRedirectIndex === -1 ||
+    !nginxConfig.includes('return 301 https://opencw.net$1$is_args$args;') ||
+    forumIndex === -1 ||
+    slashRedirectIndex > forumIndex
+  ) {
+    checks.push({
+      ok: false,
+      message: 'nginx.conf: trailing-slash redirect is missing or ordered after the forum fallback'
+    });
+  } else {
+    checks.push({
+      ok: true,
+      message: 'nginx.conf trailing-slash redirect precedes the forum fallback'
+    });
+  }
 
-  if (missing.length > 0) {
-    checks.push({ ok: false, message: `nginx.conf is missing locales: ${missing.join(', ')}` });
+  // Redirect destinations must never be built from an unvalidated Host header.
+  if (nginxConfig.includes('$http_host')) {
+    checks.push({
+      ok: false,
+      message: 'nginx.conf: redirects must not use the untrusted $http_host variable'
+    });
+  } else {
+    checks.push({ ok: true, message: 'nginx.conf redirect targets do not reflect Host headers' });
   }
-  if (extra.length > 0) {
-    checks.push({ ok: false, message: `nginx.conf has unknown locales: ${extra.join(', ')}` });
+
+  // Production is HTTPS on the apex host; local health checks send no forwarding
+  // headers and must keep returning 200.
+  const schemeRedirect =
+    nginxConfig.includes('if ($http_x_forwarded_proto = "http")') &&
+    nginxConfig.includes('if ($http_cf_visitor ~* \'"scheme":"http"\')') &&
+    nginxConfig.includes('return 301 https://opencw.net$request_uri;');
+  const hostRedirect = nginxConfig.includes('if ($host = "www.opencw.net")');
+
+  if (!schemeRedirect) {
+    checks.push({ ok: false, message: 'nginx.conf: HTTP-to-HTTPS redirect is missing' });
+  } else {
+    checks.push({ ok: true, message: 'nginx.conf redirects forwarded HTTP requests to HTTPS' });
   }
-  if (missing.length === 0 && extra.length === 0) {
-    checks.push({ ok: true, message: 'nginx.conf locale list matches the inlang project' });
+
+  if (!hostRedirect) {
+    checks.push({ ok: false, message: 'nginx.conf: www-to-apex redirect is missing' });
+  } else {
+    checks.push({ ok: true, message: 'nginx.conf redirects the www host to the apex host' });
   }
 
   return checks;
