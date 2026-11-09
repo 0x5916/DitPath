@@ -48,6 +48,43 @@ jobs:
       - name: Build
         run: npm run build
 
+  nginx-routing:
+    name: Nginx SEO routing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_VERSION: "26.12.1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Build production frontend image
+        run: >
+          docker build
+          --build-arg PUBLIC_API_BASE=https://api.opencw.net/v1
+          --build-arg PRERENDER_ORIGIN=https://opencw.net
+          -t ditpath-seo-routing frontend
+      - name: Start nginx
+        run: |
+          docker run -d --name ditpath-seo-routing -p 127.0.0.1:8089:80 ditpath-seo-routing
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8089/en >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec ditpath-seo-routing nginx -t
+      - name: Verify routing against production image
+        run: node frontend/scripts/check-seo-routing.mjs http://127.0.0.1:8089
+      - name: Stop nginx
+        if: always()
+        run: docker rm -f ditpath-seo-routing || true
+
   e2e:
     name: Frontend browser tests
     runs-on: ubuntu-latest

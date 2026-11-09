@@ -25,6 +25,7 @@
     "audio:audit": "node scripts/audio-audit.mjs",
     "verify": "npm run messages:validate && npm run seo:validate && npm run check && npm run check:scripts && npm run test",
     "seo:validate": "node --experimental-strip-types scripts/validate-seo.ts",
+    "seo:routing": "node scripts/check-seo-routing.mjs",
     "messages:validate": "node --experimental-strip-types scripts/validate-messages.ts",
     "icons": "node scripts/generate-icons.mjs",
     "lint": "prettier --check . && eslint .",

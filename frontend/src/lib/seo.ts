@@ -359,6 +359,44 @@ export function buildLocalizedPath(routePath: string, locale: string): string {
   return normalizePathname(localizedRoutePath(routePath, locale));
 }
 
+// Forum threads are user-generated content stored once, without a locale
+// column, and every locale prefix renders the same thread body. Publishing a
+// self-canonical URL per prefix invites the duplicate-canonical split Google
+// reported for a zh-Hant thread. The static routes remain genuinely localized.
+const LOCALE_INDEPENDENT_ROUTE_IDS = new Set(['/forum/[id]']);
+
+export function hasLocaleIndependentContent(routeId: string | null | undefined): boolean {
+  return routeId !== null && routeId !== undefined && LOCALE_INDEPENDENT_ROUTE_IDS.has(routeId);
+}
+
+/**
+ * Canonical path for a route. Shared forum threads canonicalize to the base
+ * locale (English, matching project.inlang/settings.json); every other route
+ * keeps its own locale prefix.
+ */
+export function buildCanonicalPath(
+  routePath: string,
+  locale: string,
+  routeId: string | null | undefined
+): string {
+  return buildLocalizedPath(routePath, hasLocaleIndependentContent(routeId) ? 'en' : locale);
+}
+
+/** hreflang alternates. Shared forum threads have no distinct translations. */
+export function buildLocalizedAlternates(
+  origin: string,
+  routePath: string,
+  routeId: string | null | undefined,
+  localeCodes: readonly string[]
+): Array<{ locale: string; href: string }> {
+  if (hasLocaleIndependentContent(routeId)) return [];
+
+  return localeCodes.map((alternateLocale) => ({
+    locale: alternateLocale,
+    href: buildAbsoluteUrl(origin, buildLocalizedPath(routePath, alternateLocale))
+  }));
+}
+
 export function buildSitemapUrlSet(origin: string, localeCodes: readonly string[]): string[] {
   const urls = new Set<string>();
   const indexablePublicRoutes = getIndexablePublicRoutePaths();
