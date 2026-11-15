@@ -80,7 +80,7 @@ type ListThreadsQuery struct {
 	Cursor   string `form:"cursor"`
 }
 
-// ── V2 Training API (see backend/docs/training-events-v2.md) ──
+// ── V2 Training API ──
 
 const (
 	// TrainingV2SchemaVersion preserves the first-write-wins event payload schema.

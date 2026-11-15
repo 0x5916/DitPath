@@ -1,6 +1,6 @@
 # Frontend instructions for coding agents
 
-The root [AGENTS.md](../AGENTS.md) also applies. This file retains frontend implementation requirements; see [README.md](README.md) for setup and [learning.md](docs/learning.md) for the current architecture.
+The root [AGENTS.md](../AGENTS.md) also applies. This file retains frontend implementation requirements; see [README.md](README.md) for setup and architecture.
 
 ## Architecture and browser isolation
 

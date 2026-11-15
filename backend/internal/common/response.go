@@ -47,7 +47,7 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// ── V2 Training API (see backend/docs/training-events-v2.md) ──
+// ── V2 Training API ──
 
 // TrainingRejectedEvent describes a single event that failed per-event
 // validation inside an otherwise accepted batch.

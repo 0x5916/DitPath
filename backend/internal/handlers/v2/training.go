@@ -24,15 +24,14 @@ import (
 //	GET  /v1/training/snapshot
 //	PUT  /v1/training/settings
 //
-// See backend/docs/training-events-v2.md for the wire contract. The legacy
-// /v1/cw/progress endpoint remains active and is not affected.
+// The legacy /v1/cw/progress endpoint remains active and is not affected.
 type TrainingHandler struct {
 	DB *gorm.DB
 }
 
 // PostEventsBatch ingests a batch of immutable prompt attempt events.
 //
-// Semantics (see spec section 2.1):
+// Semantics:
 //   - Idempotent by (user_id, event_id): duplicates are acknowledged, not stored twice.
 //   - Partial acceptance: individually invalid events are reported in
 //     rejected_events while valid siblings are stored (HTTP 200 either way).

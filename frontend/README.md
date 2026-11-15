@@ -33,8 +33,8 @@ For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web clien
 
 ## Checks and builds
 
-For real-device validation, use the [Android Chrome / TalkBack walkthrough](docs/android-acceptance.md)
-with the private USB preview and disposable API.
+For real-device validation, use the private USB preview and disposable API with
+Chrome and TalkBack.
 
 For repeatable synthetic UI states, run `npm run acceptance` and open
 `http://127.0.0.1:4174/__acceptance`. The chooser replaces only the dedicated
@@ -52,7 +52,7 @@ normal builds do not import its fixtures or fault hooks. The
 [fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
 guidance outcomes and fail when a source injection seam changes.
 
-[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. Run `npm run icons` after changing the approved source artwork; it regenerates the favicon, PWA, Apple touch, and social card assets from [brand-assets.md](docs/brand-assets.md). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
+[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. Run `npm run icons` after changing the approved source artwork; it regenerates the favicon, PWA, Apple touch, and social card assets from the source SVGs in [src/lib/assets/](src/lib/assets/). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
 
 Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
 
@@ -76,13 +76,6 @@ docker run -p 3000:80 opencw-frontend
 ## Documentation and source ownership
 
 - [AGENTS.md](AGENTS.md): implementation boundaries and required verification evidence.
-- [Learning architecture](docs/learning.md): routes, domain/controller boundaries, storage, and UI acceptance.
-- [Learning policy pilot](docs/learning-policy.md): prospective assessment criteria, local coaching/screening scope, and activation gates.
-- [UI/UX backlog](docs/ui-ux-audit.md): remaining source findings and required browser validation.
-- [Approved design handoff](docs/design-handoff.md): current Penpot authority, implementation status, instant check entry, and design-to-code acceptance workflow.
-- [Brand assets](docs/brand-assets.md): approved DitPath icon sources, usage split, 75% app-icon composition, generated files, and regeneration command.
-- [Migration banner audit](docs/reports/2026-11-07-ditpath-migration-banner-audit.md): guest import behavior, checkpoint limits, sync states, and data-preservation messaging.
-- [Frontend remediation report](docs/reports/2026-10-16-frontend-remediation.md): completed fixes, verification evidence, and remaining limits from the October review.
 - [messages/](messages/): translation source catalogs; all five must contain matching keys and placeholders.
 - [project.inlang/settings.json](project.inlang/settings.json) and [Paraglide options](scripts/paraglide-options.ts): locale/compiler configuration. SDK-generated inlang notes/cache and `src/lib/paraglide/` are not maintained documentation.
 - [src/app.css](src/app.css) and [layout styles](src/lib/styles/layout.css): tokens, shared controls, and page/navigation layout.
