@@ -6,6 +6,40 @@ const auth = vi.hoisted(() => ({
   listeners: new Set<() => void>(),
   request: vi.fn()
 }));
+const recovery = vi.hoisted(() => {
+  let gate: Promise<void> | null = null;
+  let release: (() => void) | null = null;
+  let calls = 0;
+  return {
+    defer() {
+      gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    },
+    release() {
+      release?.();
+      release = null;
+      gate = null;
+    },
+    reset() {
+      release?.();
+      release = null;
+      gate = null;
+      calls = 0;
+    },
+    run() {
+      calls += 1;
+      return gate ?? Promise.resolve();
+    },
+    get calls() {
+      return calls;
+    }
+  };
+});
+vi.mock('./learning-evidence/recovery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./learning-evidence/recovery')>();
+  return { ...actual, recoverInterruptedEvidence: () => recovery.run() };
+});
 vi.mock('./auth', () => ({
   getAuthAccountId: () => auth.id,
   getAuthSession: () => ({ generation: auth.generation }),
@@ -27,6 +61,7 @@ beforeEach(async () => {
   auth.generation++;
   auth.listeners.clear();
   auth.request.mockReset();
+  recovery.reset();
   vi.stubGlobal('window', Object.assign(new EventTarget(), { indexedDB: new IDBFactory() }));
   vi.stubGlobal('navigator', { onLine: true });
   vi.stubGlobal('document', Object.assign(new EventTarget(), { visibilityState: 'visible' }));
@@ -53,6 +88,18 @@ describe('learning evidence sync lifecycle', () => {
     dispose = undefined;
     window.dispatchEvent(new Event('online'));
     expect(auth.request.mock.calls.length).toBe(calls);
+  });
+  it('runs the first sync once, after startup recovery settles', async () => {
+    recovery.defer();
+    dispose = runtime.initializeLearningSync();
+    expect(recovery.calls).toBe(1);
+    await new Promise((r) => setTimeout(r, 25));
+    expect(auth.request).not.toHaveBeenCalled();
+    recovery.release();
+    await vi.waitFor(() => expect(runtime.learningSyncState.synced).toBe(true));
+    expect(auth.request).toHaveBeenCalledOnce();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(auth.request).toHaveBeenCalledOnce();
   });
   it('marks offline coverage incomplete independently of the previous checkpoint', async () => {
     dispose = runtime.initializeLearningSync();

@@ -168,6 +168,12 @@ export function initializeLearningSync(): () => void {
   mounted = true;
   const releaseCapture = retainCaptureLease();
   let generation = -1;
+  // Recovery can append interrupted evidence, so automatic startup syncs wait
+  // until it settles. One sync after recovery then covers the recovered ledger.
+  let startupRecoveryPending = true;
+  const requestSync = () => {
+    if (!startupRecoveryPending) void syncLearningNow();
+  };
   const auth = user.subscribe(() => {
     const expected = owner();
     const currentGeneration = getAuthSession().generation;
@@ -188,7 +194,7 @@ export function initializeLearningSync(): () => void {
       unavailable: false,
       version: learningSyncState.version + 1
     });
-    void syncLearningNow();
+    requestSync();
   });
   const channel =
     typeof BroadcastChannel === 'undefined'
@@ -200,7 +206,7 @@ export function initializeLearningSync(): () => void {
     void refresh(expected).catch(() => {});
     if (local && !learningSyncState.unavailable) {
       if (running) rerun = true;
-      else void syncLearningNow();
+      else requestSync();
     }
   };
   const data = subscribeTrainingDataChanges(({ ownerKey, scope, local }) => {
@@ -211,7 +217,7 @@ export function initializeLearningSync(): () => void {
   if (channel)
     channel.onmessage = (event) => changed(String(event.data?.owner), event.data?.local === true);
   const wake = () => {
-    if (document.visibilityState !== 'hidden') void syncLearningNow();
+    if (document.visibilityState !== 'hidden') requestSync();
   };
   const offline = () => publish({ synced: false });
   window.addEventListener('offline', offline);
@@ -221,7 +227,10 @@ export function initializeLearningSync(): () => void {
   const recoveryOwner = owner();
   void recoverInterruptedEvidence(recoveryOwner, () => mounted && owner() === recoveryOwner)
     .catch(() => {})
-    .finally(() => void syncLearningNow());
+    .finally(() => {
+      startupRecoveryPending = false;
+      void syncLearningNow();
+    });
   return () => {
     mounted = false;
     releaseCapture();
