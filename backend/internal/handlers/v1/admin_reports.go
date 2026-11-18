@@ -56,10 +56,10 @@ func requestPeriod(c *gin.Context) (reportPeriod, bool) {
 // mirrored. The ordinary account history reader bootstraps on read, which an
 // administrative report must never do.
 const reportSessions = `
- SELECT s.id, s.user_id, s.occurred_at,
+ SELECT coalesce(s.source_record_id,s.id) AS id, s.user_id, s.occurred_at,
    CASE WHEN s.source_kind='legacy_v1' THEN 'legacy' ELSE s.mode END AS kind,
    s.status,s.lesson,s.char_wpm,s.eff_wpm,s.accuracy,
-   CASE WHEN s.status='completed' AND s.ended_at >= s.started_at
+   CASE WHEN s.ended_at >= s.started_at
      THEN floor(extract(epoch FROM (s.ended_at - s.started_at))*1000)::bigint END AS duration_ms
  FROM training_sessions s
  UNION ALL

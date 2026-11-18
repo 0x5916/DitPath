@@ -715,5 +715,12 @@
   "admin_modes": "引導訓練 {guided} 次 · 自由練習 {practice} 次 · 舊版紀錄 {legacy} 次",
   "admin_daily": "每日明細",
   "admin_date": "日期",
-  "admin_reporting_note": "訓練統計涵蓋已同步至 Morsewell 帳號的訓練。"
+  "admin_reporting_note": "訓練統計涵蓋已同步至 Morsewell 帳號的訓練。",
+  "admin_learner": "學員報告",
+  "admin_last_completion": "最近一次完成訓練",
+  "admin_no_completion": "尚無完成紀錄",
+  "admin_session_history": "訓練紀錄",
+  "admin_no_sessions": "此期間沒有已同步的訓練紀錄。",
+  "admin_missing_account": "此帳號無法存取。",
+  "admin_back_directory": "返回結果"
 }

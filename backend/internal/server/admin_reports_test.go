@@ -106,6 +106,46 @@ func TestOwnerReportsReconcile(t *testing.T) {
 			t.Fatal(list)
 		}
 	}
+	var detail struct {
+		Totals          map[string]int
+		Account         struct{ ID uuid.UUID }
+		LastCompletedAt *time.Time `json:"last_completed_at"`
+		Sessions        []struct {
+			ID           uuid.UUID
+			Kind, Status string
+			DurationMS   *int `json:"duration_ms"`
+		}
+		Next *string `json:"next_cursor"`
+	}
+	learnerPath := "/v1/admin/users/" + learner.ID.String() + "/report?" + window
+	request("GET", learnerPath, "", &detail)
+	if detail.Account.ID != learner.ID || detail.Totals["sessions"] != 2 || detail.Totals["duration_ms"] != 120000 || len(detail.Sessions) != 3 || detail.Sessions[1].Status != "abandoned" || (detail.Sessions[1].DurationMS == nil || *detail.Sessions[1].DurationMS != 60000) {
+		t.Fatal(detail)
+	}
+	request("GET", "/v1/admin/users/"+second.ID.String()+"/report?"+window, "", &detail)
+	if detail.LastCompletedAt == nil || !detail.LastCompletedAt.Equal(start.AddDate(0, 0, 7)) || len(detail.Sessions) != 2 || detail.Totals["legacy"] != 2 || detail.Totals["measured"] != 0 || detail.Sessions[0].DurationMS != nil {
+		t.Fatal(detail)
+	}
+	for range 26 {
+		native(learner, "guided", "completed", start)
+	}
+	request("GET", learnerPath, "", &detail)
+	if len(detail.Sessions) != 25 || detail.Next == nil {
+		t.Fatal(detail)
+	}
+	seen := map[uuid.UUID]bool{}
+	for _, s := range detail.Sessions {
+		seen[s.ID] = true
+	}
+	request("GET", learnerPath+"&cursor="+*detail.Next, "", &detail)
+	if len(detail.Sessions) != 4 || detail.Next != nil || detail.Totals["sessions"] != 28 {
+		t.Fatal(detail)
+	}
+	for _, s := range detail.Sessions {
+		if seen[s.ID] {
+			t.Fatal("duplicate session", s.ID)
+		}
+	}
 	var count int64
 	if err := db.Model(&models.TrainingSyncState{}).Where("user_id IN ?", []uuid.UUID{learner.ID, second.ID}).Count(&count).Error; err != nil || count != 0 {
 		t.Fatalf("report created sync state: %v, %d", err, count)

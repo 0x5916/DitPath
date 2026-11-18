@@ -715,5 +715,12 @@
   "admin_modes": "引导训练 {guided} 次 · 自由练习 {practice} 次 · 旧版记录 {legacy} 次",
   "admin_daily": "每日明细",
   "admin_date": "日期",
-  "admin_reporting_note": "训练统计涵盖已同步到 Morsewell 账号的训练。"
+  "admin_reporting_note": "训练统计涵盖已同步到 Morsewell 账号的训练。",
+  "admin_learner": "学员报告",
+  "admin_last_completion": "最近一次完成训练",
+  "admin_no_completion": "暂无完成记录",
+  "admin_session_history": "训练记录",
+  "admin_no_sessions": "此期间没有已同步的训练记录。",
+  "admin_missing_account": "此账号不可用。",
+  "admin_back_directory": "返回结果"
 }

@@ -17,16 +17,20 @@ type AdminHandler struct{ DB *gorm.DB }
 
 const directorySize = 25
 
-type adminAccount struct {
-	Sessions      int64     `json:"sessions"`
-	Measured      int64     `json:"measured"`
-	DurationMS    int64     `json:"duration_ms"`
+type AdminAccount struct {
 	ID            uuid.UUID `json:"id"`
 	Username      string    `json:"username"`
 	Email         string    `json:"email"`
 	EmailVerified bool      `json:"email_verified"`
 	CallSign      *string   `json:"call_sign"`
 	CreatedAt     time.Time `json:"created_at"`
+}
+
+type directoryAccount struct {
+	AdminAccount `gorm:"embedded"`
+	Sessions     int64 `json:"sessions"`
+	Measured     int64 `json:"measured"`
+	DurationMS   int64 `json:"duration_ms"`
 }
 
 func adminCursor(c *gin.Context, raw string) (common.ReadPage, bool) {
@@ -96,7 +100,7 @@ func (h AdminHandler) SearchUsers(c *gin.Context) {
 	if page.HasCursor {
 		query = query.Where("(created_at,id) < (?,?)", page.Time, page.ID)
 	}
-	accounts := []adminAccount{}
+	accounts := []directoryAccount{}
 	if err := query.Order("created_at DESC,id DESC").Limit(directorySize + 1).Find(&accounts).Error; err != nil {
 		adminDBFailure(c)
 		return

@@ -1,4 +1,4 @@
-import type { Cohort, OverviewReport, ReportPeriod } from './admin-report';
+import type { Cohort, OverviewReport, ReportPeriod, ReportTotals } from './admin-report';
 import {
   apiFetch,
   assertAuthSessionCurrent,
@@ -371,4 +371,32 @@ export function getAdminOverview(days: number, until: string) {
   const params = new URLSearchParams({ days: String(days) });
   if (until) params.set('until', until);
   return apiGetJson<OverviewReport>(`/admin/reports/overview?${params}`, 'DATABASE_FAILURE');
+}
+
+export interface LearnerReport {
+  account: AdminAccount;
+  period: ReportPeriod;
+  totals: ReportTotals;
+  last_completed_at: string | null;
+  sessions: {
+    id: string;
+    occurred_at: string;
+    kind: 'guided' | 'practice' | 'legacy';
+    status: 'completed' | 'abandoned';
+    lesson: number;
+    char_wpm: number | null;
+    eff_wpm: number | null;
+    accuracy: number | null;
+    duration_ms: number | null;
+  }[];
+  next_cursor: string | null;
+}
+export function getLearnerReport(id: string, days: number, until: string, cursor?: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (until) params.set('until', until);
+  if (cursor) params.set('cursor', cursor);
+  return apiGetJson<LearnerReport>(
+    `/admin/users/${encodeURIComponent(id)}/report?${params}`,
+    'DATABASE_FAILURE'
+  );
 }

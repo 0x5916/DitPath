@@ -64,6 +64,7 @@ func TestLoadProcessCharacterization(t *testing.T) {
 	}
 	cases := []loadCase{
 		{name: "defaults", want: &defaults},
+		{name: "invalid owner ID", env: map[string]string{"ADMIN_USER_ID": "owner"}, log: `{"level":"ERROR","msg":"ADMIN_USER_ID must be a nonzero canonical UUID"}` + "\n"},
 		{name: "custom values", env: map[string]string{
 			"PORT": " 9090 ", "DB_HOST": "custom.invalid", "DB_PORT": "6543", "DB_USER": "reader", "DB_PASSWORD": "custom-password", "DB_NAME": "custom",
 			"RESEND_API_KEY": "custom-key", "RESEND_FROM_EMAIL": "custom@example.invalid", "GIN_MODE": "release",

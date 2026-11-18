@@ -715,5 +715,12 @@
   "admin_modes": "ガイド付き {guided} 件・自由練習 {practice} 件・旧形式 {legacy} 件",
   "admin_daily": "日別の内訳",
   "admin_date": "日付",
-  "admin_reporting_note": "練習の集計は Morsewell アカウントに同期されたセッションが対象です。"
+  "admin_reporting_note": "練習の集計は Morsewell アカウントに同期されたセッションが対象です。",
+  "admin_learner": "学習者レポート",
+  "admin_last_completion": "直近の完了日時",
+  "admin_no_completion": "完了記録なし",
+  "admin_session_history": "セッション履歴",
+  "admin_no_sessions": "この期間に同期されたセッションはありません。",
+  "admin_missing_account": "このアカウントは利用できません。",
+  "admin_back_directory": "検索結果に戻る"
 }

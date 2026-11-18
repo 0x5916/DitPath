@@ -109,6 +109,8 @@ The live account matching the backend's configured owner UUID receives `can_look
 
 Directory search also accepts `days`, `until`, and `metric` (`all`, `joined`, `learners`, `sessions` or `duration_ms`). Training filters include each matching account's completed and measured session counts and recorded milliseconds.
 
+`GET /v1/admin/users/:id/report` uses the same period and an optional opaque `cursor`. It returns `account`, `period`, `totals`, nullable lifetime `last_completed_at`, and up to 25 dated `sessions` plus `next_cursor`. Session rows include mode, status, lesson, character/effective speed, nullable score and nullable measured duration. Completed and abandoned records appear newest first. The summary counts completed sessions across the entire period. A missing or deleted target returns 404.
+
 ## Training synchronization
 
 | Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |

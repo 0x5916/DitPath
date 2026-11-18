@@ -715,5 +715,12 @@
   "admin_modes": "Geführt {guided} · Freies Üben {practice} · Altdaten {legacy}",
   "admin_daily": "Tagesübersicht",
   "admin_date": "Datum",
-  "admin_reporting_note": "Die Trainingszahlen umfassen mit einem Morsewell-Konto synchronisierte Einheiten."
+  "admin_reporting_note": "Die Trainingszahlen umfassen mit einem Morsewell-Konto synchronisierte Einheiten.",
+  "admin_learner": "Lernbericht",
+  "admin_last_completion": "Letzter erfasster Abschluss",
+  "admin_no_completion": "Keine erfassten Abschlüsse",
+  "admin_session_history": "Trainingsverlauf",
+  "admin_no_sessions": "Keine synchronisierten Einheiten in diesem Zeitraum.",
+  "admin_missing_account": "Dieses Konto ist nicht verfügbar.",
+  "admin_back_directory": "Zurück zu den Ergebnissen"
 }

@@ -715,5 +715,12 @@
   "admin_modes": "Guided {guided} · Free practice {practice} · Legacy {legacy}",
   "admin_daily": "Daily breakdown",
   "admin_date": "Date",
-  "admin_reporting_note": "Training figures cover sessions synced to a Morsewell account."
+  "admin_reporting_note": "Training figures cover sessions synced to a Morsewell account.",
+  "admin_learner": "Learner report",
+  "admin_last_completion": "Last recorded completion",
+  "admin_no_completion": "No recorded completions",
+  "admin_session_history": "Session history",
+  "admin_no_sessions": "No synced sessions in this period.",
+  "admin_missing_account": "This account is unavailable.",
+  "admin_back_directory": "Back to results"
 }

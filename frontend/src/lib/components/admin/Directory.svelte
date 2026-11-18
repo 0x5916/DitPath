@@ -6,22 +6,24 @@
     duration,
     metricLabels,
     rangeLabel,
+    reportDate,
     reportHref,
     type Cohort,
     type DirectoryPosition,
     type ReportPeriod
   } from '#lib/admin-report.ts';
-  import { formatDate } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   let {
     onDenied,
+    onPeriod,
     days,
     until,
     metric,
     position
   }: {
+    onPeriod: (until: string) => void;
     onDenied: (status: number) => void;
     days: number;
     until: string;
@@ -44,6 +46,7 @@
     try {
       const result = await searchAdminUsers(search, days, until, metric, cursors.at(-1));
       if (!current()) return;
+      onPeriod(result.period.until);
       period = result.period;
       accounts = result.data;
       next = result.next_cursor;
@@ -100,7 +103,9 @@
     <ul class="records">
       {#each accounts as account (account.id)}
         <li>
-          <strong>{account.username}</strong> <span>{account.call_sign ?? ''}</span>
+          <a href={reportHref('users', days, until, metric, account.id)}
+            ><strong>{account.username}</strong></a
+          > <span>{account.call_sign ?? ''}</span>
           <div>
             {account.email} · {account.email_verified
               ? m.profile_email_status_verified()
@@ -112,7 +117,7 @@
           {:else if metric === 'duration_ms'}<div>
               {m.admin_duration()} · {duration(account.duration_ms)}
             </div>{/if}
-          <small>{m.profile_member_since()} · {formatDate(account.created_at)}</small>
+          <small>{m.profile_member_since()} · {reportDate(account.created_at)}</small>
         </li>
       {/each}
     </ul>

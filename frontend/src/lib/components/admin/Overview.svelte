@@ -18,10 +18,16 @@
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   let {
+    onPeriod,
     days,
     until,
     onDenied
-  }: { days: number; until: string; onDenied: (status: number) => void } = $props();
+  }: {
+    days: number;
+    until: string;
+    onPeriod: (until: string) => void;
+    onDenied: (status: number) => void;
+  } = $props();
   const scope = createSessionScope();
   let report = $state.raw<OverviewReport | null>(null);
   let failed = $state(false);
@@ -30,7 +36,10 @@
     failed = false;
     try {
       const result = await getAdminOverview(days, until);
-      if (current()) report = result;
+      if (current()) {
+        report = result;
+        onPeriod(result.period.until);
+      }
     } catch (e) {
       if (!current()) return;
       if (e instanceof ApiError && [401, 403].includes(e.status)) onDenied(e.status);
