@@ -59,9 +59,10 @@
     practice?.prepareToLeave();
     await tick();
     await copyStore.whenIdle();
-    if (copyStore.saveError) return;
-    bypassDestination = new URL(localizedHref('/'), page.url.href).href;
-    await goto(bypassDestination);
+    if (copyStore.saveError || destroyed || allowUnload) return;
+    // Reopen Home in a fresh document after the checkpoint write succeeds.
+    allowUnload = true;
+    window.location.assign(localizedHref('/'));
   }
 
   let persistenceStatus = $state<'saving' | 'saved' | 'failed' | null>(null);

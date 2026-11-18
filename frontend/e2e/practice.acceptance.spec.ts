@@ -17,6 +17,22 @@ async function createCheckpoint(page: import('@playwright/test').Page) {
   await saveAndLeave(page);
 }
 
+test('Save & leave opens Home in a fresh document and keeps the latest copy', async ({ page }) => {
+  await resetToHome(page);
+  await page.goto('/en/morse/practice');
+  const answer = await startAndType(page);
+  await expect(page.getByRole('button', { name: 'Save & leave' })).toBeVisible();
+  await answer.fill('MK');
+
+  await saveAndLeave(page);
+
+  const documentUrl = await page.evaluate(
+    () => performance.getEntriesByType('navigation')[0]?.name
+  );
+  expect(documentUrl).toBe(page.url());
+  await expect.poll(() => readCopyCheckpoint(page)).toMatchObject({ draft: 'MK' });
+});
+
 test('persists, resumes, and discards a practice checkpoint', async ({ page }) => {
   await createCheckpoint(page);
 

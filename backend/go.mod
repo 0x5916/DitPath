@@ -1,15 +1,15 @@
 module opencw
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/gin-gonic/gin v1.12.0
-	github.com/go-playground/validator/v10 v10.30.5
+	github.com/go-playground/validator/v10 v10.30.6
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/resend/resend-go/v4 v4.9.0
+	github.com/resend/resend-go/v4 v4.12.1
 	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )

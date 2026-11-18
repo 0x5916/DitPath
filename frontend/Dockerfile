@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:26.12.1-alpine AS build
+FROM node:26.13.1-alpine AS build
 WORKDIR /app
 
 # Install dependencies first for better layer caching.
@@ -24,7 +24,7 @@ ENV PRERENDER_ORIGIN=$PRERENDER_ORIGIN
 RUN npm run prepare && npm run verify && npm run build
 
 # The output is a fully static site (prerendered pages, assets, fallback 404).
-FROM nginx:alpine
+FROM nginx:1.31.8-alpine
 
 # CVE-2026-111497: refresh the native decoder even with a cached base image.
 RUN apk add --no-cache "brotli-libs>=1.2.1"

@@ -25,13 +25,17 @@ const BRANDED_ROUTES = [
   '/register'
 ] as const;
 
+function navigationBrandLink(page: Page) {
+  return page.getByRole('navigation').getByRole('link', { name: 'Morsewell', exact: true });
+}
+
 test.describe('Morsewell public branding', () => {
   for (const locale of LOCALES) {
     test(`uses Morsewell on the ${locale} home page`, async ({ page }) => {
       await page.goto(`/${locale}`);
 
       await expect(page).toHaveTitle(/Morsewell/);
-      await expect(page.getByRole('link', { name: 'Morsewell', exact: true })).toBeVisible();
+      await expect(navigationBrandLink(page)).toBeVisible();
       await expectNoLegacyBrandOutsideBanner(page);
     });
   }
@@ -40,10 +44,7 @@ test.describe('Morsewell public branding', () => {
     await page.goto('/en/about');
 
     await expect(page).toHaveTitle(/Morsewell/);
-    await expect(page.getByRole('link', { name: 'Morsewell', exact: true })).toHaveAttribute(
-      'href',
-      '/en'
-    );
+    await expect(navigationBrandLink(page)).toHaveAttribute('href', '/en');
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
       'content',
       'Morsewell'
