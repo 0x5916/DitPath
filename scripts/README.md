@@ -97,7 +97,7 @@ After building the patched pgAdmin image, run its native/Python Brotli and HTTP-
 ```bash
 docker run --rm -i --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges --memory 128m --pids-limit 32 \
-  --entrypoint /venv/bin/python3 opencw-pgadmin:9.18.0-brotli1.2.1 \
+  --entrypoint /venv/bin/python3 opencw-pgadmin:9.19.0-brotli1.2.1 \
   -B - < scripts/tests/test-brotli-runtime.py
 ```
 

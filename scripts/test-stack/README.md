@@ -7,7 +7,7 @@ This directory runs the real Morsewell application locally for manual acceptance
 | Frontend   | Production static build served by nginx, including the service worker   | `http://127.0.0.1:13000/en`        |
 | Backend    | Current Go API image, release mode, no profiling routes                 | `http://127.0.0.1:18080/v1`        |
 | Health     | Backend and same-origin nginx proxy                                     | `http://127.0.0.1:18080/v1/health` |
-| PostgreSQL | Dedicated `postgres:18.6-alpine3.24` container and named project volume | `127.0.0.1:15432`                  |
+| PostgreSQL | Dedicated `postgres:18.7-alpine3.24` container and named project volume | `127.0.0.1:15432`                  |
 
 The frontend uses `PUBLIC_API_BASE=/v1`, so browser requests stay same-origin and nginx proxies them to the private Compose network. This makes the production service-worker/offline behavior meaningful. Database migrations run through the backend's existing startup `AutoMigrate` path; no production endpoint or database is used.
 

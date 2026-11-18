@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM dpage/pgadmin4:9.18.0
+FROM dpage/pgadmin4:9.19.0
 
 USER root
 # Patch both the system decoder and the independent Python binding.

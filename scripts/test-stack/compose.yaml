@@ -2,7 +2,7 @@ name: ditpath-final-acceptance
 
 services:
   db:
-    image: postgres:18.6-alpine3.24
+    image: postgres:18.7-alpine3.24
     container_name: ditpath-final-acceptance-db
     restart: unless-stopped
     environment:
@@ -58,7 +58,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   frontend:
-    image: nginx:alpine
+    image: nginx:1.31.8-alpine
     container_name: ditpath-final-acceptance-frontend
     restart: unless-stopped
     ports:

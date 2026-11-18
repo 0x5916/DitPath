@@ -18,7 +18,7 @@ registered after page load and controls the page after the first reload.
 
 ## Development
 
-Use Node 26.12.1 or newer within Node 26. From this directory:
+Use Node 26.13.1 or newer within Node 26. From this directory:
 
 ```sh
 export PATH="/opt/homebrew/opt/node/bin:$PATH"

@@ -25,7 +25,7 @@
 set -euo pipefail
 
 BACKEND_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${OPENCW_TEST_POSTGRES_IMAGE:-postgres:18.6-alpine3.24}"
+IMAGE="${OPENCW_TEST_POSTGRES_IMAGE:-postgres:18.7-alpine3.24}"
 DB_NAME="opencw_test"
 DB_USER="opencw_test"
 
@@ -49,7 +49,7 @@ Options
   -h, --help  show this help
 
 Environment
-  OPENCW_TEST_POSTGRES_IMAGE  image to run (default postgres:18.6-alpine3.24)
+  OPENCW_TEST_POSTGRES_IMAGE  image to run (default postgres:18.7-alpine3.24)
 
 The DSN lives in a private temporary file. It is never printed, and the
 container is removed on exit unless --keep is given.
