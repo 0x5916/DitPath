@@ -3,7 +3,7 @@
   import '../app.css';
   import { user, initAuth, logout, getAuthSession } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
-  import { AUTH_STORAGE_KEYS } from '#lib/storageKeys.ts';
+  import { AUTH_STORAGE_KEYS, UI_STORAGE_KEYS } from '#lib/storageKeys.ts';
   import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
   import { initializeTrainingSync, syncTrainingNow } from '#lib/training-sync.svelte.ts';
   import { initializeLearningSync } from '#lib/learning-sync.svelte.ts';
@@ -38,9 +38,10 @@
     localizedHref as href
   } from '#lib/i18n.svelte.ts';
   import Dropdown from '#lib/components/Dropdown.svelte';
+  import ThemeButton from '#lib/components/ThemeButton.svelte';
   import SiteFooter from '#lib/components/SiteFooter.svelte';
   import MigrationBanner from '#lib/components/migration/MigrationBanner.svelte';
-  import { applyTheme, readStoredTheme } from '#lib/theme.ts';
+  import { applyTheme, readStoredTheme } from '#lib/theme.svelte.ts';
   import { navigationDestination } from '#lib/navigation.ts';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -84,7 +85,6 @@
   initLang(data.locale, data.localePreference);
 
   $effect(() => {
-    applyTheme(readStoredTheme());
     initAuth();
   });
 
@@ -113,6 +113,7 @@
   });
 
   onMount(() => {
+    applyTheme(readStoredTheme());
     const stopTraining = initializeTrainingSync();
     const stopLearning = initializeLearningSync();
     return () => {
@@ -136,6 +137,9 @@
   }
 
   function handleStorage(event: StorageEvent) {
+    if (event.key === null || event.key === UI_STORAGE_KEYS.theme) {
+      applyTheme(readStoredTheme());
+    }
     if (event.key === null || Object.values(AUTH_STORAGE_KEYS).some((key) => key === event.key)) {
       initAuth();
     }
@@ -247,71 +251,70 @@
             >
           {/each}
         </div>
-        <div class="navbar-account">
-          {#if $user}
-            <Dropdown id="user-menu" label={$user.username}>
-              {#snippet trigger()}
-                <span class="nav-account-label">{$user.username}</span>
-                <User class="nav-icon" aria-hidden="true" />
-              {/snippet}
-              {#snippet menu()}
-                <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
-                  ><LayoutDashboard size={14} /> {m.nav_profile()}</a
-                >
-                <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
-                  ><Settings size={14} /> {m.nav_settings()}</a
-                >
-                <button
-                  type="button"
-                  onclick={() => void handleLogout()}
-                  class="user-dropdown-item"
-                  role="menuitem"><LogOut size={14} /> {m.nav_logout()}</button
-                >
-              {/snippet}
-            </Dropdown>
-          {:else}
-            <Dropdown id="guest-menu" label={m.nav_guest()}>
-              {#snippet trigger()}
-                <span class="nav-account-label">{m.nav_guest()}</span>
-                <User class="nav-icon" aria-hidden="true" />
-              {/snippet}
-              {#snippet menu()}
-                <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
-                  ><LayoutDashboard size={14} /> {m.nav_profile()}</a
-                >
-                <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
-                  ><Settings size={14} /> {m.nav_settings()}</a
-                >
-                <a href={href('/login')} class="user-dropdown-item" role="menuitem"
-                  ><LogIn size={14} /> {m.nav_login()}</a
-                >
-                <a href={href('/register')} class="user-dropdown-item" role="menuitem"
-                  ><UserPlus size={14} /> {m.nav_register()}</a
-                >
-              {/snippet}
-            </Dropdown>
+        <div class="navbar-tools">
+          <div class="navbar-account">
+            {#if $user}
+              <Dropdown id="user-menu" label={$user.username}>
+                {#snippet trigger()}
+                  <span class="nav-account-label">{$user.username}</span>
+                  <User class="nav-icon" aria-hidden="true" />
+                {/snippet}
+                {#snippet menu()}
+                  <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
+                    ><LayoutDashboard size={14} /> {m.nav_profile()}</a
+                  >
+                  <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
+                    ><Settings size={14} /> {m.nav_settings()}</a
+                  >
+                  <button
+                    type="button"
+                    onclick={() => void handleLogout()}
+                    class="user-dropdown-item"
+                    role="menuitem"><LogOut size={14} /> {m.nav_logout()}</button
+                  >
+                {/snippet}
+              </Dropdown>
+            {:else}
+              <Dropdown id="guest-menu" label={m.nav_guest()}>
+                {#snippet trigger()}
+                  <span class="nav-account-label">{m.nav_guest()}</span>
+                  <User class="nav-icon" aria-hidden="true" />
+                {/snippet}
+                {#snippet menu()}
+                  <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
+                    ><LayoutDashboard size={14} /> {m.nav_profile()}</a
+                  >
+                  <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
+                    ><Settings size={14} /> {m.nav_settings()}</a
+                  >
+                  <a href={href('/login')} class="user-dropdown-item" role="menuitem"
+                    ><LogIn size={14} /> {m.nav_login()}</a
+                  >
+                  <a href={href('/register')} class="user-dropdown-item" role="menuitem"
+                    ><UserPlus size={14} /> {m.nav_register()}</a
+                  >
+                {/snippet}
+              </Dropdown>
+            {/if}
+          </div>
+          <ThemeButton />
+          {#if isHome}
+            <div class="navbar-mobile">
+              <Dropdown id="product-menu" label={m.nav_menu()}>
+                {#snippet trigger()}
+                  <Menu class="nav-icon" aria-hidden="true" />
+                {/snippet}
+                {#snippet menu()}
+                  {#each PRIMARY_NAV as item (item.path)}
+                    <a href={href(item.path)} class="user-dropdown-item" role="menuitem"
+                      >{item.label()}</a
+                    >
+                  {/each}
+                {/snippet}
+              </Dropdown>
+            </div>
           {/if}
         </div>
-        {#if isHome}
-          <div class="navbar-mobile">
-            <Dropdown id="product-menu" label={m.nav_menu()}>
-              {#snippet trigger()}
-                <Menu class="nav-icon" aria-hidden="true" />
-              {/snippet}
-              {#snippet menu()}
-                {#each PRIMARY_NAV as item (item.path)}
-                  <a
-                    href={href(item.path)}
-                    class="user-dropdown-item"
-                    role="menuitem"
-                    aria-current={desktopSection === item.path ? 'location' : undefined}
-                    >{item.label()}</a
-                  >
-                {/each}
-              {/snippet}
-            </Dropdown>
-          </div>
-        {/if}
       </div>
     </nav>
   {/if}

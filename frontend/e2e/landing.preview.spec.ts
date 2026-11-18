@@ -105,19 +105,32 @@ for (const theme of ['light', 'dark'] as const)
         const account = page
           .locator('.navbar-account')
           .getByRole('button', { name: 'Guest', exact: true });
+        const themeButton = page.getByRole('button', { name: /^Theme is / });
         await expect(account).toBeVisible();
+        await expect(account.locator('.nav-chevron')).toBeVisible();
+        await expect(product.locator('.nav-chevron')).toBeHidden();
         await expect(product).toHaveText('');
         const accountBox = await account.boundingBox();
+        const themeBox = await themeButton.boundingBox();
         const productBox = await product.boundingBox();
-        for (const target of [accountBox!, productBox!]) {
+        for (const target of [accountBox!, themeBox!, productBox!]) {
           expect(target.width).toBeGreaterThanOrEqual(44);
           expect(target.height).toBeGreaterThanOrEqual(44);
         }
-        expect(productBox!.x - accountBox!.x - accountBox!.width).toBeGreaterThanOrEqual(8);
+        expect(themeBox!.x - accountBox!.x - accountBox!.width).toBeGreaterThanOrEqual(8);
+        expect(productBox!.x - themeBox!.x - themeBox!.width).toBeGreaterThanOrEqual(8);
         expect(productBox!.x + productBox!.width).toBeCloseTo(width - 16, 0);
+        const userIcon = (await account.locator('svg').first().boundingBox())!;
+        const userCenter = userIcon.x + userIcon.width / 2;
+        const themeCenter = themeBox!.x + themeBox!.width / 2;
+        const menuCenter = productBox!.x + productBox!.width / 2;
+        expect(themeCenter - userCenter).toBeCloseTo(menuCenter - themeCenter, 0);
         await account.focus();
         // macOS Safari uses Option-Tab when full keyboard navigation is disabled.
-        await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+        const tab = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+        await page.keyboard.press(tab);
+        await expect(themeButton).toBeFocused();
+        await page.keyboard.press(tab);
         await expect(product).toBeFocused();
         await product.tap();
         const menu = page.getByRole('menu', { name: 'Menu', exact: true });
@@ -154,6 +167,31 @@ for (const theme of ['light', 'dark'] as const)
         );
       });
     }
+
+test('mobile dropdowns clear the header and fit a short viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 667, height: 320 });
+  await page.goto('/en', { waitUntil: 'networkidle' });
+  const header = page.locator('.navbar');
+  const bar = (await header.boundingBox())!;
+  for (const name of ['Guest', 'Menu']) {
+    const trigger = header.getByRole('button', { name, exact: true });
+    await trigger.press('Enter');
+    const menu = header.getByRole('menu', { name, exact: true });
+    await expect(menu).toBeVisible();
+    const box = (await menu.boundingBox())!;
+    expect(box.y - (bar.y + bar.height)).toBeGreaterThanOrEqual(8);
+    expect(box.y + box.height).toBeLessThanOrEqual(320);
+    await page.keyboard.press('End');
+    const items = menu.getByRole('menuitem');
+    await expect(items.last()).toBeFocused();
+    await expect(items.last()).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press('Home');
+    await expect(items.first()).toBeFocused();
+    await expect(items.first()).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+  }
+});
 
 test('footer controls share rows when translated links wrap', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });

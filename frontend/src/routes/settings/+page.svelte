@@ -53,14 +53,9 @@
   import SaveButton from '#lib/components/SaveButton.svelte';
   import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
   import SettingsData from '#lib/components/settings/SettingsData.svelte';
-  import { readStoredTheme, setTheme, type Theme } from '#lib/theme.ts';
+  import { themePreference, setTheme, type Theme } from '#lib/theme.svelte.ts';
   import { Volume2 } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
-
-  let theme = $state<Theme>('auto');
-  onMount(() => {
-    theme = readStoredTheme();
-  });
 
   // Account section
   let username = $state('');
@@ -599,10 +594,8 @@
         <span class="label-text">{m.settings_theme_label()}</span>
         <select
           class="select"
-          value={theme}
-          onchange={(event) => {
-            theme = setTheme(event.currentTarget.value as Theme);
-          }}
+          value={themePreference.value}
+          onchange={(event) => setTheme(event.currentTarget.value as Theme)}
         >
           <option value="auto">{m.theme_auto()}</option>
           <option value="light">{m.theme_light()}</option>

@@ -1,6 +1,7 @@
 import { UI_STORAGE_KEYS } from '#lib/storageKeys.ts';
 
 export type Theme = 'auto' | 'light' | 'dark';
+export const themePreference = $state<{ value: Theme }>({ value: 'auto' });
 
 /** Narrow an arbitrary stored value to a known theme. */
 function normalizeTheme(value: string | null | undefined): Theme {
@@ -9,8 +10,12 @@ function normalizeTheme(value: string | null | undefined): Theme {
 
 /** Read the persisted theme preference (defaults to `auto`). */
 export function readStoredTheme(): Theme {
-  if (typeof localStorage === 'undefined') return 'auto';
-  return normalizeTheme(localStorage.getItem(UI_STORAGE_KEYS.theme));
+  if (typeof window === 'undefined') return 'auto';
+  try {
+    return normalizeTheme(window.localStorage.getItem(UI_STORAGE_KEYS.theme));
+  } catch {
+    return 'auto';
+  }
 }
 
 /**
@@ -20,6 +25,7 @@ export function readStoredTheme(): Theme {
 export function applyTheme(theme: Theme): void {
   if (typeof document === 'undefined') return;
 
+  themePreference.value = theme;
   if (theme === 'auto') {
     document.documentElement.removeAttribute('data-theme');
   } else {
@@ -27,14 +33,16 @@ export function applyTheme(theme: Theme): void {
   }
 }
 
-/** Persist and apply a theme preference; returns the normalized value. */
-export function setTheme(theme: Theme): Theme {
+/** Persist and apply a theme preference. */
+export function setTheme(theme: Theme): void {
+  if (typeof window === 'undefined') return;
   const normalized = normalizeTheme(theme);
 
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(UI_STORAGE_KEYS.theme, normalized);
+  try {
+    window.localStorage.setItem(UI_STORAGE_KEYS.theme, normalized);
+  } catch {
+    // The choice can still apply to this page when storage is unavailable.
   }
 
   applyTheme(normalized);
-  return normalized;
 }

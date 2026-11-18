@@ -28,6 +28,7 @@
   "theme_auto": "Auto",
   "theme_light": "Hell",
   "theme_dark": "Dunkel",
+  "nav_theme_switch": "Das Design ist auf „{current}“ eingestellt. Zu „{next}“ wechseln.",
   "footer_link_github": "GitHub",
   "home_dashboard_title": "Dein Training",
   "home_hero_title": "Morsecode nach Gehör lernen.",

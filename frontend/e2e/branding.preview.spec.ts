@@ -69,7 +69,8 @@ test.describe('Morsewell public branding', () => {
 for (const theme of ['light', 'dark'] as const) {
   for (const width of [1280, 960]) {
     test(`${theme} account navigation at ${width}px uses the session username`, async ({
-      page
+      page,
+      browserName
     }) => {
       const username = 'MorseOperatorWithAVeryLongUsername';
       await page.setViewportSize({ width, height: 900 });
@@ -93,8 +94,11 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto('/en/morse/practice');
       const navbar = page.locator('.navbar');
       const account = navbar.getByRole('button', { name: username, exact: true });
+      const themeButton = navbar.getByRole('button', { name: /^Theme is / });
       await expect(account).toBeVisible();
       await expect(account.locator('.nav-account-label')).toHaveText(username);
+      await expect(account.locator('.nav-account-label')).toBeVisible();
+      await expect(account.locator('svg').first()).toBeVisible();
       await expect(navbar.getByRole('link', { name: 'Morsewell', exact: true })).toBeVisible();
       await expect(navbar.locator('img')).toHaveCount(0);
       await expect(page.locator('body')).toHaveCSS(
@@ -109,8 +113,12 @@ for (const theme of ['light', 'dark'] as const) {
       const learn = await navbar.getByRole('link', { name: 'Learn', exact: true }).boundingBox();
       const forum = await navbar.getByRole('link', { name: 'Forum', exact: true }).boundingBox();
       const control = await account.boundingBox();
+      const themeBox = await themeButton.boundingBox();
       expect(learn!.x - (brand!.x + brand!.width)).toBeLessThan(40);
       expect(control!.x).toBeGreaterThan(forum!.x + forum!.width);
+      expect(themeBox!.x).toBeGreaterThanOrEqual(control!.x + control!.width);
+      expect(themeBox!.x + themeBox!.width).toBeLessThanOrEqual(width);
+      expect(control!.height).toBeGreaterThanOrEqual(44);
 
       await account.focus();
       await page.keyboard.press('Enter');
@@ -125,9 +133,8 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true
       );
-      const bounds = await account.boundingBox();
-      expect(bounds!.height).toBeGreaterThanOrEqual(44);
-      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+      await expect(themeButton).toBeFocused();
     });
   }
 }

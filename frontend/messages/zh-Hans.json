@@ -28,6 +28,7 @@
   "theme_auto": "自动",
   "theme_light": "浅色",
   "theme_dark": "深色",
+  "nav_theme_switch": "当前主题为“{current}”。切换到“{next}”。",
   "footer_link_github": "GitHub",
   "home_dashboard_title": "你的训练",
   "home_hero_title": "用耳朵学摩尔斯电码。",
