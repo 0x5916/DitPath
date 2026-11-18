@@ -314,6 +314,9 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
       }
     }
   },
+  '/admin': {
+    localized: { en: { title: 'Admin - Morsewell', description: 'Private owner reports.' } }
+  },
   '/profile': {
     localized: {
       en: {

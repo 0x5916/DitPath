@@ -99,6 +99,12 @@ All routes above require bearer authentication. Call sign is nonempty and at mos
 
 CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page responses use `language` and `cur_lesson`. Existing settings include `updated_at`; absent settings return model defaults, with the individual CW/page fallback using the input shape without that timestamp. The combined settings response includes both response shapes. User info includes nullable `call_sign`, `username`, `email`, `email_verified`, and `created_at`. See [user handler](internal/handlers/v1/user.go), [settings handler](internal/handlers/v1/settings.go), and [CW defaults](internal/models/cw_settings.go) and [page defaults](internal/models/page_settings.go).
 
+## Owner dashboard
+
+The live account matching the backend's configured owner UUID receives `can_lookup_users: true` on `GET /v1/user/me`. Every `/v1/admin` request independently requires that account. Missing or invalid authentication returns 401 and any other authenticated account receives 403 `ADMIN_REQUIRED`. Responses carry `Cache-Control: no-store`.
+
+`POST /v1/admin/users/search` accepts a JSON object with optional `search` (literal case-insensitive username/email substring, up to 254 characters) and `cursor`. Returns `data` with up to 25 live accounts (ID, username, email, verification, call sign and join date), ordered by join date and ID descending, and nullable `next_cursor`.
+
 ## Training synchronization
 
 | Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |

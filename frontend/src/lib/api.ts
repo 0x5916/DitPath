@@ -139,6 +139,7 @@ export interface PageSettings {
 }
 
 export interface UserInfo {
+  can_lookup_users?: boolean;
   call_sign: string | null;
   username: string;
   email: string;
@@ -340,4 +341,22 @@ export async function updatePassword(oldPassword: string, newPassword: string): 
     { retryUnauthorized: false }
   );
   clearAuthSession(session);
+}
+
+export interface AdminAccount {
+  id: string;
+  username: string;
+  email: string;
+  email_verified: boolean;
+  call_sign: string | null;
+  created_at: string;
+}
+
+export function searchAdminUsers(search: string, cursor?: string) {
+  return apiSendJson<{ data: AdminAccount[]; next_cursor: string | null }>(
+    '/admin/users/search',
+    'POST',
+    { search, cursor },
+    'DATABASE_FAILURE'
+  );
 }

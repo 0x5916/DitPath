@@ -691,5 +691,15 @@
   "migration_unknown_body": "OpenCW 現已更名為 Morsewell。如果此裝置上有進度，請在遷移前查看「同步與儲存」。",
   "nav_menu": "選單",
   "home_resources": "更多功能與設定",
-  "footer_explore": "探索"
+  "footer_explore": "探索",
+  "admin_title": "管理",
+  "admin_directory": "使用者目錄",
+  "admin_denied": "僅擁有者可存取。",
+  "admin_search_label": "使用者名稱或電子郵件",
+  "admin_search": "搜尋",
+  "admin_clear": "清除",
+  "admin_previous": "上一頁",
+  "admin_next": "下一頁",
+  "admin_no_matches": "沒有符合條件的帳號。",
+  "admin_empty": "沒有可顯示的帳號。"
 }

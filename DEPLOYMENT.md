@@ -278,6 +278,16 @@ The update script requires a clean tracked working tree, snapshots locally built
 
 Backend startup runs GORM `AutoMigrate`. An image rollback does not undo database changes: retain the pre-update dump and restore it when returning to an older schema. `--no-backup` removes that recovery path. See [script flags](scripts/README.md#script-reference).
 
+## Owner dashboard
+
+Sign in with the existing owner account. To find its permanent ID once, start psql on the deployment host:
+
+```sh
+docker compose exec db sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+At the psql prompt, run `SELECT id, username FROM users WHERE username = 'your_exact_username' AND deleted_at IS NULL;`. Set `ADMIN_USER_ID` in the root `.env` to that UUID, recreate the backend with `docker compose up -d --no-deps backend`, then open **Profile → Admin**. Clear the setting and recreate the backend to revoke access. An empty setting disables the dashboard.
+
 ## pgAdmin administration
 
 pgAdmin's web login uses `PGADMIN_DEFAULT_*`; its database connection uses `POSTGRES_*`. Editing the former after the first initialization does not reset an existing account. Reset through the user interface or the container's `setup.py update-user` command, using the existing login email. Deleting its volume discards saved accounts, servers, and preferences.

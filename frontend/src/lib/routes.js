@@ -18,6 +18,7 @@ export const ROUTE_PATHS = [
   '/login',
   '/more',
   '/profile',
+  '/admin',
   '/register',
   '/settings'
 ];
@@ -42,6 +43,7 @@ export const NOINDEX_ROUTE_PATHS = [
   '/login',
   '/register',
   '/profile',
+  '/admin',
   '/settings',
   '/more',
   '/morse/learn/session',

@@ -691,5 +691,15 @@
   "migration_unknown_body": "OpenCW is now Morsewell. If you have progress on this device, check Sync & storage before moving.",
   "nav_menu": "Menu",
   "home_resources": "Resources & settings",
-  "footer_explore": "Explore"
+  "footer_explore": "Explore",
+  "admin_title": "Admin",
+  "admin_directory": "User directory",
+  "admin_denied": "Owner access required.",
+  "admin_search_label": "Username or email",
+  "admin_search": "Search",
+  "admin_clear": "Clear",
+  "admin_previous": "Previous",
+  "admin_next": "Next",
+  "admin_no_matches": "No matching accounts.",
+  "admin_empty": "No accounts to show."
 }

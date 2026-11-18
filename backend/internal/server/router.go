@@ -53,6 +53,15 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	protected.Use(middlewares.AuthRequired())
 	protected.Use(middlewares.LoadUser(db))
 
+	admin := v1.Group("/admin", func(c *gin.Context) { c.Header("Cache-Control", "no-store") },
+		middlewares.AuthRequired(), middlewares.LoadUser(db), func(c *gin.Context) {
+			if !configs.App.CanLookupUsers(utils.MustGetUser(c).ID) {
+				c.AbortWithStatusJSON(http.StatusForbidden, common.NewErrorResponse(common.ErrorCodeAdminRequired, "Owner access required"))
+			}
+		})
+	adminHandler := handlers.AdminHandler{DB: db}
+	admin.POST("/users/search", adminHandler.SearchUsers)
+
 	authProtected := protected.Group("/auth")
 	authProtected.POST("/send-verification-email", authHandler.SendVerificationEmail)
 	authProtected.POST("/verify-email", authHandler.VerifyEmail)

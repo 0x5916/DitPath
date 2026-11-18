@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"opencw/internal/authlimits"
+
+	"github.com/google/uuid"
 )
 
 type Config struct {
+	AdminUserID           uuid.UUID
 	Port                  string         `required:"true"`
 	DBHost                string         `required:"true"`
 	DBPort                string         `required:"true"`
@@ -49,6 +52,14 @@ func Load() {
 		slog.Error("Invalid authentication proxy configuration", "err", err)
 		os.Exit(1)
 	}
+	var adminID uuid.UUID
+	if raw := os.Getenv("ADMIN_USER_ID"); raw != "" {
+		adminID, err = uuid.Parse(raw)
+		if err != nil || adminID == uuid.Nil || adminID.String() != strings.ToLower(raw) {
+			slog.Error("ADMIN_USER_ID must be a nonzero canonical UUID")
+			os.Exit(1)
+		}
+	}
 	var corsOrigins []string
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		for _, o := range strings.Split(raw, ",") {
@@ -59,6 +70,7 @@ func Load() {
 	}
 
 	App = Config{
+		AdminUserID:           adminID,
 		Port:                  os.Getenv("PORT"),
 		DBHost:                os.Getenv("DB_HOST"),
 		DBPort:                os.Getenv("DB_PORT"),
@@ -159,4 +171,8 @@ func isZero(v reflect.Value) bool {
 
 func (c Config) IsRelease() bool {
 	return c.GinMode == "release"
+}
+
+func (c Config) CanLookupUsers(id uuid.UUID) bool {
+	return id != uuid.Nil && id == c.AdminUserID
 }

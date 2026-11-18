@@ -691,5 +691,15 @@
   "migration_unknown_body": "OpenCW は Morsewell になりました。この端末に進捗がある場合は、移行前に「同期とストレージ」を確認してください。",
   "nav_menu": "メニュー",
   "home_resources": "各種機能・設定",
-  "footer_explore": "学習・コミュニティ"
+  "footer_explore": "学習・コミュニティ",
+  "admin_title": "管理",
+  "admin_directory": "ユーザー一覧",
+  "admin_denied": "所有者のみアクセスできます。",
+  "admin_search_label": "ユーザー名またはメールアドレス",
+  "admin_search": "検索",
+  "admin_clear": "クリア",
+  "admin_previous": "前へ",
+  "admin_next": "次へ",
+  "admin_no_matches": "一致するアカウントがありません。",
+  "admin_empty": "表示するアカウントがありません。"
 }
