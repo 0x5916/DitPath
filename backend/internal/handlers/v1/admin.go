@@ -18,6 +18,9 @@ type AdminHandler struct{ DB *gorm.DB }
 const directorySize = 25
 
 type adminAccount struct {
+	Sessions      int64     `json:"sessions"`
+	Measured      int64     `json:"measured"`
+	DurationMS    int64     `json:"duration_ms"`
 	ID            uuid.UUID `json:"id"`
 	Username      string    `json:"username"`
 	Email         string    `json:"email"`
@@ -49,6 +52,9 @@ func adminDBFailure(c *gin.Context) {
 
 func (h AdminHandler) SearchUsers(c *gin.Context) {
 	var input struct {
+		Days   int    `json:"days"`
+		Until  string `json:"until"`
+		Metric string `json:"metric"`
 		Search string `json:"search" binding:"max=254"`
 		Cursor string `json:"cursor"`
 	}
@@ -62,7 +68,28 @@ func (h AdminHandler) SearchUsers(c *gin.Context) {
 	}
 	// Keep private search text out of SQL logs, including slow or failed queries.
 	db := h.DB.WithContext(c.Request.Context()).Session(&gorm.Session{Logger: emailSQLLogger{h.DB.Logger}})
-	query := db.Model(&models.User{}).Select("id, username, email, email_verified, call_sign, created_at")
+	period, valid := newReportPeriod(input.Days, input.Until, time.Now())
+	if !valid {
+		adminInvalid(c)
+		return
+	}
+	const columns = "users.id,username,email,email_verified,call_sign,users.created_at"
+	query := db.Model(&models.User{}).Select(columns)
+	switch input.Metric {
+	case "", "all":
+	case "joined":
+		query = query.Where("users.created_at >= ? AND users.created_at < ?", period.start, period.end)
+	case "learners", "sessions", "duration_ms":
+		totals := activityIn(db, period.start, period.end).Select("user_id," + reportTotalsSQL).Group("user_id")
+		query = query.Joins("JOIN (?) AS totals ON totals.user_id=users.id", totals).
+			Select(columns + ",totals.sessions,totals.measured,totals.duration_ms").Where("totals.sessions > 0")
+		if input.Metric == "duration_ms" {
+			query = query.Where("totals.measured > 0")
+		}
+	default:
+		adminInvalid(c)
+		return
+	}
 	if search := strings.TrimSpace(input.Search); search != "" {
 		query = query.Where("strpos(lower(username), lower(?)) > 0 OR strpos(lower(email), lower(?)) > 0", search, search)
 	}
@@ -81,5 +108,5 @@ func (h AdminHandler) SearchUsers(c *gin.Context) {
 		cursor := common.EncodeReadCursor(last.CreatedAt, last.ID)
 		next = &cursor
 	}
-	c.JSON(http.StatusOK, gin.H{"data": accounts, "next_cursor": next})
+	c.JSON(http.StatusOK, gin.H{"data": accounts, "next_cursor": next, "period": period})
 }

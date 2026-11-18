@@ -5,7 +5,7 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
-  import Directory from '#lib/components/admin/Directory.svelte';
+  import Workspace from '#lib/components/admin/Workspace.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
 
@@ -46,7 +46,7 @@
 <div class="page-stack">
   <h1 class="page-title">{m.admin_title()}</h1>
   {#if access === 'owner'}
-    {#key generation}<Directory onDenied={denied} />{/key}
+    {#key generation}<Workspace onDenied={denied} />{/key}
   {:else if access === 'guest'}
     <a class="btn-ghost" href={localizedHref('/login')}>{m.nav_login()}</a>
   {:else if access === 'denied'}<ErrorAlert message={m.admin_denied()} />

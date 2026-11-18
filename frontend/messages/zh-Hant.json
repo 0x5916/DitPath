@@ -701,5 +701,19 @@
   "admin_previous": "上一頁",
   "admin_next": "下一頁",
   "admin_no_matches": "沒有符合條件的帳號。",
-  "admin_empty": "沒有可顯示的帳號。"
+  "admin_empty": "沒有可顯示的帳號。",
+  "admin_overview": "總覽",
+  "admin_joined": "新增帳號",
+  "admin_learners": "完成訓練的學員",
+  "admin_sessions": "已完成的訓練",
+  "admin_duration": "已記錄的訓練時間",
+  "admin_range": "統計期間",
+  "admin_days": "{days} 天",
+  "admin_dates": "{from} 至 {through} · 新加坡時間",
+  "admin_change": "較上一週期 {change}",
+  "admin_coverage": "共完成 {total} 次訓練，其中 {measured} 次記錄了時長。",
+  "admin_modes": "引導訓練 {guided} 次 · 自由練習 {practice} 次 · 舊版紀錄 {legacy} 次",
+  "admin_daily": "每日明細",
+  "admin_date": "日期",
+  "admin_reporting_note": "訓練統計涵蓋已同步至 Morsewell 帳號的訓練。"
 }

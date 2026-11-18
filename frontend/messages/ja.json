@@ -701,5 +701,19 @@
   "admin_previous": "前へ",
   "admin_next": "次へ",
   "admin_no_matches": "一致するアカウントがありません。",
-  "admin_empty": "表示するアカウントがありません。"
+  "admin_empty": "表示するアカウントがありません。",
+  "admin_overview": "概要",
+  "admin_joined": "新規アカウント",
+  "admin_learners": "練習した学習者",
+  "admin_sessions": "完了したセッション",
+  "admin_duration": "記録された練習時間",
+  "admin_range": "集計期間",
+  "admin_days": "{days} 日間",
+  "admin_dates": "{from} ～ {through}（シンガポール時間）",
+  "admin_change": "前期間比 {change}",
+  "admin_coverage": "完了した {total} 件のうち {measured} 件で時間を記録。",
+  "admin_modes": "ガイド付き {guided} 件・自由練習 {practice} 件・旧形式 {legacy} 件",
+  "admin_daily": "日別の内訳",
+  "admin_date": "日付",
+  "admin_reporting_note": "練習の集計は Morsewell アカウントに同期されたセッションが対象です。"
 }

@@ -701,5 +701,19 @@
   "admin_previous": "Previous",
   "admin_next": "Next",
   "admin_no_matches": "No matching accounts.",
-  "admin_empty": "No accounts to show."
+  "admin_empty": "No accounts to show.",
+  "admin_overview": "Overview",
+  "admin_joined": "New accounts",
+  "admin_learners": "Learners who trained",
+  "admin_sessions": "Completed sessions",
+  "admin_duration": "Recorded training time",
+  "admin_range": "Reporting period",
+  "admin_days": "{days} days",
+  "admin_dates": "{from} – {through} · Singapore time",
+  "admin_change": "{change} vs. previous period",
+  "admin_coverage": "Timing recorded for {measured} of {total} completed sessions.",
+  "admin_modes": "Guided {guided} · Free practice {practice} · Legacy {legacy}",
+  "admin_daily": "Daily breakdown",
+  "admin_date": "Date",
+  "admin_reporting_note": "Training figures cover sessions synced to a Morsewell account."
 }

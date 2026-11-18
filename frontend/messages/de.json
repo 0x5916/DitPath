@@ -701,5 +701,19 @@
   "admin_previous": "Zurück",
   "admin_next": "Weiter",
   "admin_no_matches": "Keine passenden Konten.",
-  "admin_empty": "Keine Konten vorhanden."
+  "admin_empty": "Keine Konten vorhanden.",
+  "admin_overview": "Übersicht",
+  "admin_joined": "Neue Konten",
+  "admin_learners": "Aktive Lernende",
+  "admin_sessions": "Abgeschlossene Einheiten",
+  "admin_duration": "Erfasste Trainingszeit",
+  "admin_range": "Berichtszeitraum",
+  "admin_days": "{days} Tage",
+  "admin_dates": "{from} – {through} · Singapur-Zeit",
+  "admin_change": "{change} zum Vorzeitraum",
+  "admin_coverage": "Zeit für {measured} von {total} abgeschlossenen Einheiten erfasst.",
+  "admin_modes": "Geführt {guided} · Freies Üben {practice} · Altdaten {legacy}",
+  "admin_daily": "Tagesübersicht",
+  "admin_date": "Datum",
+  "admin_reporting_note": "Die Trainingszahlen umfassen mit einem Morsewell-Konto synchronisierte Einheiten."
 }

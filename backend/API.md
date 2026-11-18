@@ -105,6 +105,10 @@ The live account matching the backend's configured owner UUID receives `can_look
 
 `POST /v1/admin/users/search` accepts a JSON object with optional `search` (literal case-insensitive username/email substring, up to 254 characters) and `cursor`. Returns `data` with up to 25 live accounts (ID, username, email, verification, call sign and join date), ordered by join date and ID descending, and nullable `next_cursor`.
 
+`GET /v1/admin/reports/overview` accepts `days` (7, 30 or 90, default 30) and optional `until` (exclusive Singapore date, default today). It returns the period, current and previous totals, and one zero-filled daily series for the selected period. Totals count live signups, distinct completing learners, completed sessions by mode, and the measured subset and recorded milliseconds. Session occurrence determines the period. Reports include synced native sessions and legacy progress counted once across partially mirrored history. All reads are side-effect free.
+
+Directory search also accepts `days`, `until`, and `metric` (`all`, `joined`, `learners`, `sessions` or `duration_ms`). Training filters include each matching account's completed and measured session counts and recorded milliseconds.
+
 ## Training synchronization
 
 | Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |

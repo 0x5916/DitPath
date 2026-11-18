@@ -61,6 +61,7 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 		})
 	adminHandler := handlers.AdminHandler{DB: db}
 	admin.POST("/users/search", adminHandler.SearchUsers)
+	admin.GET("/reports/overview", adminHandler.Overview)
 
 	authProtected := protected.Group("/auth")
 	authProtected.POST("/send-verification-email", authHandler.SendVerificationEmail)

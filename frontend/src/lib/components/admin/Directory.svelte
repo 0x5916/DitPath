@@ -1,25 +1,50 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { ApiError, searchAdminUsers, type AdminAccount } from '#lib/api.ts';
+  import { ApiError, searchAdminUsers } from '#lib/api.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
+  import {
+    duration,
+    metricLabels,
+    rangeLabel,
+    reportHref,
+    type Cohort,
+    type DirectoryPosition,
+    type ReportPeriod
+  } from '#lib/admin-report.ts';
   import { formatDate } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
-  let { onDenied }: { onDenied: (status: number) => void } = $props();
+  let {
+    onDenied,
+    days,
+    until,
+    metric,
+    position
+  }: {
+    onDenied: (status: number) => void;
+    days: number;
+    until: string;
+    metric: Cohort;
+    position: DirectoryPosition;
+  } = $props();
+  let period = $state<ReportPeriod | null>(null);
   const scope = createSessionScope();
   let draft = $state(''),
     search = $state('');
   let cursors = $state<string[]>([]);
-  let accounts = $state.raw<AdminAccount[]>([]);
+  let accounts = $state.raw<Awaited<ReturnType<typeof searchAdminUsers>>['data']>([]);
   let next = $state<string | null>(null);
   let loadState = $state<'loading' | 'ready' | 'error'>('loading');
   async function load() {
     const current = scope.begin();
+    position.search = search;
+    position.cursors = [...cursors];
     loadState = 'loading';
     try {
-      const result = await searchAdminUsers(search, cursors.at(-1));
+      const result = await searchAdminUsers(search, days, until, metric, cursors.at(-1));
       if (!current()) return;
+      period = result.period;
       accounts = result.data;
       next = result.next_cursor;
       loadState = 'ready';
@@ -35,6 +60,8 @@
     void load();
   }
   onMount(() => {
+    draft = search = position.search;
+    cursors = [...position.cursors];
     void load();
   });
   onDestroy(scope.dispose);
@@ -42,6 +69,10 @@
 
 <section class="page-stack">
   <h2 class="card-title">{m.admin_directory()}</h2>
+  {#if period && metric !== 'all'}<p>
+      {metricLabels[metric]()} · {rangeLabel(period)}
+      <a href={reportHref('users', days, until)}>{m.admin_clear()}</a>
+    </p>{/if}
   <form
     onsubmit={(e) => {
       e.preventDefault();
@@ -75,6 +106,12 @@
               ? m.profile_email_status_verified()
               : m.profile_email_status_not_verified()}
           </div>
+          {#if metric === 'sessions' || metric === 'learners'}<div>
+              {m.admin_sessions()} · {account.sessions}
+            </div>
+          {:else if metric === 'duration_ms'}<div>
+              {m.admin_duration()} · {duration(account.duration_ms)}
+            </div>{/if}
           <small>{m.profile_member_since()} · {formatDate(account.created_at)}</small>
         </li>
       {/each}
@@ -129,7 +166,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: var(--space-2);
-    background: var(--surface);
+    background: var(--bg-surface);
     color: inherit;
   }
 </style>

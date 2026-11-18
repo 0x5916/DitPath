@@ -1,3 +1,4 @@
+import type { Cohort, OverviewReport, ReportPeriod } from './admin-report';
 import {
   apiFetch,
   assertAuthSessionCurrent,
@@ -352,11 +353,22 @@ export interface AdminAccount {
   created_at: string;
 }
 
-export function searchAdminUsers(search: string, cursor?: string) {
-  return apiSendJson<{ data: AdminAccount[]; next_cursor: string | null }>(
-    '/admin/users/search',
-    'POST',
-    { search, cursor },
-    'DATABASE_FAILURE'
-  );
+export function searchAdminUsers(
+  search: string,
+  days: number,
+  until: string,
+  metric: Cohort,
+  cursor?: string
+) {
+  return apiSendJson<{
+    data: (AdminAccount & { sessions: number; measured: number; duration_ms: number })[];
+    period: ReportPeriod;
+    next_cursor: string | null;
+  }>('/admin/users/search', 'POST', { search, cursor, days, until, metric }, 'DATABASE_FAILURE');
+}
+
+export function getAdminOverview(days: number, until: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (until) params.set('until', until);
+  return apiGetJson<OverviewReport>(`/admin/reports/overview?${params}`, 'DATABASE_FAILURE');
 }
