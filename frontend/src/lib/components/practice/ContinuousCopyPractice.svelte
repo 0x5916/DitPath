@@ -413,6 +413,7 @@
 
 <style>
   .continuous-copy-practice {
+    --practice-card-padding: var(--space-6);
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-6);
@@ -430,7 +431,7 @@
   .console-head {
     grid-column: 1;
     grid-row: 1;
-    margin: var(--space-6) var(--space-6) 0;
+    margin: var(--practice-card-padding) var(--practice-card-padding) 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
@@ -447,8 +448,8 @@
   }
   .character-details summary {
     cursor: pointer;
-    min-height: var(--answer-target-min);
-    padding-block: var(--space-3);
+    min-height: var(--nav-control-height);
+    padding-block: var(--space-2);
   }
   .character-details p {
     max-width: 24rem;
@@ -459,7 +460,7 @@
   .session-state {
     grid-column: 1;
     grid-row: 2;
-    margin-inline: var(--space-6);
+    margin-inline: var(--practice-card-padding);
     margin-block: 0;
     font-size: var(--text-base);
     color: var(--text-secondary);
@@ -470,7 +471,7 @@
   .answer-section {
     grid-column: 1;
     grid-row: 5;
-    margin: 0 var(--space-6) var(--space-6);
+    margin: 0 var(--practice-card-padding) var(--practice-card-padding);
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -534,13 +535,18 @@
     display: none;
   }
   .ready .console-head {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-2);
   }
   .ready :global(.player-media-controls) {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--practice-card-padding);
   }
   .ready :global(.player-settings-region) {
-    margin-top: var(--space-8);
+    margin-top: var(--space-4);
+  }
+  @media (max-width: 959px) {
+    .continuous-copy-practice {
+      --practice-card-padding: var(--space-4);
+    }
   }
   .answer-section.hidden {
     display: none;

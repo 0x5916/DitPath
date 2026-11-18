@@ -9,12 +9,12 @@ export type SeoMetadata = {
   ogImagePath: string;
 };
 
-export const SITE_NAME = 'DitPath';
+export const SITE_NAME = 'Morsewell';
 export const GITHUB_URL = 'https://github.com/0x5916/DitPath';
 export const DEFAULT_OG_IMAGE_PATH = '/og-image.png';
 export const DEFAULT_OG_IMAGE_WIDTH = 1200;
 export const DEFAULT_OG_IMAGE_HEIGHT = 630;
-export const DEFAULT_OG_IMAGE_ALT = 'DitPath — learn Morse code by ear.';
+export const DEFAULT_OG_IMAGE_ALT = 'Morsewell — learn Morse code by ear.';
 export const ORGANIZATION_LOGO_PATH = '/icon-512.png';
 
 // Indexable surfaces, derived from the one route list so a route cannot be
@@ -42,29 +42,29 @@ const NOINDEX_ROBOTS = 'noindex,nofollow';
 
 const DEFAULT_LOCALIZED_TEXT: Record<Locale, LocalizedSeoText> = {
   en: {
-    title: 'DitPath - Morse Code (CW) Training & Practice',
+    title: 'Morsewell - Morse Code (CW) Training & Practice',
     description:
-      "Practice Morse code (CW) with DitPath's free Koch method trainer. Track WPM progress and join the amateur radio community."
+      "Practice Morse code (CW) with Morsewell's free Koch method trainer. Track WPM progress and join the amateur radio community."
   },
   de: {
-    title: 'DitPath - Morsecode (CW) Training und Uebung',
+    title: 'Morsewell - Morsecode (CW) Training und Uebung',
     description:
-      'Lerne Morsecode (CW) mit dem kostenlosen Koch-Trainer von DitPath. Verfolge deinen WPM-Fortschritt und tausche dich mit der Funk-Community aus.'
+      'Lerne Morsecode (CW) mit dem kostenlosen Koch-Trainer von Morsewell. Verfolge deinen WPM-Fortschritt und tausche dich mit der Funk-Community aus.'
   },
   ja: {
-    title: 'DitPath - Morse (CW) no Renshuu',
+    title: 'Morsewell - Morse (CW) no Renshuu',
     description:
-      'DitPath no muryo Koch methodo toreena de Morse (CW) o renshuu. WPM no seichou o kiroku shi, amateur radio community ni sanka dekimasu.'
+      'Morsewell no muryo Koch methodo toreena de Morse (CW) o renshuu. WPM no seichou o kiroku shi, amateur radio community ni sanka dekimasu.'
   },
   'zh-Hans': {
-    title: 'DitPath - Moersi (CW) Xunlian yu Lianxi',
+    title: 'Morsewell - Moersi (CW) Xunlian yu Lianxi',
     description:
-      'Shi yong DitPath mianfei Koch xunlianqi lianxi Moersi ma(CW), genzong WPM jinbu, bing jiaru wuxian dian shequ.'
+      'Shi yong Morsewell mianfei Koch xunlianqi lianxi Moersi ma(CW), genzong WPM jinbu, bing jiaru wuxian dian shequ.'
   },
   'zh-Hant': {
-    title: 'DitPath - Moshi (CW) Xunlian yu Lianxi',
+    title: 'Morsewell - Moshi (CW) Xunlian yu Lianxi',
     description:
-      'Shi yong DitPath mianfei Koch xunlianqi lianxi Moshi ma(CW), zhuizong WPM jinbu, bing jiaru yuyu diantai shequ.'
+      'Shi yong Morsewell mianfei Koch xunlianqi lianxi Moshi ma(CW), zhuizong WPM jinbu, bing jiaru yuyu diantai shequ.'
   }
 };
 
@@ -72,114 +72,114 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/': {
     localized: {
       en: {
-        title: 'DitPath - Learn Morse Code at Real Speed',
+        title: 'Morsewell - Learn Morse Code at Real Speed',
         description:
-          'DitPath is a free Koch-method Morse code trainer: listen at full speed, type what you hear, and watch your accuracy climb. No account needed to start.'
+          'Morsewell is a free Koch-method Morse code trainer: listen at full speed, type what you hear, and watch your accuracy climb. No account needed to start.'
       },
       de: {
-        title: 'DitPath - Morsecode in echtem Tempo lernen',
+        title: 'Morsewell - Morsecode in echtem Tempo lernen',
         description:
-          'DitPath ist ein kostenloser Morsecode-Trainer nach der Koch-Methode: in vollem Tempo hoeren, Gehoertes tippen und die Genauigkeit steigern. Ohne Konto nutzbar.'
+          'Morsewell ist ein kostenloser Morsecode-Trainer nach der Koch-Methode: in vollem Tempo hoeren, Gehoertes tippen und die Genauigkeit steigern. Ohne Konto nutzbar.'
       },
       ja: {
-        title: 'DitPath - Jissen Sokudo de Morse o Manabu',
+        title: 'Morsewell - Jissen Sokudo de Morse o Manabu',
         description:
-          'DitPath wa muryo no Koch methodo Morse toreena desu. Jissen sokudo de kiki, kiki totta moji o taipu shi, seido o nobashite ikemasu. Touroku wa fuyo desu.'
+          'Morsewell wa muryo no Koch methodo Morse toreena desu. Jissen sokudo de kiki, kiki totta moji o taipu shi, seido o nobashite ikemasu. Touroku wa fuyo desu.'
       },
       'zh-Hans': {
-        title: 'DitPath - Yi Shizhan Sudu Xuexi Mosi Ma',
+        title: 'Morsewell - Yi Shizhan Sudu Xuexi Mosi Ma',
         description:
-          'DitPath shi mianfei de Koch fangfa Mosi ma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
+          'Morsewell shi mianfei de Koch fangfa Mosi ma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
       },
       'zh-Hant': {
-        title: 'DitPath - Yi Shizhan Sudu Xuexi Moshi Dianma',
+        title: 'Morsewell - Yi Shizhan Sudu Xuexi Moshi Dianma',
         description:
-          'DitPath shi mianfei de Koch fangfa Moshi dianma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
+          'Morsewell shi mianfei de Koch fangfa Moshi dianma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
       }
     }
   },
   '/about': {
     localized: {
       en: {
-        title: 'About DitPath - Koch Method, Project and Author',
+        title: 'About Morsewell - Koch Method, Project and Author',
         description:
-          'What DitPath is, how the Koch method teaches Morse code at full speed, who builds it, and how your practice data is handled.'
+          'What Morsewell is, how the Koch method teaches Morse code at full speed, who builds it, and how your practice data is handled.'
       },
       de: {
-        title: 'Ueber DitPath - Koch-Methode, Projekt und Autor',
+        title: 'Ueber Morsewell - Koch-Methode, Projekt und Autor',
         description:
-          'Was DitPath ist, wie die Koch-Methode Morsecode in vollem Tempo vermittelt, wer dahintersteht und was mit deinen Uebungsdaten passiert.'
+          'Was Morsewell ist, wie die Koch-Methode Morsecode in vollem Tempo vermittelt, wer dahintersteht und was mit deinen Uebungsdaten passiert.'
       },
       ja: {
-        title: 'DitPath ni tsuite - Koch Methodo to Project',
+        title: 'Morsewell ni tsuite - Koch Methodo to Project',
         description:
-          'DitPath no gaiyou, Koch methodo de Morse o manabu shikumi, kaihatsu sha, renshuu data no toriatsukai ni tsuite setsumei shimasu.'
+          'Morsewell no gaiyou, Koch methodo de Morse o manabu shikumi, kaihatsu sha, renshuu data no toriatsukai ni tsuite setsumei shimasu.'
       },
       'zh-Hans': {
-        title: 'Guanyu DitPath - Koch Fangfa, Xiangmu yu Zuozhe',
+        title: 'Guanyu Morsewell - Koch Fangfa, Xiangmu yu Zuozhe',
         description:
-          'Jieshao DitPath shi shenme, Koch fangfa ruhe jiao shou Mosi ma, zuozhe shi shui, yiji lianxi shuju ruhe chuli.'
+          'Jieshao Morsewell shi shenme, Koch fangfa ruhe jiao shou Mosi ma, zuozhe shi shui, yiji lianxi shuju ruhe chuli.'
       },
       'zh-Hant': {
-        title: 'Guanyu DitPath - Koch Fangfa, Zhuanan yu Zuozhe',
+        title: 'Guanyu Morsewell - Koch Fangfa, Zhuanan yu Zuozhe',
         description:
-          'Jieshao DitPath shi shenme, Koch fangfa ruhe jiao shou Moshi mima, zuozhe shi shui, yiji lianxi ziliao ruhe chuli.'
+          'Jieshao Morsewell shi shenme, Koch fangfa ruhe jiao shou Moshi mima, zuozhe shi shui, yiji lianxi ziliao ruhe chuli.'
       }
     }
   },
   '/morse': {
     localized: {
       en: {
-        title: 'Reference | DitPath Morse Characters',
+        title: 'Reference | Morsewell Morse Characters',
         description:
-          'Look up every DitPath course character, inspect its Morse code pattern, and listen to its sound in an unscored character reference.'
+          'Look up every Morsewell course character, inspect its Morse code pattern, and listen to its sound in an unscored character reference.'
       },
       de: {
-        title: 'Referenz | DitPath Morsezeichen',
+        title: 'Referenz | Morsewell Morsezeichen',
         description:
-          'Schlage jedes Zeichen im DitPath-Kurs nach, sieh dir sein Morsezeichen an und höre seinen Klang in einer Zeichenreferenz ohne Bewertung.'
+          'Schlage jedes Zeichen im Morsewell-Kurs nach, sieh dir sein Morsezeichen an und höre seinen Klang in einer Zeichenreferenz ohne Bewertung.'
       },
       ja: {
-        title: 'リファレンス | DitPath モールス符号一覧',
+        title: 'リファレンス | Morsewell モールス符号一覧',
         description:
-          'DitPathのコースに登場するすべての文字・数字・記号を調べ、モールス符号の表記と音を確認できます。何度でも再生でき、採点はありません。文章の聞き取り練習やガイド付きレッスンにも進めます。'
+          'Morsewellのコースに登場するすべての文字・数字・記号を調べ、モールス符号の表記と音を確認できます。何度でも再生でき、採点はありません。文章の聞き取り練習やガイド付きレッスンにも進めます。'
       },
       'zh-Hans': {
-        title: '参考 | DitPath 摩尔斯电码字符与声音',
+        title: '参考 | Morsewell 摩尔斯电码字符与声音',
         description:
-          '查询 DitPath 课程中的所有字母、数字和标点符号，查看每个字符的摩尔斯电码符号并反复聆听声音。此字符参考工具不计分，也不会改变课程进度。准备好后可打开短文听抄练习，或返回引导课程继续学习。'
+          '查询 Morsewell 课程中的所有字母、数字和标点符号，查看每个字符的摩尔斯电码符号并反复聆听声音。此字符参考工具不计分，也不会改变课程进度。准备好后可打开短文听抄练习，或返回引导课程继续学习。'
       },
       'zh-Hant': {
-        title: '參考 | DitPath 摩斯電碼字元與聲音',
+        title: '參考 | Morsewell 摩斯電碼字元與聲音',
         description:
-          '查詢 DitPath 課程中的所有字母、數字和標點符號，查看每個字元的摩斯電碼符號並反覆聆聽聲音。此字元參考工具不計分，也不會改變課程進度。準備好後可開啟短文聽抄練習，或返回引導課程繼續學習。'
+          '查詢 Morsewell 課程中的所有字母、數字和標點符號，查看每個字元的摩斯電碼符號並反覆聆聽聲音。此字元參考工具不計分，也不會改變課程進度。準備好後可開啟短文聽抄練習，或返回引導課程繼續學習。'
       }
     }
   },
   '/morse/learn': {
     localized: {
       en: {
-        title: 'Lessons | DitPath Morse Code Course',
+        title: 'Lessons | Morsewell Morse Code Course',
         description:
           'Train Morse code with adaptive Koch lessons, listening drills, and progress tracking built for practical CW improvement.'
       },
       de: {
-        title: 'Lektionen | DitPath Morsecode-Kurs',
+        title: 'Lektionen | Morsewell Morsecode-Kurs',
         description:
           'Trainiere Morsecode mit adaptiven Koch-Lektionen, Hoeruebungen und Fortschrittsverfolgung fuer echte CW-Verbesserung.'
       },
       ja: {
-        title: 'レッスン | DitPath モールス符号コース',
+        title: 'レッスン | Morsewell モールス符号コース',
         description:
           'Koch lesson, listening drill, shinchoku tsuiseki de jissen-teki ni Morse (CW) no nouryoku o nobasu kunren ga dekimasu.'
       },
       'zh-Hans': {
-        title: '课程 | DitPath 摩尔斯电码声音识别课程',
+        title: '课程 | Morsewell 摩尔斯电码声音识别课程',
         description:
           'Tongguo zishiying Koch kecheng, tingli lianxi he jindu zhuizong, wending tisheng CW shizhan nengli.'
       },
       'zh-Hant': {
-        title: '課程 | DitPath 摩斯電碼聲音辨識課程',
+        title: '課程 | Morsewell 摩斯電碼聲音辨識課程',
         description:
           'Tongguo zishiying Koch kecheng, tingli lianxi he jindu zhuizong, wending tisheng CW shizhan nengli.'
       }
@@ -188,27 +188,27 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/morse/practice': {
     localized: {
       en: {
-        title: 'Practice | DitPath Morse Copying',
+        title: 'Practice | Morsewell Morse Copying',
         description:
           'Choose a character set, listen to a Morse passage, and check your transcription in self-directed Practice. Guided lesson progress stays separate.'
       },
       de: {
-        title: 'Übungen | DitPath Morse-Mitschreiben',
+        title: 'Übungen | Morsewell Morse-Mitschreiben',
         description:
           'Wähle einen Zeichensatz, höre einen Morsetext und prüfe deine Mitschrift in den freien Übungen. Der Fortschritt in den Lektionen bleibt davon getrennt.'
       },
       ja: {
-        title: '練習 | DitPath モールス符号の書き取り',
+        title: '練習 | Morsewell モールス符号の書き取り',
         description:
           '文字セットを選び、モールス符号の文章を聞いて書き取り、内容を確認できます。自由な練習によってレッスンの進捗が変わることはありません。'
       },
       'zh-Hans': {
-        title: '练习 | DitPath 摩尔斯电码听抄练习',
+        title: '练习 | Morsewell 摩尔斯电码听抄练习',
         description:
           '选择字符集，聆听一段摩尔斯电码并核对抄收内容。自由练习不会影响课程的解锁或掌握条件。'
       },
       'zh-Hant': {
-        title: '練習 | DitPath 摩斯電碼聽抄練習',
+        title: '練習 | Morsewell 摩斯電碼聽抄練習',
         description:
           '選擇字元集，聆聽一段摩斯電碼並核對抄收內容。自由練習不會影響課程的解鎖或掌握條件。'
       }
@@ -219,26 +219,26 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/morse/progress': {
     localized: {
       en: {
-        title: 'Progress · DitPath',
+        title: 'Progress · Morsewell',
         description:
           'Review your Morse training activity, recent sessions, and character mastery recorded on this device.'
       },
       de: {
-        title: 'Fortschritt · DitPath',
+        title: 'Fortschritt · Morsewell',
         description:
           'Sieh dir deine Morsetrainings-Aktivitaet, die letzten Einheiten und deine Zeichenbeherrschung auf diesem Geraet an.'
       },
       ja: {
-        title: '進捗 · DitPath',
+        title: '進捗 · Morsewell',
         description:
           'このデバイスに記録されたモールストレーニングの活動、最近のセッション、文字の習得状況を確認できます。'
       },
       'zh-Hans': {
-        title: '进度 · DitPath',
+        title: '进度 · Morsewell',
         description: '查看此设备上记录的摩尔斯训练活动、近期练习与字符掌握情况。'
       },
       'zh-Hant': {
-        title: '進度 · DitPath',
+        title: '進度 · Morsewell',
         description: '查看此裝置上記錄的摩斯訓練活動、近期練習與字元掌握情況。'
       }
     }
@@ -246,52 +246,52 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/forum': {
     localized: {
       en: {
-        title: 'DitPath Forum - Morse Code & Amateur Radio Community',
+        title: 'Morsewell Forum - Morse Code & Amateur Radio Community',
         description:
-          'Ask questions, share your Morse code progress, and swap CW tips with other amateur radio operators in the DitPath community forum.'
+          'Ask questions, share your Morse code progress, and swap CW tips with other amateur radio operators in the Morsewell community forum.'
       },
       de: {
-        title: 'DitPath Forum - Morsecode-Community und Funkamateure',
+        title: 'Morsewell Forum - Morsecode-Community und Funkamateure',
         description:
-          'Stelle Fragen, teile deinen Fortschritt und tausche Tipps mit anderen Funkamateuren und Morsecode-Lernenden im DitPath-Forum aus.'
+          'Stelle Fragen, teile deinen Fortschritt und tausche Tipps mit anderen Funkamateuren und Morsecode-Lernenden im Morsewell-Forum aus.'
       },
       ja: {
-        title: 'DitPath Forum - Morse to Musen no Community',
+        title: 'Morsewell Forum - Morse to Musen no Community',
         description:
-          'Shitsumon, shinchoku no kyoyu, CW no kotsu no kokan ga dekiru DitPath no community forum desu. Kigaru ni sanka shite, saisho no thread o tatete mimashou.'
+          'Shitsumon, shinchoku no kyoyu, CW no kotsu no kokan ga dekiru Morsewell no community forum desu. Kigaru ni sanka shite, saisho no thread o tatete mimashou.'
       },
       'zh-Hans': {
-        title: 'DitPath Luntan - Mosi Ma yu Wuxiandian Shequ',
+        title: 'Morsewell Luntan - Mosi Ma yu Wuxiandian Shequ',
         description:
-          'Zai DitPath shequ luntan tiwen, fenxiang jinbu, yu qita wuxiandian aihaozhe jiaoliu Mosi ma xinde.'
+          'Zai Morsewell shequ luntan tiwen, fenxiang jinbu, yu qita wuxiandian aihaozhe jiaoliu Mosi ma xinde.'
       },
       'zh-Hant': {
-        title: 'DitPath Luntan - Moshi Dianma yu Wuxian Shequ',
+        title: 'Morsewell Luntan - Moshi Dianma yu Wuxian Shequ',
         description:
-          'Zai DitPath shequ luntan tiwen, fenxiang jinbu, yu qita yeyu wuxiandian aihaozhe jiaoliu Moshi dianma xinde.'
+          'Zai Morsewell shequ luntan tiwen, fenxiang jinbu, yu qita yeyu wuxiandian aihaozhe jiaoliu Moshi dianma xinde.'
       }
     }
   },
   '/more': {
     localized: {
       en: {
-        title: 'More - DitPath',
+        title: 'More - Morsewell',
         description: 'App settings, your account, the display mode and the interface language.'
       },
       de: {
-        title: 'Mehr - DitPath',
+        title: 'Mehr - Morsewell',
         description: 'App-Einstellungen, dein Konto, das Design und die Sprache der Oberflaeche.'
       },
       ja: {
-        title: 'その他 - DitPath',
+        title: 'その他 - Morsewell',
         description: 'アプリの設定、アカウント、表示テーマ、表示言語。'
       },
       'zh-Hans': {
-        title: '更多 - DitPath',
+        title: '更多 - Morsewell',
         description: '应用设置、账号、显示主题与界面语言。'
       },
       'zh-Hant': {
-        title: '更多 - DitPath',
+        title: '更多 - Morsewell',
         description: '應用程式設定、帳號、顯示主題與介面語言。'
       }
     }
@@ -299,35 +299,35 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/login': {
     localized: {
       en: {
-        title: 'Login - DitPath',
+        title: 'Login - Morsewell',
         description:
-          'Sign in to DitPath to continue your Morse code training and sync your learning progress.'
+          'Sign in to Morsewell to continue your Morse code training and sync your learning progress.'
       }
     }
   },
   '/register': {
     localized: {
       en: {
-        title: 'Register - DitPath',
+        title: 'Register - Morsewell',
         description:
-          'Create a DitPath account to save your Morse code training progress and settings.'
+          'Create a Morsewell account to save your Morse code training progress and settings.'
       }
     }
   },
   '/profile': {
     localized: {
       en: {
-        title: 'Profile - DitPath',
-        description: 'Review your DitPath profile, activity, and training milestones.'
+        title: 'Profile - Morsewell',
+        description: 'Review your Morsewell profile, activity, and training milestones.'
       }
     }
   },
   '/settings': {
     localized: {
       en: {
-        title: 'Settings - DitPath',
+        title: 'Settings - Morsewell',
         description:
-          'Manage your DitPath preferences for language, practice behavior, and account options.'
+          'Manage your Morsewell preferences for language, practice behavior, and account options.'
       }
     }
   }

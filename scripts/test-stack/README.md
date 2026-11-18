@@ -1,6 +1,6 @@
 # Disposable full-stack acceptance environment
 
-This directory runs the real DitPath application locally for manual acceptance without touching the production Compose project, production volumes, deployment configuration, or any other worktree.
+This directory runs the real Morsewell application locally for manual acceptance without touching the production Compose project, production volumes, deployment configuration, or any other worktree.
 
 | Component  | Implementation                                                          | Loopback URL                       |
 | ---------- | ----------------------------------------------------------------------- | ---------------------------------- |

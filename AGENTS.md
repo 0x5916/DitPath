@@ -1,6 +1,6 @@
-# DitPath agent rules
+# Morsewell agent rules
 
-This repository contains the sound-first DitPath trainer. See [README.md](README.md) for the project map and document ownership; read [frontend/AGENTS.md](frontend/AGENTS.md) before frontend work.
+This repository contains the sound-first Morsewell trainer. See [README.md](README.md) for the project map and document ownership; read [frontend/AGENTS.md](frontend/AGENTS.md) before frontend work.
 
 ## Boundaries
 

@@ -84,7 +84,7 @@ compute_pgtune_settings() {
   pg_connection_ceiling=$(( 262143 - 16 - MWP - pg_wal_senders - 2 ))
   [ "$MAX_CONNS" -le "$pg_connection_ceiling" ] ||
     die "POSTGRES_MAX_CONNECTIONS=${MAX_CONNS} exceeds the PG18 process budget; maximum ${pg_connection_ceiling} with ${MWP} workers, 16 autovacuum slots, ${pg_wal_senders} WAL senders and 2 special workers"
-  log "DitPath validation: max_connections <= ${pg_connection_ceiling} for the PostgreSQL 18 process budget"
+  log "Morsewell validation: max_connections <= ${pg_connection_ceiling} for the PostgreSQL 18 process budget"
   WM_KB=$(( (pg_ram_kb - pg_sb_kb) / ((MAX_CONNS + MWP) * 3 * pg_work_divisor) ))
   case "$pg_size" in
     less_ram) WM_KB=$(( WM_KB * 13 / 10 )) ;;

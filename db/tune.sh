@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# DitPath PostgreSQL tuner.
+# Morsewell PostgreSQL tuner.
 #
 # The `db` service runs this as its entrypoint, immediately before the official
 # PostgreSQL entrypoint. It works out how much memory and how many CPUs this container

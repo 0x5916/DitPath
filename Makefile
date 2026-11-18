@@ -1,4 +1,4 @@
-# DitPath operational helpers.
+# Morsewell operational helpers.
 #
 # Every target delegates to a script in scripts/. The scripts are the source of
 # truth so that `make` is never the only way to do something, and so the logic
@@ -45,7 +45,7 @@ _TIMEOUT := $(if $(value TIMEOUT),--timeout $(call shell_quote,$(value TIMEOUT))
 
 help:
 	@printf '%s\n' \
-	  'DitPath deployment helpers' \
+	  'Morsewell deployment helpers' \
 	  '' \
 	  'Usage: make <target> [VAR=value]' \
 	  '' \

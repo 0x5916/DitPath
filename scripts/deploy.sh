@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First-time deployment of the DitPath stack.
+# First-time deployment of the Morsewell stack.
 #
 # Bootstraps .env from example.env, offers to generate the JWT secret, validates
 # the file against DEPLOYMENT.md's requirements, builds and starts the stack, and
@@ -12,7 +12,7 @@ TIMEOUT=240
 
 usage() {
   print_help \
-    "Build and start the DitPath stack for the first time." \
+    "Build and start the Morsewell stack for the first time." \
     "scripts/deploy.sh [options]" \
     "--timeout SECONDS     how long to wait for each service (default ${TIMEOUT})" \
     "--yes                 do not prompt; accept the .env bootstrap and JWT generation"
@@ -118,7 +118,7 @@ fi
 # --- 6. summary -------------------------------------------------------------
 
 printf '\n'
-ok "DitPath is up"
+ok "Morsewell is up"
 printf '\n'
 printf '  Frontend       http://localhost:%s\n' "${FRONTEND_PORT}"
 printf '  Backend API    http://localhost:%s/v1\n' "${API_PORT}"

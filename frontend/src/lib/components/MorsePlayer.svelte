@@ -850,17 +850,17 @@
     border: 0;
     background: transparent;
     box-shadow: none;
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
   .practice-layout .player-playhead {
     grid-column: 1;
     grid-row: 3;
-    margin-inline: var(--space-6);
+    margin-inline: var(--practice-card-padding, var(--space-6));
   }
   .practice-layout .player-media-controls {
     grid-column: 1;
     grid-row: 4;
-    margin-inline: var(--space-6);
+    margin-inline: var(--practice-card-padding, var(--space-6));
     flex-wrap: wrap;
   }
   .practice-layout .player-play-btn {
@@ -870,6 +870,6 @@
   .practice-layout .player-error {
     grid-column: 1;
     grid-row: 6;
-    margin-inline: var(--space-6);
+    margin-inline: var(--practice-card-padding, var(--space-6));
   }
 </style>

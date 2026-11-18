@@ -4,36 +4,37 @@
 :root {
   color-scheme: dark;
 
-  /* Warm charcoal keeps the listening space quiet; Forest carries the signal. */
-  --bg-base: #191917;
-  --bg-surface: #22221f;
-  --bg-inset: #2b2b26;
+  /* Forest Jade: neutral charcoal surfaces; jade carries interactive emphasis. */
+  --bg-base: #15191b;
+  --bg-surface: #22272a;
+  --bg-inset: #2c3236;
 
-  --border: #3c3c35;
-  --border-subtle: #505047;
+  --border: #42494d;
+  --border-subtle: #596166;
   /* Edge of a card/panel surface. Separate from `--border` so flat cards stay
      legible in light mode without strengthening inputs, navbar or footer. */
-  --border-card: #3d3d35;
+  --border-card: #42494d;
   /* Form-control edges need 3:1 against the surface they sit on (WCAG 1.4.11),
      so controls get a stronger rule than decorative hairlines. */
-  --border-control: #7d7d70;
-  --border-control-hover: #a2a08d;
+  --border-control: #828d92;
+  --border-control-hover: #a6afb3;
 
-  --text-primary: #f2f0e9;
-  --text-secondary: #ccc9bd;
-  --text-muted: #aaa797;
-  --text-label: #bdb9a8;
+  --text-primary: #edf1f0;
+  --text-secondary: #c7cfcd;
+  --text-muted: #a8b3af;
+  --text-label: #b9c3bf;
 
   /* Forest shades in dark and light modes share the interactive roles:
      buttons, links, the playhead, the active lesson and focus. Feedback uses
      separate semantic tokens, with text and icons identifying each result. */
-  --accent: #8ac6a3;
-  --accent-cta: #8ac6a3;
-  --accent-cta-h: #9cceaf;
+  --accent: #85d1a4;
+  --accent-cta: #85d1a4;
+  --accent-cta-h: #a0dfba;
+  --brand-gold: #eac384;
   --danger: var(--status-bad);
   /* Soft Forest fills carry dark ink; the light theme uses deep Forest with
      a light label so both themes retain readable primary actions. */
-  --on-accent: #272113;
+  --on-accent: #1c3228;
 
   --result-good-bg: #202f28;
   --result-bad-bg: #352622;
@@ -41,7 +42,7 @@
   /* Semantic status roles. The result diff, verified/accuracy states and inline
      banners all read from these; components must not hard-code status hexes.
      The light theme re-tunes them for contrast on paper. */
-  --status-good: #81bea3;
+  --status-good: #65c6bc;
   --status-ok: #d8bc70;
   --status-bad: #eb9a8b;
   --status-extra: #9bbad3;
@@ -51,7 +52,7 @@
   --status-bad-tint: color-mix(in srgb, var(--status-bad) 15%, transparent);
   --status-extra-tint: color-mix(in srgb, var(--status-extra) 15%, transparent);
 
-  /* DitPath learning-specific semantic aliases */
+  /* Morsewell learning-specific semantic aliases */
   --learning-current: var(--accent);
   --learning-stable: var(--status-good);
   --learning-review: var(--status-ok);
@@ -89,6 +90,7 @@
 
   --nav-control-height: 2.75rem;
   --max-width-container: 64rem;
+  --max-width-wide: 73rem;
   /* 46rem keeps body copy inside the ~75-char readable-line-length sweet spot
      while trimming a bit of the dead space `.page-narrow` pages (About,
      Settings) leave on very wide desktop viewports. */
@@ -102,9 +104,7 @@
   /* Below the navbar. Keep it under the navbar's own height (~3.25rem), or the
      empty space above the first line reads as heavier than the chrome itself. */
   --page-top: 2.5rem;
-  /* Phones have no top bar at all, so this gap is not separating content from
-     anything: it only clears the status bar / notch and lets the first line
-     breathe. It is added to `env(safe-area-inset-top)`, never replaced by it. */
+  /* Compact content spacing below the phone account header. */
   --page-top-phone: 1.25rem;
   --page-bottom: 3.5rem;
   --section-gap: 2.5rem;
@@ -140,23 +140,23 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     color-scheme: light;
-    --bg-base: #f3f2ed;
-    --bg-surface: #fcfbf7;
-    --bg-inset: #e8e7df;
-    --border: #d6d5ca;
-    --border-subtle: #c4c2b5;
-    --border-card: #d2d1c5;
-    --border-control: #807d70;
-    --border-control-hover: #686658;
-    --text-primary: #252620;
-    --text-secondary: #4f5147;
-    --text-muted: #65675b;
-    --text-label: #5c5e50;
-    --accent: #2f6b50;
-    --accent-cta: #2f6b50;
-    --accent-cta-h: #2e634a;
-    --on-accent: #fffaf0;
-    --status-good: #2a624e;
+    --bg-base: #f7f8f3;
+    --bg-surface: #ffffff;
+    --bg-inset: #e9ede7;
+    --border: #d2d9d1;
+    --border-subtle: #bdc7bd;
+    --border-card: #d2d9d1;
+    --border-control: #778177;
+    --border-control-hover: #59665c;
+    --text-primary: #1c3228;
+    --text-secondary: #465c50;
+    --text-muted: #5d6f63;
+    --text-label: #53695a;
+    --accent: #27694e;
+    --accent-cta: #27694e;
+    --accent-cta-h: #20583f;
+    --on-accent: #ffffff;
+    --status-good: #17675f;
     --status-ok: #6d5412;
     --status-bad: #943a30;
     --status-extra: #365b7b;
@@ -169,23 +169,23 @@
 
 [data-theme='light'] {
   color-scheme: light;
-  --bg-base: #f3f2ed;
-  --bg-surface: #fcfbf7;
-  --bg-inset: #e8e7df;
-  --border: #d6d5ca;
-  --border-subtle: #c4c2b5;
-  --border-card: #d2d1c5;
-  --border-control: #807d70;
-  --border-control-hover: #686658;
-  --text-primary: #252620;
-  --text-secondary: #4f5147;
-  --text-muted: #65675b;
-  --text-label: #5c5e50;
-  --accent: #2f6b50;
-  --accent-cta: #2f6b50;
-  --accent-cta-h: #2e634a;
-  --on-accent: #fffaf0;
-  --status-good: #2a624e;
+  --bg-base: #f7f8f3;
+  --bg-surface: #ffffff;
+  --bg-inset: #e9ede7;
+  --border: #d2d9d1;
+  --border-subtle: #bdc7bd;
+  --border-card: #d2d9d1;
+  --border-control: #778177;
+  --border-control-hover: #59665c;
+  --text-primary: #1c3228;
+  --text-secondary: #465c50;
+  --text-muted: #5d6f63;
+  --text-label: #53695a;
+  --accent: #27694e;
+  --accent-cta: #27694e;
+  --accent-cta-h: #20583f;
+  --on-accent: #ffffff;
+  --status-good: #17675f;
   --status-ok: #6d5412;
   --status-bad: #943a30;
   --status-extra: #365b7b;
@@ -487,6 +487,12 @@ body {
   text-decoration: underline;
 }
 
+/* Inline prose links remain identifiable without relying on the jade hue. */
+p .link {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 /* Buttons are inline by default: the action decides its own width. Hover is a
    colour step only — no lift, no glow. The base below carries the control
    frame; each variant only sets its size, colour and hover step. */
@@ -745,7 +751,7 @@ select.select {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 /* Form field: an always-visible label above its control, optional hint below. */
@@ -753,7 +759,7 @@ select.select {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.3rem;
+  gap: var(--space-2);
 }
 
 .field-hint {
@@ -886,7 +892,7 @@ summary:focus-visible,
 
 @media print {
   .navbar,
-  .footer,
+  .site-footer,
   button,
   .btn-primary,
   .btn-ghost,
@@ -1192,47 +1198,31 @@ summary:focus-visible,
   margin-bottom: var(--space-3);
 }
 
-/* Approved welcome illustration: decorative colors are independent of status. */
-:root {
-  --welcome-forest: #2f6b50;
-  --welcome-radio: #418261;
-  --welcome-gold: #d8bc70;
-  --welcome-paper: #f3f2ed;
-  --welcome-ink: #252620;
-  --welcome-mint: #a9d3b5;
-  --welcome-wash: #283d31;
-}
-
-/* Presence follows the existing Home owner/history decision, including SSR. */
-.page-wrapper:has(.welcome) > :is(.navbar, .bottom-nav, .footer) {
-  display: none;
-}
+/* Landing content keeps its approved hero width and spacing. */
 .page-content:has(.welcome) {
   max-width: 80rem;
-  padding: max(env(safe-area-inset-top), 1.5rem) 2rem 2rem;
+  padding: 1.5rem 2rem 2rem;
 }
 @media (max-width: 799px) {
   .page-content:has(.welcome) {
-    padding: calc(env(safe-area-inset-top) + 1rem) 1.5rem calc(env(safe-area-inset-bottom) + 1rem);
+    padding: 1rem 1.5rem 1rem;
   }
 }
 
-[data-theme='light'] {
-  --welcome-wash: #e1e9df;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --welcome-wash: #e1e9df;
+/* The landing view has no fixed tabs; its full footer owns the safe-area inset. */
+@media (width < 960px) {
+  .page-content--home:has(.welcome) {
+    padding-bottom: var(--space-4);
   }
 }
 
 /* Lessons shares the application shell, with room for the course beside the action. */
 .page-content:has(.lessons-page) {
-  max-width: 73rem;
+  max-width: var(--max-width-wide);
   padding-inline: 1.5rem;
 }
 
 .page-content:has(.practice-page) {
-  max-width: 73rem;
+  max-width: var(--max-width-wide);
   padding-inline: 1.5rem;
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a portable logical backup of the DitPath database.
+# Create a portable logical backup of the Morsewell database.
 #
 # Uses the same pg_dump pipeline that DEPLOYMENT.md section 6 documents, so the
 # documented restore command keeps working, and writes gzip-compressed plain-SQL
@@ -21,7 +21,7 @@ PRINT_PATH=0
 
 usage() {
   print_help \
-    "Dump the DitPath database to ${BACKUP_DIR} and rotate old dumps." \
+    "Dump the Morsewell database to ${BACKUP_DIR} and rotate old dumps." \
     "scripts/backup.sh [options]" \
     "--keep N              keep the newest N dumps; 0 disables pruning (default ${KEEP})" \
     "--dir PATH            write dumps to PATH instead of ${BACKUP_DIR}" \

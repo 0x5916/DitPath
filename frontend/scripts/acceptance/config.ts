@@ -27,7 +27,7 @@ export default defineConfig(({ command }) => {
             } else if (req.url === '/__acceptance') {
               res.setHeader('Content-Type', 'text/html');
               res.end(
-                '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width"><title>DitPath acceptance</title><body><main><h1>DitPath acceptance</h1><p>Synthetic data only. Selecting a scenario replaces this test database. Close other acceptance tabs first. API requests stay on this local server and return 503.</p><div id="scenarios"></div><p role="status" id="status"></p></main><script type="module" src="/scripts/acceptance/client.ts"></script></body></html>'
+                '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width"><title>Morsewell acceptance</title><body><main><h1>Morsewell acceptance</h1><p>Synthetic data only. Selecting a scenario replaces this test database. Close other acceptance tabs first. API requests stay on this local server and return 503.</p><div id="scenarios"></div><p role="status" id="status"></p></main><script type="module" src="/scripts/acceptance/client.ts"></script></body></html>'
               );
             } else next();
           });

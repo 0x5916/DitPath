@@ -317,7 +317,8 @@
     gap: var(--space-3) var(--space-4);
     align-items: start;
     margin: 0 0 var(--section-gap);
-    padding: var(--space-4) var(--space-10) var(--space-4) var(--space-4);
+    padding: var(--space-4) calc(var(--space-4) + var(--nav-control-height)) var(--space-4)
+      var(--space-4);
     border: 1px solid var(--border-card);
     border-radius: var(--radius-md);
     background-color: var(--bg-surface);
@@ -406,6 +407,19 @@
   }
 
   @media (max-width: 480px) {
+    .migration-banner.compact {
+      grid-template-columns: minmax(0, 1fr);
+      padding: var(--space-3) calc(var(--space-2) + var(--nav-control-height)) var(--space-3)
+        var(--space-3);
+      margin-bottom: var(--space-3);
+    }
+    .migration-banner.compact .migration-icon {
+      display: none;
+    }
+    .migration-banner.compact h2 {
+      text-wrap: wrap;
+    }
+
     .migration-actions {
       flex-direction: column;
       align-items: stretch;

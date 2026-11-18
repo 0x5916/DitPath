@@ -1,5 +1,5 @@
 /**
- * Native IndexedDB foundation for DitPath local storage.
+ * Native IndexedDB foundation for Morsewell local storage.
  *
  * Guarantees:
  * - Safe for SSR / prerender: never attempts browser IndexedDB access if unavailable.
@@ -34,7 +34,7 @@ function getIndexedDbFactory(customFactory?: IDBFactory): IDBFactory {
 }
 
 /**
- * Opens or upgrades the DitPath training database.
+ * Opens or upgrades the Morsewell training database.
  */
 export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase> {
   const factory = getIndexedDbFactory(customFactory);
@@ -50,7 +50,7 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
     };
     const timeout = setTimeout(() => {
       timedOut = true;
-      fail(new Error('Opening DitPath training database timed out'));
+      fail(new Error('Opening Morsewell training database timed out'));
       try {
         request.transaction?.abort();
       } catch {
@@ -84,7 +84,7 @@ export function openTrainingDb(customFactory?: IDBFactory): Promise<IDBDatabase>
     };
 
     request.onerror = () => {
-      fail(request.error ?? new Error('Failed to open DitPath training database'));
+      fail(request.error ?? new Error('Failed to open Morsewell training database'));
     };
 
     request.onblocked = () => {

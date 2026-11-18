@@ -1,4 +1,4 @@
-# DitPath frontend
+# Morsewell frontend
 
 The frontend uses SvelteKit 3, Svelte 5, TypeScript 6, Tailwind CSS 4, and Paraglide for English, German, Japanese, Simplified Chinese, and Traditional Chinese. Production uses `adapter-static` and nginx, with no SvelteKit server runtime. Shared framework configuration lives in [kit-options.js](scripts/kit-options.js), consumed by Vite, Vitest, and ESLint.
 
@@ -10,9 +10,9 @@ known page navigations are network-first with their own cached shell as fallback
 Home, Lessons, Practice, and Progress shells are precached in all five locales;
 other known pages become available offline after an online visit.
 API, authenticated, and cross-origin requests bypass caching. On activation, the
-worker removes older DitPath caches, including legacy private entries, while
+worker removes older Morsewell caches, including legacy private entries, while
 preserving unrelated caches. Existing tabs finish before the new worker activates.
-The [web app manifest](static/manifest.webmanifest) supplies the DitPath install name,
+The [web app manifest](static/manifest.webmanifest) supplies the Morsewell install name,
 standalone display mode, and 192/512 icons; the service worker is
 registered after page load and controls the page after the first reload.
 
@@ -29,7 +29,7 @@ npm run dev
 
 Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Unfinished guided/practice checkpoints are device-local and are not included in account import; complete them before creating an account or moving. Saving a checkpoint does not transfer it. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
 
-For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for a DitPath username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
+For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for a Morsewell username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
 
 ## Checks and builds
 
@@ -52,7 +52,7 @@ normal builds do not import its fixtures or fault hooks. The
 [fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
 guidance outcomes and fail when a source injection seam changes.
 
-[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. Run `npm run icons` after changing the approved source artwork; it regenerates the favicon, PWA, Apple touch, and social card assets from the source SVGs in [src/lib/assets/](src/lib/assets/). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
+[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. For brand-only social-card and manifest updates, run `npm run icons -- --brand-only`; this leaves the canonical paddle SVGs and all favicon/app-icon files unchanged. The legacy `ditpath-icon-material.svg` and `ditpath-icon-small.svg` filenames are intentional. Run `npm run icons` only after a separately approved artwork change; it regenerates the favicon, PWA, Apple touch, and social card assets from the source SVGs in [src/lib/assets/](src/lib/assets/). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
 
 Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
 

@@ -66,7 +66,7 @@ test('a locked direct lesson URL shows recovery and preserves the course gate', 
 
   await page.getByRole('link', { name: 'Back to Lessons' }).click();
   await expect(page).toHaveURL(/\/en\/morse\/learn$/);
-  await expect(page.getByRole('heading', { name: 'Lessons', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible();
   await expect(page.getByText('1 of 39 lessons unlocked')).toBeVisible();
 });
 

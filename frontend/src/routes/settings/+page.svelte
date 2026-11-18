@@ -915,10 +915,11 @@
   .settings-page {
     display: flex;
     flex-direction: column;
-    gap: var(--section-gap);
+    gap: var(--space-8);
   }
-  .settings-page :global(.panel--ledger) {
-    margin: 0;
+  /* The flex gap owns section rhythm; the width helper must not add a second gap. */
+  .settings-page > :global(*) {
+    margin-block: 0;
   }
   .settings-advanced summary {
     cursor: pointer;

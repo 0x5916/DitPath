@@ -163,6 +163,16 @@
   // Close on back/forward and client-side navigation.
   afterNavigate(() => close());
 
+  // A responsive shell change can hide this trigger without navigating.
+  $effect(() => {
+    if (!open || !triggerEl) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry.contentRect.width) close();
+    });
+    observer.observe(triggerEl);
+    return () => observer.disconnect();
+  });
+
   $effect(() => {
     document.addEventListener('click', onDocumentClick);
     document.addEventListener('keydown', onDocumentKeydown);

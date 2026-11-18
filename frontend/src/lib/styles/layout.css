@@ -1,5 +1,6 @@
 /* Layout shell */
 .page-wrapper {
+  --navbar-min-height: 4rem;
   min-height: 100vh;
   width: 100%;
   overflow-x: clip;
@@ -32,12 +33,38 @@
   margin-right: auto;
 }
 
+/* The root route can also render the dashboard, including for returning guests. */
+.page-content--home:not(:has(.welcome)) + .site-footer--full {
+  display: none;
+}
+
+/* Only the landing view reserves the first viewport before its footer. */
+@media screen {
+  .page-content--home:has(.welcome) {
+    flex: 1 0 auto;
+    min-height: calc(100dvh - var(--navbar-min-height));
+  }
+}
+
 /* Vertical rhythm for a page's own children. Width-free on purpose: pair it
    with whichever width fits the content (`.page-narrow` or the default
    container) instead of taking the rhythm as a side effect of the width. */
 .page-narrow > * + *,
 .page-stack > * + * {
   margin-top: var(--block-gap);
+}
+
+/* Share surplus desktop height around auth forms, with a gentle top bias.
+   Flexible tracks collapse as the form grows; short viewports still scroll. */
+@media (min-width: 960px) {
+  .page-content:has(> .auth-layout) {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto minmax(0, 2fr);
+  }
+  .auth-layout {
+    grid-row: 2;
+    width: 100%;
+  }
 }
 
 /* Navigation */
@@ -61,7 +88,7 @@
   padding: 0.55rem var(--space-4);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .navbar-brand {
@@ -87,14 +114,13 @@
   color: var(--accent);
 }
 
-/* The desktop cluster carries both classes, so the hide rule is not order
-   dependent against `.navbar-right { display: flex }`. */
-.navbar-right.navbar-desktop {
+/* The existing bottom tabs carry primary navigation below desktop width. */
+.navbar-links.navbar-desktop {
   display: none;
 }
 
 @media (min-width: 960px) {
-  .navbar-right.navbar-desktop {
+  .navbar-links.navbar-desktop {
     display: flex;
   }
 }
@@ -169,20 +195,18 @@
   transform: scaleX(1);
 }
 
-.navbar-right {
-  display: flex;
-  flex-wrap: nowrap;
+.navbar-links {
   align-items: center;
-  gap: 0.6rem;
-  flex: 1 1 auto;
-  justify-content: flex-end;
+  gap: var(--space-4);
 }
 
-.navbar-right > * {
-  flex-shrink: 0;
+.navbar-account {
+  margin-inline-start: auto;
+  min-width: 0;
 }
 
 .nav-account-label {
+  min-width: 0;
   max-inline-size: 10ch;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,6 +218,7 @@
 }
 
 .navbar-user-btn {
+  max-width: 100%;
   display: flex;
   white-space: nowrap;
   align-items: center;
@@ -276,31 +301,6 @@
   transition: color 0.15s;
 }
 
-@media (min-width: 960px) and (max-width: 1023px) {
-  .navbar-right {
-    gap: var(--space-1);
-  }
-
-  .navbar-link {
-    justify-content: center;
-    min-width: var(--nav-control-height);
-    padding-inline: var(--space-1);
-    font-size: var(--text-sm);
-  }
-
-  .navbar-user-btn,
-  .theme-icon-btn {
-    justify-content: center;
-    min-width: var(--nav-control-height);
-  }
-
-  .navbar-divider,
-  .nav-account-label,
-  .nav-theme-label {
-    display: none;
-  }
-}
-
 /* Mobile bottom navigation bar (primary destinations) */
 .bottom-nav {
   position: fixed;
@@ -318,32 +318,32 @@
     transform var(--transition-base) var(--ease-smooth);
 }
 
-@media (max-width: 959px) {
+@media (width < 960px) {
+  .navbar {
+    display: none;
+  }
+
+  /* The rendered Home view owns this choice, including after local history loads. */
+  .page-wrapper:has(> .page-content--home .welcome) > .navbar {
+    display: block;
+  }
+  .page-content--home:has(.welcome) ~ .bottom-nav {
+    display: none;
+  }
   .bottom-nav {
     display: flex;
   }
 
-  /* Give main content room to scroll clear of the fixed bar */
+  /* Internal views start below the device inset and scroll clear of the tabs. */
   .page-content {
+    padding-top: calc(env(safe-area-inset-top) + var(--page-top-phone));
     padding-bottom: calc(env(safe-area-inset-bottom) + var(--bottom-nav-clearance));
   }
 
   /* Hide the bar while the soft keyboard is open (input/textarea focus) */
   body.keyboard-open .bottom-nav {
+    visibility: hidden;
     transform: translateY(100%);
-  }
-
-  /* Narrow screens navigate from the tab bar and the
-     "More" page. Content takes over the notch padding the navbar used to hold. */
-  .navbar {
-    display: none;
-  }
-
-  /* `calc` on top of the safe area, not `max` against it: `max()` let a notch
-     inset override the gap, so the same pixel value gave 56px of blank in a
-     Safari tab and ~9px below the status bar when installed. */
-  .page-content {
-    padding-top: calc(env(safe-area-inset-top) + var(--page-top-phone));
   }
 }
 
@@ -404,53 +404,9 @@
   text-align: center;
 }
 
-/* Footer */
-.footer {
-  background-color: var(--bg-surface);
-  border-top: 1px solid var(--border);
-  padding: 0.7rem var(--space-4);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem 1rem;
-  text-align: center;
-  font-size: var(--text-sm);
-  line-height: 1.2rem;
-  color: var(--text-muted);
-  transition:
-    background-color var(--transition-base),
-    border-color var(--transition-base);
-}
-
-.footer-links {
-  display: inline-flex;
-  gap: 1rem;
-}
-
-.footer-link {
-  /* Footer links sit 1rem apart, so the padding stays inside that gap: the
-     negative margin keeps the row's spacing and alignment unchanged. */
-  padding: 0.7rem 0.4rem;
-  margin: -0.7rem -0.4rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.footer-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-@media (max-width: 959px) {
-  /* The fixed bottom nav already labels the app on narrow screens. */
-  .footer {
-    display: none;
-  }
-}
-
 /* Icon helpers */
 .nav-label-icon {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -475,13 +431,10 @@
 
 /* Shared desktop navigation: content-sized links, quiet open state, distinct focus. */
 .navbar-inner {
-  max-width: 73rem;
-  min-height: 4rem;
+  max-width: var(--max-width-wide);
+  min-height: var(--navbar-min-height);
   padding: 0 var(--space-6);
   gap: var(--space-8);
-}
-.navbar-right {
-  gap: var(--space-4);
 }
 .navbar-link,
 .navbar-user-btn {
@@ -531,7 +484,7 @@
   gap: var(--space-2);
 }
 .nav-account-label {
-  max-inline-size: 12ch;
+  max-inline-size: 18ch;
 }
 .user-dropdown {
   width: 17.5rem;
@@ -557,13 +510,69 @@
   height: 20px;
   flex-shrink: 0;
 }
-@media (min-width: 960px) and (max-width: 1199px) {
-  .navbar-user-btn {
-    width: 3rem;
-    justify-content: center;
+@media (max-width: 1199px) {
+  .navbar-inner {
+    padding-inline: var(--space-4);
+    gap: var(--space-4);
   }
-  .navbar-user-btn .nav-account-label,
+  .navbar-links {
+    gap: var(--space-1);
+  }
+  .nav-account-label {
+    max-inline-size: 12ch;
+  }
+}
+@media (max-width: 479px) {
+  .navbar-inner {
+    gap: var(--space-2);
+  }
+  .nav-account-label {
+    max-inline-size: min(10ch, 24vw);
+  }
   .navbar-user-btn .nav-chevron {
     display: none;
+  }
+}
+
+/* Reuse the account dropdown's keyboard and touch behavior for product links. */
+.navbar-mobile {
+  display: none;
+}
+@media (width < 960px) {
+  .navbar-inner {
+    position: relative;
+    flex-wrap: wrap;
+  }
+  .navbar-mobile {
+    display: block;
+    flex-shrink: 0;
+  }
+  .navbar-mobile .navbar-user-btn {
+    width: var(--nav-control-height);
+    min-width: var(--nav-control-height);
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .navbar-account .user-menu-wrapper,
+  .navbar-mobile .user-menu-wrapper {
+    position: static;
+  }
+  .navbar-account .user-dropdown,
+  .navbar-mobile .user-dropdown {
+    inset-inline: var(--space-4);
+    top: 100%;
+    width: auto;
+    max-width: none;
+  }
+  .navbar-mobile .nav-chevron,
+  .navbar-mobile .user-dropdown-identity {
+    display: none;
+  }
+  .navbar-account .nav-account-label {
+    max-inline-size: min(8ch, 16vw);
+  }
+  .user-dropdown-item[aria-current] {
+    color: var(--accent);
+    font-weight: 600;
   }
 }

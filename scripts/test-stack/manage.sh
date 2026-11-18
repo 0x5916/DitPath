@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable full-stack DitPath acceptance environment. Never touches the
+# Disposable full-stack Morsewell acceptance environment. Never touches the
 # production Compose project or any resource outside this script's project.
 set -euo pipefail
 

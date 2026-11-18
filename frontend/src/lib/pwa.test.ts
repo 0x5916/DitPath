@@ -102,8 +102,11 @@ async function contentBounds(relativePath: string) {
   };
 }
 
-describe('DitPath PWA assets', () => {
+describe('Morsewell PWA assets', () => {
   it('keeps the approved source artwork byte-identical', () => {
+    expect(sha256('static/favicon.svg')).toBe(
+      '42f579636b6c7fee5c5d115dd01229a647461f8341acbded18178eb63fc1a339'
+    );
     expect(sha256('src/lib/assets/ditpath-icon-material.svg')).toBe(
       '2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f'
     );
@@ -113,13 +116,13 @@ describe('DitPath PWA assets', () => {
   });
 
   it('declares the approved install name and icon set', () => {
-    expect(manifest.name).toBe('DitPath');
-    expect(manifest.short_name).toBe('DitPath');
+    expect(manifest.name).toBe('Morsewell');
+    expect(manifest.short_name).toBe('Morsewell');
     expect(manifest.start_url).toBe('/');
     expect(manifest.scope).toBe('/');
     expect(manifest.display).toBe('standalone');
-    expect(manifest.background_color).toBe('#F3F2ED');
-    expect(manifest.theme_color).toBe('#191917');
+    expect(manifest.background_color).toBe('#F7F8F3');
+    expect(manifest.theme_color).toBe('#15191B');
 
     expect(manifest.icons).toEqual([
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -222,8 +225,8 @@ describe('DitPath PWA assets', () => {
   it('links the manifest, app title, theme colours and icons from the document head', () => {
     const html = readFileSync(file('src/app.html'), 'utf8');
     expect(html).toContain('rel="manifest" href="/manifest.webmanifest"');
-    expect(html).toContain('name="application-name" content="DitPath"');
-    expect(html).toContain('name="apple-mobile-web-app-title" content="DitPath"');
+    expect(html).toContain('name="application-name" content="Morsewell"');
+    expect(html).toContain('name="apple-mobile-web-app-title" content="Morsewell"');
     expect(html).toContain('href="/apple-touch-icon.png"');
     expect(html).toContain('href="/favicon-32.png"');
     expect(html.match(/name="theme-color"/g)).toHaveLength(2);

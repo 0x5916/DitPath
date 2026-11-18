@@ -13,7 +13,6 @@
     DEFAULT_OG_IMAGE_ALT,
     DEFAULT_OG_IMAGE_HEIGHT,
     DEFAULT_OG_IMAGE_WIDTH,
-    GITHUB_URL,
     SITE_NAME
   } from '#lib/seo.ts';
   import { goto, afterNavigate } from '$app/navigation';
@@ -25,6 +24,7 @@
     LayoutDashboard,
     LogIn,
     LogOut,
+    Menu,
     Settings,
     User,
     UserPlus
@@ -38,6 +38,7 @@
     localizedHref as href
   } from '#lib/i18n.svelte.ts';
   import Dropdown from '#lib/components/Dropdown.svelte';
+  import SiteFooter from '#lib/components/SiteFooter.svelte';
   import MigrationBanner from '#lib/components/migration/MigrationBanner.svelte';
   import { applyTheme, readStoredTheme } from '#lib/theme.ts';
   import { navigationDestination } from '#lib/navigation.ts';
@@ -57,9 +58,10 @@
     { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
     { path: '/more', label: m.nav_more, icon: Ellipsis }
   ];
+  const isHome = $derived(page.route.id === '/' && page.status < 400);
   let mobileSection = $derived(navigationDestination(page.route.id, true));
   let desktopSection = $derived(navigationDestination(page.route.id));
-  let isTrainingSession = $derived(page.url.pathname.includes('/morse/learn/session'));
+  let isTrainingSession = $derived(page.route.id === '/morse/learn/session' && page.status < 400);
   const MIGRATION_BANNER_HIDDEN_ROUTES = new Set(['/settings', '/login', '/register']);
   let showMigrationBanner = $derived(
     !isTrainingSession && !MIGRATION_BANNER_HIDDEN_ROUTES.has(page.route.id ?? '')
@@ -137,20 +139,6 @@
     if (event.key === null || Object.values(AUTH_STORAGE_KEYS).some((key) => key === event.key)) {
       initAuth();
     }
-  }
-
-  function stripTrailingSlash(path: string): string {
-    return path.replace(/\/+$/, '') || '/';
-  }
-
-  // Active state matches the route and everything beneath it, so a thread
-  // (/forum/<id>) keeps the Forum entry lit. The root path stays exact-match so
-  // the brand link is not flagged as current on every page.
-  function isActive(path: string): boolean {
-    const current = stripTrailingSlash(page.url.pathname);
-    const target = stripTrailingSlash(href(path));
-    if (path === '/' || path === '/morse') return current === target;
-    return current === target || current.startsWith(`${target}/`);
   }
 
   // Only text-entry controls open a soft keyboard; sliders and pickers leave
@@ -239,13 +227,13 @@
           href={href('/')}
           class="navbar-brand"
           title={m.nav_home()}
-          aria-current={isActive('/') ? 'page' : undefined}
+          aria-current={isHome ? 'page' : undefined}
         >
           {SITE_NAME}
         </a>
 
-        <!-- Desktop: all links + user menu on the right -->
-        <div class="navbar-right navbar-desktop">
+        <!-- Main links follow the wordmark; one account control serves every width. -->
+        <div class="navbar-links navbar-desktop">
           {#each PRIMARY_NAV as item (item.path)}
             <a
               href={href(item.path)}
@@ -258,11 +246,13 @@
                 : undefined}>{item.label()}</a
             >
           {/each}
+        </div>
+        <div class="navbar-account">
           {#if $user}
             <Dropdown id="user-menu" label={$user.username}>
               {#snippet trigger()}
-                <User class="nav-icon" aria-hidden="true" />
                 <span class="nav-account-label">{$user.username}</span>
+                <User class="nav-icon" aria-hidden="true" />
               {/snippet}
               {#snippet menu()}
                 <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
@@ -282,8 +272,8 @@
           {:else}
             <Dropdown id="guest-menu" label={m.nav_guest()}>
               {#snippet trigger()}
-                <User class="nav-icon" aria-hidden="true" />
                 <span class="nav-account-label">{m.nav_guest()}</span>
+                <User class="nav-icon" aria-hidden="true" />
               {/snippet}
               {#snippet menu()}
                 <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
@@ -302,6 +292,26 @@
             </Dropdown>
           {/if}
         </div>
+        {#if isHome}
+          <div class="navbar-mobile">
+            <Dropdown id="product-menu" label={m.nav_menu()}>
+              {#snippet trigger()}
+                <Menu class="nav-icon" aria-hidden="true" />
+              {/snippet}
+              {#snippet menu()}
+                {#each PRIMARY_NAV as item (item.path)}
+                  <a
+                    href={href(item.path)}
+                    class="user-dropdown-item"
+                    role="menuitem"
+                    aria-current={desktopSection === item.path ? 'location' : undefined}
+                    >{item.label()}</a
+                  >
+                {/each}
+              {/snippet}
+            </Dropdown>
+          </div>
+        {/if}
       </div>
     </nav>
   {/if}
@@ -309,6 +319,7 @@
   <main
     class="page-content"
     class:page-content--session={isTrainingSession}
+    class:page-content--home={isHome}
     id="main-content"
     tabindex="-1"
   >
@@ -321,17 +332,9 @@
   </main>
 
   {#if !isTrainingSession}
-    <footer class="footer">
-      <span>{m.footer_text()}</span>
-      <span class="footer-links">
-        <a href={href('/about')} class="footer-link">{m.nav_about()}</a>
-        <a href={GITHUB_URL} class="footer-link" rel="noopener noreferrer" target="_blank"
-          >{m.footer_link_github()}</a
-        >
-      </span>
-    </footer>
+    <SiteFooter variant={isHome ? 'full' : 'minimal'} primaryLinks={PRIMARY_NAV} />
 
-    <!-- Mobile: bottom navigation bar (hidden on desktop) -->
+    <!-- The compact shell uses bottom tabs for internal views, including the Home dashboard. -->
     <nav class="bottom-nav" aria-label={m.nav_primary()}>
       {#each TAB_NAV as item (item.path)}
         <a
