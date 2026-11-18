@@ -51,6 +51,7 @@
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import GuestNotice from '#lib/components/GuestNotice.svelte';
   import SaveButton from '#lib/components/SaveButton.svelte';
+  import EmailPreferences from '#lib/components/settings/EmailPreferences.svelte';
   import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
   import SettingsData from '#lib/components/settings/SettingsData.svelte';
   import { themePreference, setTheme, type Theme } from '#lib/theme.svelte.ts';
@@ -862,6 +863,7 @@
         </div>
       </section>
 
+      {#key [username, initialEmail, emailVerified].join('|')}<EmailPreferences />{/key}
       {#if passwordEnabled === true}
         <SettingsPassword />
       {:else if passwordEnabled === false}

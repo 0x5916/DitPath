@@ -35,16 +35,18 @@ export const metricLabels = {
 };
 
 export function reportHref(
-  view: 'overview' | 'users',
+  view: 'overview' | 'users' | 'compose' | 'review' | 'sent',
   days: number,
   until: string,
   metric: Cohort = 'all',
-  learner?: string
+  learner?: string,
+  message?: string
 ) {
   const params = new URLSearchParams({ view, days: String(days) });
   if (until) params.set('until', until);
   if (metric !== 'all') params.set('metric', metric);
   if (learner) params.set('learner', learner);
+  if (message) params.set('message', message);
   return `${localizedHref('/admin')}?${params}`;
 }
 export function reportDate(day: string) {

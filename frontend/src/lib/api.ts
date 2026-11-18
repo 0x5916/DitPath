@@ -400,3 +400,75 @@ export function getLearnerReport(id: string, days: number, until: string, cursor
     'DATABASE_FAILURE'
   );
 }
+
+export type EmailTopic = 'support' | 'product';
+export interface EmailPreferences {
+  email: string;
+  verified: boolean;
+  support: boolean;
+  product: boolean;
+}
+export function getEmailPreferences() {
+  return apiGetJson<EmailPreferences>('/settings/email-preferences', 'SETTINGS_FETCH_FAILED');
+}
+export function setEmailPreference(email: string, topic: EmailTopic, enabled: boolean) {
+  return apiSendJson<EmailPreferences>(
+    '/settings/email-preferences',
+    'PUT',
+    { email, topic, enabled },
+    'SETTINGS_UPDATE_FAILED'
+  );
+}
+
+export interface MailRecipient {
+  id: string;
+  username: string;
+  email: string;
+}
+export interface EmailReview {
+  review: string;
+  from: string;
+  reply_to: string;
+  footer: string;
+  recipients: (MailRecipient & { reason: string })[];
+}
+export type SubmissionStatus = 'queued' | 'sending' | 'accepted' | 'skipped' | 'failed' | 'unknown';
+export interface SentMessageSummary {
+  id: string;
+  subject: string;
+  topic: EmailTopic;
+  created_at: string;
+}
+export interface SentMessage extends SentMessageSummary {
+  body: string;
+  from: string;
+  reply_to: string;
+  footer: string;
+  recipients: (MailRecipient & { status: SubmissionStatus; reason: string })[];
+}
+export function previewMail(
+  recipients: string[],
+  topic: EmailTopic,
+  subject: string,
+  body: string
+) {
+  return apiSendJson<EmailReview>(
+    '/admin/emails/preview',
+    'POST',
+    { recipients, topic, subject, body },
+    'MAIL_INVALID'
+  );
+}
+export function queueMail(review: string) {
+  return apiSendJson<{ id: string }>('/admin/emails', 'POST', { review }, 'INTERNAL_SERVER_ERROR');
+}
+export function getSentMessages(cursor?: string) {
+  const query = cursor ? '?' + new URLSearchParams({ cursor }) : '';
+  return apiGetJson<{ data: SentMessageSummary[]; next_cursor: string | null }>(
+    '/admin/emails' + query,
+    'DATABASE_FAILURE'
+  );
+}
+export function getSentMessage(id: string) {
+  return apiGetJson<SentMessage>('/admin/emails/' + encodeURIComponent(id), 'DATABASE_FAILURE');
+}

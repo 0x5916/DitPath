@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type emailFailure struct {
@@ -41,20 +40,9 @@ func expiredVerification() error {
 	return emailRejected(http.StatusBadRequest, common.ErrorCodeVerificationCodeExpired, "Verification code expired")
 }
 
-// Retain SQL/error events without expanding sensitive OTP bind parameters.
-type emailSQLLogger struct{ logger.Interface }
-
-func (l emailSQLLogger) LogMode(level logger.LogLevel) logger.Interface {
-	return emailSQLLogger{l.Interface.LogMode(level)}
-}
-
-func (emailSQLLogger) ParamsFilter(_ context.Context, query string, _ ...interface{}) (string, []interface{}) {
-	return query, nil
-}
-
 // Every email/OTP mutation locks the account first, across API instances.
 func withLockedEmailUser(ctx context.Context, db *gorm.DB, id uuid.UUID, mutate func(*gorm.DB, *models.User) error) error {
-	err := utils.WithLockedUser(ctx, db.Session(&gorm.Session{Logger: emailSQLLogger{db.Logger}}), id, mutate)
+	err := utils.WithLockedUser(ctx, utils.PrivateSQL(db), id, mutate)
 	if errors.Is(err, utils.ErrUserNotFound) {
 		return emailRejected(http.StatusUnauthorized, common.ErrorCodeUserNotFound, "User not found")
 	}
@@ -204,6 +192,9 @@ func changeEmailTransaction(ctx context.Context, db *gorm.DB, id uuid.UUID, emai
 		}
 		if update.RowsAffected != 1 {
 			return gorm.ErrRecordNotFound
+		}
+		if err := tx.Where("user_id=?", id).Delete(&models.EmailConsent{}).Error; err != nil {
+			return err
 		}
 		return invalidatePendingVerifications(tx, id)
 	})

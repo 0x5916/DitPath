@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -10,13 +11,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"opencw/internal/configs"
 	"opencw/internal/models"
+	"opencw/internal/ownermail"
 	"opencw/internal/utils"
+
+	"github.com/google/uuid"
+	"github.com/resend/resend-go/v4"
 )
 
 // Opt in after building the static frontend with PUBLIC_API_BASE=/v1.
@@ -26,9 +31,28 @@ func TestOwnerDashboardBrowser(t *testing.T) {
 	}
 	db := authHTTPDB(t)
 	owner, learner := authHTTPUser(t, db, true), authHTTPUser(t, db, true)
-	old := configs.App.AdminUserID
-	configs.App.AdminUserID = owner.ID
-	t.Cleanup(func() { configs.App.AdminUserID = old })
+	enableFixtureMail(t, owner.ID)
+	if err := db.Model(&learner).Update("email_verified", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Where("owner_id=?", owner.ID).Delete(&models.OwnerMessage{}).Error; err != nil {
+			t.Error(err)
+		}
+	})
+	var accepted atomic.Int32
+	fake := sendFunc(func(_ context.Context, r *resend.SendEmailRequest, _ *resend.SendEmailOptions) (*resend.SendEmailResponse, error) {
+		if len(r.To) != 1 || r.To[0] != learner.Email {
+			t.Error("unexpected browser-test recipient")
+		}
+		accepted.Add(1)
+		return &resend.SendEmailResponse{Id: uuid.NewString()}, nil
+	})
+	ctx, stop := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() { defer close(done); (ownermail.Worker{DB: db, Settings: configs.App, Sender: fake}).Run(ctx) }()
+	defer func() { stop(); <-done }()
+
 	pass := uuid.NewString()
 	work := utils.DefaultPasswordWork()
 	reservation, err := work.Acquire(t.Context())
@@ -80,6 +104,9 @@ func TestOwnerDashboardBrowser(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("browser acceptance: %s: %v", output, err)
+	}
+	if accepted.Load() != 2 {
+		t.Fatalf("expected 2 simulated browser submissions, got %d", accepted.Load())
 	}
 	t.Log(string(output))
 }

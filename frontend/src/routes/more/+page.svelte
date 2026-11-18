@@ -10,19 +10,22 @@
     LogOut,
     MessageSquare,
     Settings,
+    ShieldUser,
     SlidersHorizontal,
     User,
     UserPlus,
     Radio
   } from '@lucide/svelte';
+  import { getAdminMailSession } from '#lib/admin-mail.svelte.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { logout, user } from '#lib/auth.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
 
+  const adminMail = getAdminMailSession();
   const scope = createSessionScope();
   onDestroy(scope.dispose);
-  const groups = [
+  const groups = $derived([
     {
       label: m.more_app_section,
       links: [
@@ -41,6 +44,7 @@
       label: m.more_personal_section,
       links: [
         { path: '/profile', label: m.nav_profile, icon: User },
+        ...(adminMail.owner ? [{ path: '/admin', label: m.admin_title, icon: ShieldUser }] : []),
         { path: '/settings', label: m.nav_settings, icon: Settings },
         {
           path: '/settings',
@@ -56,7 +60,7 @@
         }
       ]
     }
-  ];
+  ]);
 
   async function handleLogout() {
     const pending = logout();

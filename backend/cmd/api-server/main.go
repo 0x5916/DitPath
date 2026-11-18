@@ -8,6 +8,7 @@ import (
 
 	"opencw/internal/configs"
 	"opencw/internal/databases"
+	handlers "opencw/internal/handlers/v1"
 	"opencw/internal/server"
 	"opencw/internal/utils"
 
@@ -26,7 +27,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{handlers.UnsubscribePath}}), gin.Recovery())
 
 	if err := utils.RegisterCustomValidators(); err != nil {
 		slog.Error("Failed to register custom validators", "err", err)

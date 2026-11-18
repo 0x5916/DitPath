@@ -5,10 +5,12 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import { getAdminMailSession } from '#lib/admin-mail.svelte.ts';
   import Workspace from '#lib/components/admin/Workspace.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
 
+  const adminMail = getAdminMailSession();
   const scope = createSessionScope();
   let access = $state<'loading' | 'guest' | 'owner' | 'denied' | 'error'>('loading');
   let generation = $state(-1);
@@ -17,7 +19,11 @@
     access = 'loading';
     try {
       const info = await getUserInfo();
-      if (current()) access = info.can_lookup_users ? 'owner' : 'denied';
+      if (current()) {
+        adminMail.owner = info.can_lookup_users === true;
+        if (!adminMail.owner) adminMail.clear();
+        access = adminMail.owner ? 'owner' : 'denied';
+      }
     } catch (e) {
       if (current()) access = e instanceof ApiError && e.status === 401 ? 'guest' : 'error';
     }
@@ -38,6 +44,7 @@
   );
   onDestroy(scope.dispose);
   function denied(status: number) {
+    adminMail.clear();
     access = status === 401 ? 'guest' : 'denied';
   }
 </script>

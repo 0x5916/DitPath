@@ -111,6 +111,23 @@ Directory search also accepts `days`, `until`, and `metric` (`all`, `joined`, `l
 
 `GET /v1/admin/users/:id/report` uses the same period and an optional opaque `cursor`. It returns `account`, `period`, `totals`, nullable lifetime `last_completed_at`, and up to 25 dated `sessions` plus `next_cursor`. Session rows include mode, status, lesson, character/effective speed, nullable score and nullable measured duration. Completed and abandoned records appear newest first. The summary counts completed sessions across the entire period. A missing or deleted target returns 404.
 
+### Custom learner email
+
+Only the configured dashboard owner can preview, queue or read custom messages. Every admin email response uses `Cache-Control: no-store`. The feature switch and public unsubscribe address are described in the [deployment guide](../DEPLOYMENT.md#owner-dashboard).
+
+| Method and path | Request and behavior |
+| --- | --- |
+| `GET /v1/settings/email-preferences` | Signed-in learner. Returns the current `email`, `verified`, and independent Boolean `support` and `product` preferences. Both default to false. |
+| `PUT /v1/settings/email-preferences` | Send the displayed `email`, one `topic` (`support` or `product`), and Boolean `enabled`. Returns the updated preferences. Enabling requires verification. A stale address returns 409 `MAIL_ADDRESS_CHANGED`. Changing the account address revokes both consents atomically. |
+| `GET /v1/email/unsubscribe?token=…` | Public confirmation page. Each opaque URL identifies one grant of consent for one topic and address. |
+| `POST /v1/email/unsubscribe?token=…` | Form-encoded or multipart `List-Unsubscribe=One-Click` revokes that grant idempotently. An old link cannot revoke renewed consent. |
+| `POST /v1/admin/emails/preview` | Supply 1–25 distinct account UUIDs in `recipients`, the `topic`, a single-line `subject` (up to 180 characters) and plain-text `body` (up to 8,000 characters). Returns the sender, reply address, footer, resolved recipients and exclusion reasons. A 15-minute signed `review` is issued when at least one recipient is eligible. Preview writes nothing. |
+| `POST /v1/admin/emails` | Submit the `review` from the final confirmation. Returns the durable message `id`. Identical retries return that same ID, including after review expiry if already queued. An unused expired review returns 409 `MAIL_REVIEW_EXPIRED`. Disabled sending returns 503 `MAIL_DISABLED` for new submissions. |
+| `GET /v1/admin/emails` | Owner-scoped history, newest first, up to 25 summaries with an optional `cursor` and nullable `next_cursor`. |
+| `GET /v1/admin/emails/:id` | Returns the original content, envelope and timestamp, with each reviewed recipient's submission status and reason. |
+
+The [worker](internal/ownermail/worker.go) checks current account, address and consent before each private handoff. `accepted` records a provider acknowledgement. `unknown` records an uncertain submission that cannot safely be retried. The queue persists its first-attempt time and per-recipient key before calling the provider, recovers abandoned leases after restart, and stops retries before the provider's 24-hour idempotency window ends. The [route and dispatch tests](internal/server/owner_email_test.go) exercise these behaviors with a simulated provider.
+
 ## Training synchronization
 
 | Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |

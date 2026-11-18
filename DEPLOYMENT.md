@@ -288,6 +288,12 @@ docker compose exec db sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 At the psql prompt, run `SELECT id, username FROM users WHERE username = 'your_exact_username' AND deleted_at IS NULL;`. Set `ADMIN_USER_ID` in the root `.env` to that UUID, recreate the backend with `docker compose up -d --no-deps backend`, then open **Profile → Admin**. Clear the setting and recreate the backend to revoke access. An empty setting disables the dashboard.
 
+### Custom learner email
+
+`OWNER_EMAIL_ENABLED` defaults to `false`. The account menu, email preferences, and existing message history can be used with sending disabled. Verification codes use their existing sending configuration.
+
+For a future activation, set a monitored `OWNER_EMAIL_REPLY_TO` mailbox, `OWNER_EMAIL_FOOTER` with the sender identity and mailing address, and `OWNER_EMAIL_UNSUBSCRIBE_URL` to the publicly reachable HTTPS URL for `/v1/email/unsubscribe`. The public endpoint must accept the browser confirmation and mail clients’ one-click form POSTs without signing in. Exclude unsubscribe query strings from proxy access logs. The Go service omits that route from its request log. `RESEND_FROM_EMAIL` supplies the verified sender. Enable the feature only when these settings are ready and test the unsubscribe URL and signed mail headers on a controlled mailbox as part of activation.
+
 ## pgAdmin administration
 
 pgAdmin's web login uses `PGADMIN_DEFAULT_*`; its database connection uses `POSTGRES_*`. Editing the former after the first initialization does not reset an existing account. Reset through the user interface or the container's `setup.py update-user` command, using the existing login email. Deleting its volume discards saved accounts, servers, and preferences.

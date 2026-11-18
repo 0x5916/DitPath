@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import '../app.css';
   import { user, initAuth, logout, getAuthSession } from '#lib/auth.ts';
+  import { AdminMailSession, setAdminMailSession } from '#lib/admin-mail.svelte.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { AUTH_STORAGE_KEYS, UI_STORAGE_KEYS } from '#lib/storageKeys.ts';
   import { hasPendingTrainingPersistence } from '#lib/pending-training-persistence.ts';
@@ -26,6 +27,7 @@
     LogOut,
     Menu,
     Settings,
+    ShieldUser,
     User,
     UserPlus
   } from '@lucide/svelte';
@@ -68,6 +70,8 @@
     !isTrainingSession && !MIGRATION_BANNER_HIDDEN_ROUTES.has(page.route.id ?? '')
   );
 
+  const adminMail = setAdminMailSession(new AdminMailSession());
+  onMount(() => adminMail.observe());
   const scope = createSessionScope();
   onDestroy(scope.dispose);
   let reconciledSettingsForSession = $state<number | null>(null);
@@ -263,6 +267,11 @@
                   <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
                     ><LayoutDashboard size={14} /> {m.nav_profile()}</a
                   >
+                  {#if adminMail.owner}
+                    <a href={href('/admin')} class="user-dropdown-item" role="menuitem"
+                      ><ShieldUser size={14} /> {m.admin_title()}</a
+                    >
+                  {/if}
                   <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
                     ><Settings size={14} /> {m.nav_settings()}</a
                   >

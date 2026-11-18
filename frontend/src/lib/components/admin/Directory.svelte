@@ -13,6 +13,8 @@
     type ReportPeriod
   } from '#lib/admin-report.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import SelectedRecipients from './SelectedRecipients.svelte';
+  import { getAdminMailSession, recipientLimit } from '#lib/admin-mail.svelte.ts';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   let {
@@ -31,6 +33,7 @@
     position: DirectoryPosition;
   } = $props();
   let period = $state<ReportPeriod | null>(null);
+  const mail = getAdminMailSession();
   const scope = createSessionScope();
   let draft = $state(''),
     search = $state('');
@@ -91,6 +94,11 @@
         >{/if}
     </div>
   </form>
+  <SelectedRecipients />
+  {#if mail.draft.recipients.length}<a
+      class="btn-primary compose"
+      href={reportHref('compose', days, until, metric)}>{m.mail_compose()}</a
+    >{/if}
   {#if loadState === 'loading'}<LoadingSpinner />
   {:else if loadState === 'error'}<ErrorAlert message={m.common_load_error()} /><button
       class="btn-ghost"
@@ -102,7 +110,18 @@
   {:else}
     <ul class="records">
       {#each accounts as account (account.id)}
+        {@const selected = mail.draft.recipients.some((r) => r.id === account.id)}
         <li>
+          <label class="pick"
+            ><input
+              type="checkbox"
+              aria-label={m.mail_select({ name: account.username })}
+              checked={selected}
+              disabled={!!mail.draft.pending ||
+                (!selected && mail.draft.recipients.length >= recipientLimit)}
+              onchange={() => mail.draft.toggle(account)}
+            /></label
+          >
           <a href={reportHref('users', days, until, metric, account.id)}
             ><strong>{account.username}</strong></a
           > <span>{account.call_sign ?? ''}</span>
@@ -145,6 +164,30 @@
 </section>
 
 <style>
+  .compose {
+    justify-self: start;
+    align-self: start;
+  }
+  .records li {
+    position: relative;
+    padding-inline-start: 48px;
+  }
+  .pick {
+    position: absolute;
+    inset-inline-start: 0;
+    top: var(--space-2);
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+  }
+  .pick input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+
   .records {
     list-style: none;
     padding: 0;
@@ -152,7 +195,7 @@
   }
   .records li {
     border-bottom: 1px solid var(--border);
-    padding: var(--space-3) 0;
+    padding-block: var(--space-3);
     overflow-wrap: anywhere;
   }
   .actions {
@@ -165,7 +208,7 @@
     display: block;
     margin-bottom: var(--space-1);
   }
-  input {
+  input[type='search'] {
     max-width: 100%;
     min-height: 44px;
     border: 1px solid var(--border);

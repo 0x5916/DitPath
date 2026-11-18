@@ -37,6 +37,27 @@ async function access(page: Page, expected: number) {
 }
 
 try {
+  const recipientContext = await browser.newContext({ baseURL: base, locale: 'en' });
+  try {
+    const recipientPage = await recipientContext.newPage();
+    await login(recipientPage, learner);
+    await recipientPage.goto('/en/settings');
+    const support = recipientPage.getByRole('checkbox', {
+      name: 'Support follow-ups',
+      exact: true
+    });
+    await expect(support).not.toBeChecked();
+    await expect(
+      recipientPage.getByRole('checkbox', { name: 'Product updates' })
+    ).not.toBeChecked();
+    await support.focus();
+    await support.press('Space');
+    await expect(support).toBeChecked();
+    await recipientPage.reload();
+    await expect(support).toBeChecked();
+  } finally {
+    await recipientContext.close();
+  }
   for (const viewport of [
     { width: 1280, height: 850 },
     { width: 390, height: 844 }
@@ -53,6 +74,14 @@ try {
       await expect(page.locator('main').getByRole('link', { name: 'Login' })).toBeVisible();
       await access(page, 401);
       await login(page, owner);
+      if (viewport.width > 800) {
+        await page.getByRole('button', { name: owner, exact: true }).press('Enter');
+        await page.getByRole('menuitem', { name: 'Admin', exact: true }).press('Enter');
+      } else {
+        await page.goto('/en/more');
+        await page.getByRole('link', { name: 'Admin', exact: true }).click();
+      }
+      await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
       await page.goto('/en/profile');
       await page.getByRole('link', { name: 'Admin', exact: true }).click();
       await page.getByRole('link', { name: '7 days', exact: true }).click();
@@ -79,6 +108,45 @@ try {
         'true'
       );
 
+      const selectedLearner = page.getByRole('checkbox', {
+        name: 'Select ' + learner,
+        exact: true
+      });
+      await selectedLearner.focus();
+      await selectedLearner.press('Space');
+      await page.getByRole('link', { name: 'Clear', exact: true }).click();
+      await search.fill(owner);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await page.getByRole('checkbox', { name: 'Select ' + owner, exact: true }).check();
+      await expect(page.getByRole('status').filter({ hasText: '2 of 25' })).toBeVisible();
+      await page.getByRole('link', { name: 'Compose email', exact: true }).click();
+      const subject = 'Browser fixture ' + viewport.width;
+      await page.getByLabel('Subject', { exact: true }).fill(subject);
+      await page.getByLabel('Message', { exact: true }).fill('Private support follow-up.');
+      await page.getByRole('button', { name: 'Review email', exact: true }).press('Enter');
+      await expect(page.getByRole('heading', { name: 'Review email', exact: true })).toBeFocused();
+      await expect(page.getByText('support@example.invalid', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Excluded.*unverified/i)).toBeVisible();
+      await page.goBack();
+      await expect(page.getByLabel('Subject', { exact: true })).toHaveValue(subject);
+      await page.getByRole('button', { name: 'Review email', exact: true }).click();
+      await page.getByRole('button', { name: 'Send to 1 learner', exact: true }).press('Enter');
+      await expect(page.getByRole('heading', { name: subject, exact: true })).toBeVisible();
+      await expect(async () => {
+        await page.getByRole('button', { name: 'Refresh status' }).click();
+        await expect(page.getByText(/Accepted by mail provider/)).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 10000 });
+      await page.getByRole('link', { name: 'Sent messages', exact: true }).first().click();
+      await page.getByRole('link', { name: subject, exact: true }).click();
+      await expect(page.getByText('Private support follow-up.', { exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBeTruthy();
+      await page.getByRole('link', { name: 'User directory', exact: true }).click();
+      await search.fill(learner);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page.getByRole('link', { name: learner, exact: true })).toBeVisible();
+
       // Hold a real owner search response until another tab finishes signing out.
       const delayed = Promise.withResolvers<void>();
       let intercepted = false;
@@ -104,7 +172,8 @@ try {
       await expect(page.getByText('Owner access required.')).toBeVisible();
       await access(page, 403);
       console.log(
-        'Passed owner drill-down, Back, logout and access checks at width ' + viewport.width
+        'Passed owner navigation, consent, compose, review, send, history, drill-down, Back, logout and access checks at width ' +
+          viewport.width
       );
     } finally {
       await context.close();

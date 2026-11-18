@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"opencw/internal/common"
 	"opencw/internal/models"
+	"opencw/internal/utils"
 )
 
 type AdminHandler struct{ DB *gorm.DB }
@@ -71,7 +72,7 @@ func (h AdminHandler) SearchUsers(c *gin.Context) {
 		return
 	}
 	// Keep private search text out of SQL logs, including slow or failed queries.
-	db := h.DB.WithContext(c.Request.Context()).Session(&gorm.Session{Logger: emailSQLLogger{h.DB.Logger}})
+	db := utils.PrivateSQL(h.DB.WithContext(c.Request.Context()))
 	period, valid := newReportPeriod(input.Days, input.Until, time.Now())
 	if !valid {
 		adminInvalid(c)
