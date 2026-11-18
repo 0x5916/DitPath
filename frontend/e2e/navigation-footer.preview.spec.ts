@@ -1,5 +1,19 @@
 import { expect, test } from '@playwright/test';
 
+test('the full footer uses the same type and row sizes on phone and desktop', async ({ page }) => {
+  await page.goto('/en');
+  const footer = page.getByRole('contentinfo');
+  const link = footer.getByRole('link', { name: 'Learn', exact: true });
+  const language = footer.getByRole('button', { name: 'English', exact: true });
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const item of [link, language]) {
+      await expect(item).toHaveCSS('font-size', '14px');
+      await expect(item).toHaveCSS('min-height', '32px');
+    }
+  }
+});
+
 const internalRoutes = [
   '/login',
   '/register',

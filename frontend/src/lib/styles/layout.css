@@ -82,13 +82,15 @@
 }
 
 .navbar-inner {
-  max-width: var(--max-width-container);
+  --navbar-icon-size: 1.25rem;
+  max-width: var(--max-width-wide);
+  min-height: var(--navbar-min-height);
   margin-left: auto;
   margin-right: auto;
-  padding: 0.55rem var(--space-4);
+  padding: 0 var(--space-6);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  gap: var(--space-8);
 }
 
 .navbar-brand {
@@ -97,7 +99,6 @@
   white-space: nowrap;
   min-height: var(--nav-control-height);
   align-items: center;
-  gap: 0.5rem;
   /* Pads the wordmark up to a comfortable target; the negative margin keeps the
      bar's own height and the mark's position unchanged. */
   padding-block: 0.4rem;
@@ -125,48 +126,36 @@
   }
 }
 
-.navbar-link {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-  height: var(--nav-control-height);
+.navbar-link,
+.navbar-user-btn,
+.theme-icon-btn {
   box-sizing: border-box;
-  line-height: 1.25rem;
-  padding: 0 0.35rem;
+  min-height: 3rem;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-weight: 500;
   color: var(--text-secondary);
   transition: color 0.15s;
 }
 
-/* One control treatment for everything clickable in the top bar: a
-   secondary-ink label over an accent rule that grows from the left. The rule is
-   an absolutely positioned child, so it needs the control itself as its
-   containing block — the sticky `.navbar` is the nearest positioned ancestor
-   otherwise, which paints the rule across the whole bar. Declared once, here,
-   instead of relying on every control to remember it. */
-.navbar-link,
-.navbar-user-btn,
-.theme-icon-btn {
+.navbar-link {
+  display: inline-flex;
   position: relative;
+  white-space: nowrap;
+  line-height: 1.25rem;
 }
 
-.navbar-link::after,
-.navbar-user-btn::after,
-.theme-icon-btn::after {
+.navbar-link.active::after {
   content: '';
   position: absolute;
-  left: 0;
-  bottom: -0.2rem;
-  width: 100%;
+  inset-inline: var(--space-2);
+  bottom: -2px;
   height: 2px;
   background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.18s ease;
 }
 
-/* The rule shows on hover and on keyboard focus, and stays put while a menu is
-   open so its trigger still reads as active. The active route keeps it in
-   place permanently. */
 .navbar-link:hover,
 .navbar-link:focus-visible,
 .navbar-user-btn:hover,
@@ -177,22 +166,9 @@
   color: var(--text-primary);
 }
 
-.navbar-link:hover::after,
-.navbar-link:focus-visible::after,
-.navbar-user-btn:hover::after,
-.navbar-user-btn:focus-visible::after,
-.navbar-user-btn[aria-expanded='true']::after,
-.theme-icon-btn:hover::after,
-.theme-icon-btn:focus-visible::after {
-  transform: scaleX(1);
-}
-
 .navbar-link.active {
   color: var(--accent);
-}
-
-.navbar-link.active::after {
-  transform: scaleX(1);
+  font-weight: 600;
 }
 
 .navbar-links {
@@ -200,14 +176,20 @@
   gap: var(--space-4);
 }
 
-.navbar-account {
+.navbar-tools {
   margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.navbar-account {
   min-width: 0;
 }
 
 .nav-account-label {
   min-width: 0;
-  max-inline-size: 10ch;
+  max-inline-size: 18ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -217,24 +199,26 @@
   position: relative;
 }
 
-.navbar-user-btn {
-  max-width: 100%;
-  display: flex;
-  white-space: nowrap;
-  align-items: center;
-  gap: 0.4rem;
-  height: var(--nav-control-height);
-  box-sizing: border-box;
-  line-height: 1.25rem;
-  padding: 0 0.35rem;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  border-radius: 0;
+.navbar-user-btn,
+.theme-icon-btn {
   border: none;
   background: transparent;
-  color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.15s;
+}
+
+.navbar-user-btn {
+  display: flex;
+  max-width: 100%;
+  white-space: nowrap;
+  line-height: 1.25rem;
+}
+
+.theme-icon-btn {
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 3rem;
+  line-height: 1;
 }
 
 .user-dropdown {
@@ -242,22 +226,24 @@
   right: 0;
   top: calc(100% + 0.5rem);
   min-width: 10rem;
+  width: 17.5rem;
+  max-width: calc(100vw - 3rem);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-menu);
+  border-radius: var(--radius-lg);
   z-index: 100;
   overflow: hidden;
-  padding: var(--space-1);
+  padding: var(--space-2);
 }
 
 .user-dropdown-item {
   display: flex;
-  min-height: var(--nav-control-height);
+  min-height: 3rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-4);
   width: 100%;
-  padding: 0.55rem 0.7rem;
+  padding: var(--space-3);
+  overflow-wrap: anywhere;
   font-size: var(--text-sm);
   font-weight: 500;
   text-align: left;
@@ -279,26 +265,10 @@
 
 /* The menu item's own label and icon are one target. */
 .user-dropdown-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   pointer-events: none;
-}
-
-.theme-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--nav-control-height);
-  box-sizing: border-box;
-  line-height: 1;
-  min-width: 3rem;
-  padding: 0 0.35rem;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: color 0.15s;
 }
 
 /* Mobile bottom navigation bar (primary destinations) */
@@ -409,18 +379,10 @@
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-}
-
-.nav-icon {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  pointer-events: none;
+  gap: var(--space-2);
 }
 
 /* Prevent SVG icons from capturing touch events */
-.navbar-link svg,
 .navbar-user-btn svg,
 .theme-icon-btn svg,
 .btn-icon svg,
@@ -429,86 +391,35 @@
   pointer-events: none;
 }
 
-/* Shared desktop navigation: content-sized links, quiet open state, distinct focus. */
-.navbar-inner {
-  max-width: var(--max-width-wide);
-  min-height: var(--navbar-min-height);
-  padding: 0 var(--space-6);
-  gap: var(--space-8);
-}
-.navbar-link,
-.navbar-user-btn {
-  min-height: 3rem;
-  height: auto;
-  padding-inline: var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-base);
-}
-.navbar-link {
-  font-weight: 500;
-}
-.navbar-link.active {
-  font-weight: 600;
-}
-.navbar-link::after {
-  left: var(--space-2);
-  width: calc(100% - 1rem);
-  bottom: -2px;
-}
-.navbar-link:not(.active)::after,
-.navbar-user-btn::after {
-  display: none;
-}
 .navbar-link:hover,
+.theme-icon-btn:hover,
 .navbar-user-btn:hover,
 .navbar-user-btn[aria-expanded='true'] {
   background: var(--bg-base);
 }
 .navbar-link:focus-visible,
+.theme-icon-btn:focus-visible,
 .navbar-user-btn:focus-visible,
 .user-dropdown-item:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   box-shadow: none;
 }
-.navbar-user-btn .nav-icon {
-  width: 20px;
-  height: 20px;
+.navbar-user-btn .nav-icon,
+.theme-icon-btn svg {
+  width: var(--navbar-icon-size);
+  height: var(--navbar-icon-size);
   flex-shrink: 0;
 }
 .navbar-user-btn .nav-chevron {
   width: 16px;
   height: 16px;
 }
-.navbar-user-btn .nav-label-icon {
-  gap: var(--space-2);
-}
-.nav-account-label {
-  max-inline-size: 18ch;
-}
-.user-dropdown {
-  width: 17.5rem;
-  max-width: calc(100vw - 3rem);
-  padding: var(--space-2);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-}
 .user-dropdown-identity {
   padding: var(--space-3) var(--space-3) var(--space-4);
   color: var(--text-primary);
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-.user-dropdown-item {
-  min-height: 3rem;
-  padding: var(--space-3);
-  gap: var(--space-4);
-  overflow-wrap: anywhere;
-}
-.user-dropdown-item svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
 }
 @media (max-width: 1199px) {
   .navbar-inner {
@@ -526,12 +437,6 @@
   .navbar-inner {
     gap: var(--space-2);
   }
-  .nav-account-label {
-    max-inline-size: min(10ch, 24vw);
-  }
-  .navbar-user-btn .nav-chevron {
-    display: none;
-  }
 }
 
 /* Reuse the account dropdown's keyboard and touch behavior for product links. */
@@ -547,7 +452,20 @@
     display: block;
     flex-shrink: 0;
   }
-  .navbar-mobile .navbar-user-btn {
+  .navbar-account .navbar-user-btn {
+    min-width: var(--nav-control-height);
+    padding-inline: 0;
+  }
+  .navbar-account .nav-label-icon {
+    gap: 0;
+  }
+  /* The chevron uses the trailing half-gutter of the 44px icon track. */
+  .navbar-account .nav-chevron {
+    width: calc((var(--nav-control-height) - var(--navbar-icon-size)) / 2);
+    height: auto;
+  }
+  .navbar-mobile .navbar-user-btn,
+  .theme-icon-btn {
     width: var(--nav-control-height);
     min-width: var(--nav-control-height);
     justify-content: center;
@@ -560,19 +478,20 @@
   .navbar-account .user-dropdown,
   .navbar-mobile .user-dropdown {
     inset-inline: var(--space-4);
-    top: 100%;
+    top: calc(100% + var(--space-3));
     width: auto;
     max-width: none;
+    max-height: calc(
+      100dvh - 100% - var(--space-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
+    overflow-y: auto;
   }
   .navbar-mobile .nav-chevron,
   .navbar-mobile .user-dropdown-identity {
     display: none;
   }
   .navbar-account .nav-account-label {
+    margin-inline-end: var(--space-2);
     max-inline-size: min(8ch, 16vw);
-  }
-  .user-dropdown-item[aria-current] {
-    color: var(--accent);
-    font-weight: 600;
   }
 }

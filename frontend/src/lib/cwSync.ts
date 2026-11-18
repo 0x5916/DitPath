@@ -150,7 +150,7 @@ export function saveClientCwSettings(settings: CWSettings): CWSettings {
  *
  * Page settings cover what syncs across devices (interface language and the
  * current lesson). The theme is deliberately absent: it is a device-local
- * preference owned by `#lib/theme.ts`.
+ * preference owned by `#lib/theme.svelte.ts`.
  */
 export function readClientPageSettings(
   currentLesson: number,

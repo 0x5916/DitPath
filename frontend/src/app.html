@@ -22,9 +22,13 @@
     <script>
       // Applied before first paint to avoid a theme flash. The key must match
       // UI_STORAGE_KEYS.theme in src/lib/storageKeys.ts.
-      const theme = localStorage.getItem('theme');
-      if (theme === 'light' || theme === 'dark') {
-        document.documentElement.setAttribute('data-theme', theme);
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      } catch {
+        // Use the system appearance when the browser blocks storage.
       }
     </script>
     %sveltekit.head%
