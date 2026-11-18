@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Create disposable test accounts for the isolated DitPath stack.
+ * Create disposable test accounts for the isolated Morsewell stack.
  *
  * Accounts are registered through the real API, then marked verified with a
  * scoped SQL update because this environment deliberately has no external email
@@ -202,7 +202,7 @@ async function seedSample() {
       {
         category: "general",
         title: "Final acceptance sample thread",
-        body: "This thread is disposable sample data for the local DitPath acceptance stack. Browse it, reply to it, and delete content during testing.",
+        body: "This thread is disposable sample data for the local Morsewell acceptance stack. Browse it, reply to it, and delete content during testing.",
       },
       tokenA,
       201,

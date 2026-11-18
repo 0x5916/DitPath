@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restore a DitPath database dump created by scripts/backup.sh.
+# Restore a Morsewell database dump created by scripts/backup.sh.
 #
 # Destructive by design: the default mode drops and recreates the target
 # database so the restore is a clean replacement rather than a merge into
@@ -19,7 +19,7 @@ KEEP="${BACKUP_RETENTION:-14}"
 
 usage() {
   print_help \
-    "Restore a DitPath database dump. Overwrites the target database." \
+    "Restore a Morsewell database dump. Overwrites the target database." \
     "scripts/restore.sh [FILE] [options]" \
     "FILE                  dump to restore (.sql.gz or .sql); default: newest in ${BACKUP_DIR}" \
     "--file PATH           same as the positional FILE" \
@@ -170,7 +170,7 @@ else
   warn "the dump will be applied ON TOP of the existing '${db_name}' schema"
 fi
 
-typed_confirm "${db_name}" "This replaces data in the running DitPath stack."
+typed_confirm "${db_name}" "This replaces data in the running Morsewell stack."
 
 # --- pre-restore backup -----------------------------------------------------
 

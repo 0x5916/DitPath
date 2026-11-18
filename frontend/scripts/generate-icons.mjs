@@ -1,4 +1,4 @@
-// Generates the approved DitPath app-icon, favicon, PWA, Apple touch, and social-card assets.
+// Generates the approved Morsewell app-icon, favicon, PWA, Apple touch, and social-card assets.
 //
 // Authoritative artwork:
 //   src/lib/assets/ditpath-icon-material.svg  (full-detail brand illustration)
@@ -31,11 +31,21 @@ const outDir = path.join(root, 'static');
 const materialSource = path.join(sourceDir, 'ditpath-icon-material.svg');
 const smallSource = path.join(sourceDir, 'ditpath-icon-small.svg');
 
-// Mirrors the light-theme paper and ink tokens in src/app.css.
+// Original icon canvas and rim are part of the preserved artwork.
+// --brand-only refreshes social metadata without writing any icon assets.
 const PAPER = '#F3F2ED';
-const INK = '#252620';
-const MUTED = '#4F5147';
-const FOREST = '#2F6B50';
+const css = await readFile(path.join(root, 'src/app.css'), 'utf8');
+const lightPalette = css.slice(css.indexOf("[data-theme='light'] {"));
+function token(name, source = lightPalette) {
+  const value = source.match(new RegExp(`--${name}:\\s*(#[a-fA-F0-9]+);`))?.[1];
+  if (!value) throw new Error(`Missing brand token: ${name}`);
+  return value;
+}
+const SOCIAL_PAPER = token('bg-base');
+const INK = token('text-primary');
+const MUTED = token('text-secondary');
+const FOREST = token('accent');
+const GOLD = token('brand-gold', css);
 const PAPER_RGB = { r: 0xf3, g: 0xf2, b: 0xed };
 
 // The small artwork's supplied viewBox is its optical crop. The favicon rim is
@@ -215,8 +225,8 @@ async function renderFavicon(size) {
 
 function socialCardText() {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect x="560" y="180" width="56" height="4" rx="2" fill="${FOREST}"/>
-  <text x="560" y="286" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="76" font-weight="700" letter-spacing="-2" fill="${INK}">DitPath</text>
+  <rect x="560" y="180" width="56" height="4" rx="2" fill="${GOLD}"/>
+  <text x="560" y="286" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="76" font-weight="700" letter-spacing="-2" fill="${INK}">Morsewell</text>
   <text x="560" y="354" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="38" font-weight="500" fill="${INK}">Learn Morse by ear.</text>
   <text x="560" y="414" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="24" fill="${MUTED}">Guided Koch lessons, free practice,</text>
   <text x="560" y="448" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="24" fill="${MUTED}">and clear progress.</text>
@@ -225,40 +235,46 @@ function socialCardText() {
 }
 
 async function generate() {
-  const smallSourceText = await readFile(smallSource, 'utf8');
+  if (!process.argv.includes('--brand-only')) {
+    const smallSourceText = await readFile(smallSource, 'utf8');
 
-  await mkdir(outDir, { recursive: true });
+    await mkdir(outDir, { recursive: true });
 
-  const faviconSvg = deriveSmallArtwork(smallSourceText);
+    const faviconSvg = deriveSmallArtwork(smallSourceText);
 
-  await writeFile(path.join(outDir, 'favicon.svg'), faviconSvg);
-  console.log('wrote static/favicon.svg');
+    await writeFile(path.join(outDir, 'favicon.svg'), faviconSvg);
+    console.log('wrote static/favicon.svg');
 
-  const faviconSizes = [16, 32, 48, 64];
-  const faviconPngs = [];
-  for (const size of faviconSizes) {
-    const png = await renderFavicon(size);
-    faviconPngs.push({ size, data: png });
-    await writeFile(path.join(outDir, `favicon-${size}.png`), png);
-    console.log(`wrote static/favicon-${size}.png`);
+    const faviconSizes = [16, 32, 48, 64];
+    const faviconPngs = [];
+    for (const size of faviconSizes) {
+      const png = await renderFavicon(size);
+      faviconPngs.push({ size, data: png });
+      await writeFile(path.join(outDir, `favicon-${size}.png`), png);
+      console.log(`wrote static/favicon-${size}.png`);
+    }
+
+    const icoFile = path.join(outDir, 'favicon.ico');
+    await writeFile(icoFile, buildIco(faviconPngs.filter(({ size }) => size <= 48)));
+    console.log('wrote static/favicon.ico');
+
+    const materialBounds = await measureMaterialBounds();
+
+    const apple = await renderAppIcon(180, materialBounds);
+    await writeFile(path.join(outDir, 'apple-touch-icon.png'), apple);
+    console.log('wrote static/apple-touch-icon.png');
+
+    await writeFile(path.join(outDir, 'icon-512.png'), await renderAppIcon(512, materialBounds));
+    await writeFile(path.join(outDir, 'icon-192.png'), await renderAppIcon(192, materialBounds));
+    console.log('wrote static/icon-192.png');
+    console.log('wrote static/icon-512.png');
   }
 
-  const icoFile = path.join(outDir, 'favicon.ico');
-  await writeFile(icoFile, buildIco(faviconPngs.filter(({ size }) => size <= 48)));
-  console.log('wrote static/favicon.ico');
-
-  const materialBounds = await measureMaterialBounds();
-
-  const apple = await renderAppIcon(180, materialBounds);
-  await writeFile(path.join(outDir, 'apple-touch-icon.png'), apple);
-  console.log('wrote static/apple-touch-icon.png');
-
-  await writeFile(path.join(outDir, 'icon-512.png'), await renderAppIcon(512, materialBounds));
-  await writeFile(path.join(outDir, 'icon-192.png'), await renderAppIcon(192, materialBounds));
-  console.log('wrote static/icon-192.png');
-  console.log('wrote static/icon-512.png');
-
-  const socialBase = await paperCanvas(1200, 630).png().toBuffer();
+  const socialBase = await sharp({
+    create: { width: 1200, height: 630, channels: 4, background: SOCIAL_PAPER }
+  })
+    .png()
+    .toBuffer();
   const socialIcon = await sharp(materialSource).resize(420, 420).png().toBuffer();
   const social = await sharp(socialBase)
     .composite([
@@ -272,15 +288,15 @@ async function generate() {
   console.log(`wrote static/og-image.png (${social.width}x${social.height})`);
 
   const manifest = {
-    name: 'DitPath',
-    short_name: 'DitPath',
+    name: 'Morsewell',
+    short_name: 'Morsewell',
     description: 'Learn Morse by ear with guided Koch lessons, free practice, and clear progress.',
     id: '/',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: PAPER,
-    theme_color: '#191917',
+    background_color: SOCIAL_PAPER.toUpperCase(),
+    theme_color: '#15191B',
     categories: ['education'],
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

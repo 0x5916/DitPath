@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 
 const NO_HISTORY_TITLES = {
-  en: 'OpenCW is becoming DitPath!',
-  de: 'OpenCW wird DitPath!',
-  ja: 'OpenCW は DitPath になります！',
-  'zh-Hans': 'OpenCW 即将更名为 DitPath！',
-  'zh-Hant': 'OpenCW 即將更名為 DitPath！'
+  en: 'OpenCW is now Morsewell!',
+  de: 'OpenCW heißt jetzt Morsewell!',
+  ja: 'OpenCW は Morsewell になりました！',
+  'zh-Hans': 'OpenCW 现已更名为 Morsewell！',
+  'zh-Hant': 'OpenCW 現已更名為 Morsewell！'
 } as const;
 
-test.describe('DitPath migration banner', () => {
+test.describe('Morsewell migration banner', () => {
   test('localizes the short no-history announcement in all five locales', async ({ page }) => {
     for (const [locale, title] of Object.entries(NO_HISTORY_TITLES)) {
       await page.goto(`/${locale}/about`);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Report the health of a deployed DitPath stack.
+# Report the health of a deployed Morsewell stack.
 #
 # Read-only: safe to run at any time, and safe to run from cron. Exits non-zero
 # when a critical service (db, backend, frontend) is unhealthy, so a monitoring
@@ -14,7 +14,7 @@ COMMON_OPTS=()
 
 usage() {
   print_help \
-    "Report service health, versions, and disk usage for the DitPath stack." \
+    "Report service health, versions, and disk usage for the Morsewell stack." \
     "scripts/status.sh [options]" \
     "--skip-disk           omit the slower disk and Docker storage sections"
 }

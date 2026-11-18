@@ -8,7 +8,7 @@ web
 
 ## Users
 
-DitPath serves three audiences equally:
+Morsewell serves three audiences equally:
 
 - **Radio amateurs preparing for Morse or licence tests.** Need structured lessons, reliable feedback, and confidence in their readiness.
 - **Experienced operators.** Want efficient, uninterrupted practice to maintain or improve their Morse recognition speed.
@@ -16,11 +16,11 @@ DitPath serves three audiences equally:
 
 All three want to recognize Morse by ear, understand their progress, and know what to practise next.
 
-Learners use DitPath on desktop and mobile browsers, with or without an account.
+Learners use Morsewell on desktop and mobile browsers, with or without an account.
 
 ## Product Purpose
 
-DitPath is a free, open-source, sound-first Morse code trainer. It combines guided Koch lessons, continuous copy practice, progress tracking, and a community forum.
+Morsewell is a free, open-source, sound-first Morse code trainer. It combines guided Koch lessons, continuous copy practice, progress tracking, and a community forum.
 
 The goal is to make learning Morse approachable, effective, and self-directed. Learners should develop auditory recognition rather than depend on visually decoding dots and dashes.
 
@@ -30,11 +30,11 @@ Success means that a complete beginner can confidently start learning, an experi
 
 **Learn Morse by ear. Practise with purpose. Know what comes next.**
 
-DitPath offers a focused learning experience combining structured progression, independent practice, and meaningful feedback.
+Morsewell offers a focused learning experience combining structured progression, independent practice, and meaningful feedback.
 
 Its value comes from clarity and accessibility rather than feature quantity. The interface should make a potentially intimidating skill feel manageable without oversimplifying the learning process.
 
-The Koch method and these capabilities are not exclusive to DitPath. Do not invent differentiating features or make unsupported claims.
+The Koch method and these capabilities are not exclusive to Morsewell. Do not invent differentiating features or make unsupported claims.
 
 ## Operating Context
 
@@ -54,7 +54,7 @@ The interface supports light and dark themes and five languages: English, German
 
 ### Design workflow
 
-DitPath uses Penpot as its design source of truth.
+Morsewell uses Penpot as its design source of truth.
 
 - Inspect existing designs and components before proposing changes.
 - For exploratory redesigns, create a separate Penpot page instead of modifying existing work.
@@ -75,11 +75,11 @@ DitPath uses Penpot as its design source of truth.
 
 **Implementation boundaries:** Design must respect existing capabilities and behavior. Do not invent targeted drills, native apps, offline support, analytics, or other unimplemented functionality.
 
-**Naming:** DitPath is the current product name; OpenCW is the former name. Use DitPath in new user-facing designs. Do not rename technical identifiers or infrastructure without separate authorization.
+**Naming:** Morsewell is the current product name; DitPath and OpenCW are former names. Use Morsewell in new user-facing designs. Do not rename technical identifiers or infrastructure without separate authorization.
 
 ## Brand Commitments
 
-DitPath should feel **clear, approachable, focused, and trustworthy**.
+Morsewell should feel **clear, approachable, focused, and trustworthy**.
 
 - **Voice:** Plain, direct, encouraging, and never patronizing.
 - **Visual character:** Calm, modern, purposeful, and minimally distracting.
@@ -88,11 +88,11 @@ DitPath should feel **clear, approachable, focused, and trustworthy**.
 - **Trust:** Honest progress reporting and no exaggerated claims.
 - **Openness:** Free, independent, Apache-2.0 open source, without advertising or third-party analytics.
 
-Use existing approved Penpot components and visual conventions as the baseline. Detailed visual rules belong in the design system.
+Use the approved Forest Jade identity: light primary `#27694E`, background `#F7F8F3`, surface `#FFFFFF`, text `#1C3228`; dark primary `#85D1A4`, neutral charcoal background `#15191B`, surface `#22272A`, text `#EDF1F0`. Gold `#EAC384` is a sparse decorative accent. Semantic tokens live in [app.css](frontend/src/app.css). Preserve the original paddle artwork and favicon geometry and colors; the navigation wordmark is text-only. Use existing approved Penpot components and visual conventions as the baseline. Detailed visual rules belong in the design system.
 
 ## Evidence on Hand
 
-DitPath has an existing functional application with guided lessons, practice, learning history, progress, settings, and a community forum.
+Morsewell has an existing functional application with guided lessons, practice, learning history, progress, settings, and a community forum.
 
 The repository and acceptance notes document implemented behavior. Editable Penpot designs cover existing interface flows.
 

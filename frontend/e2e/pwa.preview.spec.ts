@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('DitPath PWA behavior', () => {
+test.describe('Morsewell PWA behavior', () => {
   test('serves the manifest, install metadata, and icon assets', async ({ page, request }) => {
     await page.goto('/en');
 
@@ -10,11 +10,11 @@ test.describe('DitPath PWA behavior', () => {
     );
     await expect(page.locator('meta[name="application-name"]')).toHaveAttribute(
       'content',
-      'DitPath'
+      'Morsewell'
     );
     await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
       'content',
-      'DitPath'
+      'Morsewell'
     );
     await expect(page.locator('meta[name="theme-color"]')).toHaveCount(2);
     await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
@@ -31,11 +31,11 @@ test.describe('DitPath PWA behavior', () => {
     );
     await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
       'content',
-      /DitPath/
+      /Morsewell/
     );
     await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute(
       'content',
-      /DitPath/
+      /Morsewell/
     );
 
     const response = await request.get('/manifest.webmanifest');
@@ -46,8 +46,8 @@ test.describe('DitPath PWA behavior', () => {
       display: string;
       icons: Array<{ src: string; sizes: string; purpose: string }>;
     };
-    expect(manifest.name).toBe('DitPath');
-    expect(manifest.short_name).toBe('DitPath');
+    expect(manifest.name).toBe('Morsewell');
+    expect(manifest.short_name).toBe('Morsewell');
     expect(manifest.display).toBe('standalone');
     expect(manifest.icons).toEqual([
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

@@ -6,7 +6,6 @@ import { ROUTE_PATHS } from './routes.js';
 const LOCALES = ['en', 'de', 'ja', 'zh-Hans', 'zh-Hant'] as const;
 
 const BRANDED_MESSAGE_KEYS = [
-  'footer_text',
   'about_intro',
   'about_project_body',
   'lesson_page_title',
@@ -14,7 +13,7 @@ const BRANDED_MESSAGE_KEYS = [
 ] as const;
 
 // The migration banner intentionally names the old product to explain the
-// transition. Every other public message must use DitPath.
+// transition. Every other public message must use Morsewell.
 const LEGACY_BRAND_ALLOWED_KEYS = new Set([
   'migration_empty_title',
   'migration_guest_history_title',
@@ -30,9 +29,9 @@ function readCatalog(locale: (typeof LOCALES)[number]): Catalog {
   ) as Catalog;
 }
 
-describe('DitPath public branding', () => {
+describe('Morsewell public branding', () => {
   it('uses the canonical public name and repository URL', () => {
-    expect(SITE_NAME).toBe('DitPath');
+    expect(SITE_NAME).toBe('Morsewell');
     expect(GITHUB_URL).toBe('https://github.com/0x5916/DitPath');
   });
 
@@ -40,8 +39,8 @@ describe('DitPath public branding', () => {
     const messages = readCatalog(locale);
 
     for (const key of BRANDED_MESSAGE_KEYS) {
-      expect(messages[key], `${locale}.${key}`).toContain('DitPath');
-      expect(messages[key], `${locale}.${key}`).not.toMatch(/OpenCW/i);
+      expect(messages[key], `${locale}.${key}`).toContain('Morsewell');
+      expect(messages[key], `${locale}.${key}`).not.toMatch(/DitPath|OpenCW/i);
     }
   });
 
@@ -50,7 +49,7 @@ describe('DitPath public branding', () => {
 
     for (const [key, value] of Object.entries(messages)) {
       if (LEGACY_BRAND_ALLOWED_KEYS.has(key)) continue;
-      expect(value, `${locale}.${key}`).not.toMatch(/OpenCW/i);
+      expect(value, `${locale}.${key}`).not.toMatch(/DitPath|OpenCW/i);
     }
   });
 
@@ -59,9 +58,9 @@ describe('DitPath public branding', () => {
       const metadata = resolveSeoMetadata(routePath, locale);
       const label = `${locale} ${routePath}`;
 
-      expect(metadata.title, `${label} title`).toContain('DitPath');
-      expect(metadata.title, `${label} title`).not.toMatch(/OpenCW/i);
-      expect(metadata.description, `${label} description`).not.toMatch(/OpenCW/i);
+      expect(metadata.title, `${label} title`).toContain('Morsewell');
+      expect(metadata.title, `${label} title`).not.toMatch(/DitPath|OpenCW/i);
+      expect(metadata.description, `${label} description`).not.toMatch(/DitPath|OpenCW/i);
     }
   });
 });

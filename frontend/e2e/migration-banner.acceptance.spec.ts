@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resetAcceptance } from './helpers';
 
-test.describe('DitPath migration data guidance', () => {
+test.describe('Morsewell migration data guidance', () => {
   test('warns guests with browser-local history and keeps critical dismissal session-only', async ({
     page
   }) => {
@@ -9,7 +9,7 @@ test.describe('DitPath migration data guidance', () => {
 
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText('OpenCW is becoming DitPath!');
+    await expect(banner).toContainText('OpenCW is now Morsewell!');
     await expect(banner).toContainText('will not transfer automatically');
     await expect(banner).toContainText('import your device history');
     await expect(banner).toContainText('confirm synchronization');
@@ -38,7 +38,7 @@ test.describe('DitPath migration data guidance', () => {
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('unfinished lesson or practice session');
     await expect(banner).toContainText('Complete it before creating an account or moving');
-    await expect(banner).toContainText('does not transfer it to DitPath or your account');
+    await expect(banner).toContainText('does not transfer it to Morsewell or your account');
     await expect(banner.getByRole('link', { name: 'Complete saved session' })).toHaveAttribute(
       'href',
       '/en/morse/practice'

@@ -1,13 +1,13 @@
 {
-  "name": "DitPath",
-  "short_name": "DitPath",
+  "name": "Morsewell",
+  "short_name": "Morsewell",
   "description": "Learn Morse by ear with guided Koch lessons, free practice, and clear progress.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#F3F2ED",
-  "theme_color": "#191917",
+  "background_color": "#F7F8F3",
+  "theme_color": "#15191B",
   "categories": [
     "education"
   ],

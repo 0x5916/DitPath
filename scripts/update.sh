@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Update a deployed DitPath stack safely.
+# Update a deployed Morsewell stack safely.
 #
 # Sequence: snapshot the running images and the current commit, take a database
 # backup, move to the target revision, rebuild, and verify that every service

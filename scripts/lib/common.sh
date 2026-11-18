@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/lib/common.sh - shared helpers for the DitPath operational scripts.
+# scripts/lib/common.sh - shared helpers for the Morsewell operational scripts.
 #
 # This file is sourced, never executed directly:
 #
@@ -8,8 +8,8 @@
 # Design notes
 # ------------
 # * ${ENV_FILE} is parsed, never sourced. example.env ships
-#   `RESEND_FROM_EMAIL=DitPath <no-reply@example.com>`; sourcing that file would
-#   try to execute `DitPath` as a command.
+#   `RESEND_FROM_EMAIL=Morsewell <no-reply@example.com>`; sourcing that file would
+#   try to execute `Morsewell` as a command.
 # * Database credentials are read from inside the containers (the `db` service
 #   has $POSTGRES_USER / $POSTGRES_DB in its environment) instead of being
 #   re-exported on the host, so secrets never enter this process.

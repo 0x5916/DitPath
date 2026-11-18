@@ -11,7 +11,7 @@
   let { title, subtitle, footer, children }: Props = $props();
 </script>
 
-<div class="page-narrow">
+<div class="page-narrow auth-layout">
   <div class="auth-card">
     <h1 class="page-title auth-title">{title}</h1>
     <p class="body-text auth-subtitle">{subtitle}</p>
@@ -38,11 +38,11 @@
   }
 
   .auth-subtitle {
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--space-4);
   }
 
   .auth-footer-text {
-    margin: var(--block-gap) 0 0;
+    margin: var(--space-4) 0 0;
     text-align: center;
   }
 

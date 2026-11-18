@@ -195,7 +195,7 @@ describe('migration data-preservation messaging', () => {
       'Complete it before creating an account or moving'
     );
     expect(en.migration_checkpoint_body).toContain(
-      'does not transfer it to DitPath or your account'
+      'does not transfer it to Morsewell or your account'
     );
     expect(en.migration_checkpoint_body).not.toContain('Finish or save');
     expect(en.migration_unclaimed_body).toContain('sign out and complete any guest session');
