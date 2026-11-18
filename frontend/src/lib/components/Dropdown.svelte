@@ -121,6 +121,13 @@
     }
   }
 
+  function revealFocusedItem(event: FocusEvent) {
+    if (!menuEl || menuEl.scrollHeight <= menuEl.clientHeight) return;
+    if (event.target instanceof HTMLElement) {
+      event.target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    }
+  }
+
   function onTriggerMouseEnter() {
     if (!canHover()) return;
     clearTimeout(leaveTimer);
@@ -212,6 +219,7 @@
       tabindex="-1"
       aria-label={label || undefined}
       bind:this={menuEl}
+      onfocusin={revealFocusedItem}
       onkeydown={onMenuKeydown}
       onmouseenter={onMenuMouseEnter}
       onmouseleave={onMenuMouseLeave}

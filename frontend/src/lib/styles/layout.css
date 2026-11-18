@@ -485,6 +485,7 @@
       100dvh - 100% - var(--space-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom)
     );
     overflow-y: auto;
+    scroll-padding-block: var(--space-2);
   }
   .navbar-mobile .nav-chevron,
   .navbar-mobile .user-dropdown-identity {

@@ -182,7 +182,12 @@ test('mobile dropdowns clear the header and fit a short viewport', async ({ page
     expect(box.y - (bar.y + bar.height)).toBeGreaterThanOrEqual(8);
     expect(box.y + box.height).toBeLessThanOrEqual(320);
     await page.keyboard.press('End');
-    await expect(menu.getByRole('menuitem').last()).toBeInViewport({ ratio: 1 });
+    const items = menu.getByRole('menuitem');
+    await expect(items.last()).toBeFocused();
+    await expect(items.last()).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press('Home');
+    await expect(items.first()).toBeFocused();
+    await expect(items.first()).toBeInViewport({ ratio: 1 });
     await page.keyboard.press('Escape');
     await expect(trigger).toBeFocused();
   }
