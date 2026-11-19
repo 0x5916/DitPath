@@ -65,7 +65,12 @@
   let mobileSection = $derived(navigationDestination(page.route.id, true));
   let desktopSection = $derived(navigationDestination(page.route.id));
   let isTrainingSession = $derived(page.route.id === '/morse/learn/session' && page.status < 400);
-  const MIGRATION_BANNER_HIDDEN_ROUTES = new Set(['/settings', '/login', '/register']);
+  const MIGRATION_BANNER_HIDDEN_ROUTES = new Set([
+    '/morse/practice',
+    '/settings',
+    '/login',
+    '/register'
+  ]);
   let showMigrationBanner = $derived(
     !isTrainingSession && !MIGRATION_BANNER_HIDDEN_ROUTES.has(page.route.id ?? '')
   );
