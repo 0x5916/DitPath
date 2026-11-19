@@ -29,8 +29,8 @@
   }
 </script>
 
-<div id="device-recovery">
-  <h3>{m.domain_recovery_title()}</h3>
+<section id="device-recovery" aria-labelledby="device-recovery-title">
+  <h3 id="device-recovery-title">{m.domain_recovery_title()}</h3>
   <p class="field-hint">{m.domain_recovery_hint()}</p>
   {#if canonical}
     <button type="button" class="btn-ghost" disabled={busy} onclick={recover}>
@@ -42,4 +42,13 @@
     >
   {/if}
   {#if result}<p role="status">{result}</p>{/if}
-</div>
+</section>
+
+<style>
+  #device-recovery {
+    margin-block-start: var(--block-gap);
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+  }
+</style>
