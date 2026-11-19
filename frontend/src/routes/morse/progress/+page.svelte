@@ -149,7 +149,7 @@
     <header class="progress-header">
       <h1 class="page-title">{m.nav_progress()}</h1>
     </header>
-    <nav class="progress-tabs" aria-label={m.nav_progress()}>
+    <nav class="section-nav" aria-label={m.nav_progress()}>
       {#each TABS as tab (tab.value)}
         <a
           href={localizedHref(
@@ -397,36 +397,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-  }
-
-  .progress-tabs {
-    display: flex;
-    gap: var(--space-4);
-  }
-  .progress-tabs a {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-inline: var(--space-3);
-    color: var(--text-secondary);
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-  }
-  .progress-tabs a[aria-current] {
-    color: var(--accent);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  @media (max-width: 480px) {
-    .progress-tabs {
-      gap: 0;
-    }
-    .progress-tabs a {
-      flex: 1;
-      padding-inline: 4px;
-      font-size: var(--text-sm);
     }
   }
 

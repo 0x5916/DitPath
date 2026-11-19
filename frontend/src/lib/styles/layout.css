@@ -67,6 +67,41 @@
   }
 }
 
+/* In-page links for multi-view pages such as Progress and Admin. */
+.section-nav {
+  display: flex;
+  gap: var(--space-4);
+}
+.section-nav a {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-3);
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-align: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  border-bottom: 2px solid transparent;
+}
+.section-nav a[aria-current] {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .section-nav {
+    gap: 0;
+  }
+  .section-nav a {
+    flex: 1 1 auto;
+    padding-inline: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}
+
 /* Navigation */
 .navbar {
   border-bottom: 1px solid var(--border);
