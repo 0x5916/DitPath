@@ -166,6 +166,10 @@
     scroll-margin-block-start: 5rem;
   }
 
+  #sync-storage > .field-hint {
+    margin-block-start: var(--space-2);
+  }
+
   .cache-options {
     margin-top: var(--space-2);
   }
