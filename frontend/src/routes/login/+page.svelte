@@ -4,9 +4,7 @@
   import { login, user, AuthStorageError, isAuthSessionCurrent } from '#lib/auth.ts';
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
-  import { PUBLIC_GOOGLE_CLIENT_ID } from '$app/env/public';
   import AuthCard from '#lib/components/AuthCard.svelte';
-  import GoogleSignIn from '#lib/components/GoogleSignIn.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import PasswordInput from '#lib/components/PasswordInput.svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
@@ -54,17 +52,7 @@
   }
 </script>
 
-<AuthCard
-  title={m.login_title()}
-  subtitle={m.login_subtitle()}
-  maxWidth={PUBLIC_GOOGLE_CLIENT_ID ? '400px' : undefined}
->
-  {#key authRevision}
-    <GoogleSignIn disabled={loading} fullWidth />
-  {/key}
-  {#if PUBLIC_GOOGLE_CLIENT_ID}
-    <p class="login-divider">{m.login_or()}</p>
-  {/if}
+<AuthCard title={m.login_title()} subtitle={m.login_subtitle()} {loading} {authRevision}>
   <form onsubmit={handleLogin} class="auth-form">
     <label class="field">
       <span class="label-text">{m.login_username_label()}</span>
@@ -105,21 +93,3 @@
     <a href={localizedHref('/register')} class="link">{m.login_register_link()}</a>
   {/snippet}
 </AuthCard>
-
-<style>
-  .login-divider {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin: 0 0 var(--space-5);
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-  }
-
-  .login-divider::before,
-  .login-divider::after {
-    content: '';
-    flex: 1;
-    border-top: 1px solid var(--border);
-  }
-</style>

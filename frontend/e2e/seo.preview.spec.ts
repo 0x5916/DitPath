@@ -22,7 +22,9 @@ test.describe('public privacy policy', () => {
         'href',
         'mailto:privacy@morsewell.com'
       );
-      await expect(page.locator('article')).toContainText('morsewell-support@googlegroups.com');
+      await expect(
+        page.getByRole('link', { name: 'morsewell-support@googlegroups.com' })
+      ).toHaveAttribute('href', 'mailto:morsewell-support@googlegroups.com');
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
         'href',
         new RegExp(`${path}$`)

@@ -23,6 +23,7 @@
 
   let { username, linked, onlinked }: { username: string; linked: boolean; onlinked: () => void } =
     $props();
+  const instructionId = $props.id();
   let step = $state<'idle' | 'starting' | 'choose' | 'confirm' | 'saving'>('idle');
   let password = $state('');
   let error = $state('');
@@ -60,7 +61,9 @@
     const code = extractErrorCode(failure);
     if (code === 'GOOGLE_ACCOUNT_CONFLICT') error = m.settings_google_conflict();
     else if (code === 'GOOGLE_CREDENTIAL_INVALID') error = m.settings_google_restart();
-    else error = localizeApiError(failure, () => m.google_unavailable());
+    else if (code === 'GOOGLE_SIGN_IN_UNAVAILABLE' || code === 'GOOGLE_SIGN_IN_DISABLED')
+      error = m.settings_google_unavailable();
+    else error = localizeApiError(failure, m.settings_google_unavailable);
     heading.focus();
   }
 
@@ -154,7 +157,7 @@
 <section class="panel panel--ledger google-link">
   <h2 class="card-title" bind:this={heading} tabindex="-1">{m.settings_google_title()}</h2>
   {#if linked}
-    <p class="body-text" role="status">
+    <p class="body-text linked-status" role="status">
       <CircleCheck size={16} aria-hidden="true" />
       {m.settings_google_linked()}
     </p>
@@ -163,13 +166,15 @@
       <button type="button" class="btn-ghost" onclick={start}>{m.settings_google_link()}</button>
     {:else if step === 'confirm' || step === 'saving'}
       <form class="google-link" onsubmit={confirm}>
-        <p class="body-text">{m.settings_google_confirm({ username })}</p>
+        <p id={instructionId} class="body-text">{m.settings_google_confirm({ username })}</p>
         <label class="field">
           <span class="label-text">{m.settings_current_password_label()}</span>
           <input
             class="input"
             type="password"
             autocomplete="current-password"
+            aria-describedby={error ? `${instructionId} ${instructionId}-error` : instructionId}
+            aria-invalid={error ? true : undefined}
             required
             bind:value={password}
             {@attach (element) => {
@@ -196,14 +201,24 @@
           heading.focus();
         }}>{m.google_cancel()}</button
       >{/if}
-    {#if error}<ErrorAlert message={error} />{/if}
+    {#if error}<div id="{instructionId}-error"><ErrorAlert message={error} /></div>{/if}
   {/if}
 </section>
 
 <style>
   .google-link {
     display: grid;
-    justify-items: start;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
+  }
+
+  .google-link > button {
+    justify-self: start;
+  }
+
+  .linked-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
   }
 </style>

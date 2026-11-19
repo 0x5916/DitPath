@@ -119,7 +119,9 @@
   <section class="about-section" id="your-data">
     <div class="about-section-icon" aria-hidden="true"><ShieldCheck size={20} /></div>
     <h2 class="section-title">{m.about_privacy_title()}</h2>
-    <p class="body-text body-text--prose">{m.about_privacy_body()}</p>
+    <p class="body-text body-text--prose">
+      {m.about_privacy_body({ importAction: m.history_import() })}
+    </p>
     <a class="link" href={href('/privacy')}>{m.privacy_title()}</a>
   </section>
 
