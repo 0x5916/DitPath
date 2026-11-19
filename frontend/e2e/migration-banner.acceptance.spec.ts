@@ -49,6 +49,15 @@ test.describe('Morsewell migration data guidance', () => {
       'href',
       '/en/register'
     );
+
+    await banner.getByRole('link', { name: 'Complete saved session' }).click();
+    const resume = page.getByRole('button', { name: 'Continue saved session' });
+    await expect(resume).toBeVisible();
+    await expect(page.locator('.migration-banner')).toHaveCount(0);
+    await resume.click();
+    await page.getByRole('button', { name: 'Start practice' }).click();
+    await expect(page.getByRole('textbox', { name: 'Your copy' })).toBeVisible();
+    await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
 
   test('warns signed-in users about unsynchronized progress and offers retry/help', async ({
