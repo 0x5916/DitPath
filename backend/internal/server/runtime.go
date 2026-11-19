@@ -13,6 +13,9 @@ import (
 	"opencw/internal/configs"
 	"opencw/internal/databases"
 	"opencw/internal/models"
+	"opencw/internal/ownermail"
+
+	"github.com/resend/resend-go/v4"
 )
 
 const refreshTokenCleanupInterval = 3 * time.Hour
@@ -22,6 +25,15 @@ func GracefulShutdown(srv *http.Server) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	mailDone := make(chan struct{})
+	go func() {
+		defer close(mailDone)
+		worker := ownermail.Worker{DB: databases.DB, Settings: configs.App}
+		if configs.App.OwnerMail.Enabled {
+			worker.Sender = resend.NewClient(configs.App.ResendAPIKey).Emails
+		}
+		worker.Run(ctx)
+	}()
 	startRefreshTokenCleanup(ctx)
 	runServer(srv)
 
@@ -31,6 +43,7 @@ func GracefulShutdown(srv *http.Server) {
 
 	// Give in-flight requests a short window to complete.
 	shutdownServer(context.Background(), srv)
+	<-mailDone
 	closeDatabase()
 
 	slog.Info("Server exited gracefully")

@@ -53,6 +53,27 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	protected.Use(middlewares.AuthRequired())
 	protected.Use(middlewares.LoadUser(db))
 
+	admin := v1.Group("/admin", func(c *gin.Context) { c.Header("Cache-Control", "no-store") },
+		middlewares.AuthRequired(), middlewares.LoadUser(db), func(c *gin.Context) {
+			if !configs.App.CanLookupUsers(utils.MustGetUser(c).ID) {
+				c.AbortWithStatusJSON(http.StatusForbidden, common.NewErrorResponse(common.ErrorCodeAdminRequired, "Owner access required"))
+			}
+		})
+	adminHandler := handlers.AdminHandler{DB: db}
+	admin.POST("/users/search", adminHandler.SearchUsers)
+	admin.GET("/reports/overview", adminHandler.Overview)
+	admin.GET("/users/:id/report", adminHandler.LearnerReport)
+
+	mailPrefs := handlers.EmailPreferencesHandler{DB: db}
+	v1.GET("/email/unsubscribe", mailPrefs.Unsubscribe)
+	v1.POST("/email/unsubscribe", mailPrefs.Unsubscribe)
+	protected.GET("/settings/email-preferences", mailPrefs.Get)
+	protected.PUT("/settings/email-preferences", mailPrefs.Update)
+	admin.POST("/emails/preview", adminHandler.PreviewEmail)
+	admin.POST("/emails", adminHandler.QueueEmail)
+	admin.GET("/emails", adminHandler.ListEmail)
+	admin.GET("/emails/:id", adminHandler.EmailDetail)
+
 	authProtected := protected.Group("/auth")
 	authProtected.POST("/send-verification-email", authHandler.SendVerificationEmail)
 	authProtected.POST("/verify-email", authHandler.VerifyEmail)

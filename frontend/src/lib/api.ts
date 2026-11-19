@@ -1,3 +1,4 @@
+import type { Cohort, OverviewReport, ReportPeriod, ReportTotals } from './admin-report';
 import {
   apiFetch,
   assertAuthSessionCurrent,
@@ -139,6 +140,7 @@ export interface PageSettings {
 }
 
 export interface UserInfo {
+  can_lookup_users?: boolean;
   call_sign: string | null;
   username: string;
   email: string;
@@ -340,4 +342,133 @@ export async function updatePassword(oldPassword: string, newPassword: string): 
     { retryUnauthorized: false }
   );
   clearAuthSession(session);
+}
+
+export interface AdminAccount {
+  id: string;
+  username: string;
+  email: string;
+  email_verified: boolean;
+  call_sign: string | null;
+  created_at: string;
+}
+
+export function searchAdminUsers(
+  search: string,
+  days: number,
+  until: string,
+  metric: Cohort,
+  cursor?: string
+) {
+  return apiSendJson<{
+    data: (AdminAccount & { sessions: number; measured: number; duration_ms: number })[];
+    period: ReportPeriod;
+    next_cursor: string | null;
+  }>('/admin/users/search', 'POST', { search, cursor, days, until, metric }, 'DATABASE_FAILURE');
+}
+
+export function getAdminOverview(days: number, until: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (until) params.set('until', until);
+  return apiGetJson<OverviewReport>(`/admin/reports/overview?${params}`, 'DATABASE_FAILURE');
+}
+
+export interface LearnerReport {
+  account: AdminAccount;
+  period: ReportPeriod;
+  totals: ReportTotals;
+  last_completed_at: string | null;
+  sessions: {
+    id: string;
+    occurred_at: string;
+    kind: 'guided' | 'practice' | 'legacy';
+    status: 'completed' | 'abandoned';
+    lesson: number;
+    char_wpm: number | null;
+    eff_wpm: number | null;
+    accuracy: number | null;
+    duration_ms: number | null;
+  }[];
+  next_cursor: string | null;
+}
+export function getLearnerReport(id: string, days: number, until: string, cursor?: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (until) params.set('until', until);
+  if (cursor) params.set('cursor', cursor);
+  return apiGetJson<LearnerReport>(
+    `/admin/users/${encodeURIComponent(id)}/report?${params}`,
+    'DATABASE_FAILURE'
+  );
+}
+
+export type EmailTopic = 'support' | 'product';
+export interface EmailPreferences {
+  email: string;
+  verified: boolean;
+  support: boolean;
+  product: boolean;
+}
+export function getEmailPreferences() {
+  return apiGetJson<EmailPreferences>('/settings/email-preferences', 'SETTINGS_FETCH_FAILED');
+}
+export function setEmailPreference(email: string, topic: EmailTopic, enabled: boolean) {
+  return apiSendJson<EmailPreferences>(
+    '/settings/email-preferences',
+    'PUT',
+    { email, topic, enabled },
+    'SETTINGS_UPDATE_FAILED'
+  );
+}
+
+export interface MailRecipient {
+  id: string;
+  username: string;
+  email: string;
+}
+export interface EmailReview {
+  review: string;
+  from: string;
+  reply_to: string;
+  footer: string;
+  recipients: (MailRecipient & { reason: string })[];
+}
+export type SubmissionStatus = 'queued' | 'sending' | 'accepted' | 'skipped' | 'failed' | 'unknown';
+export interface SentMessageSummary {
+  id: string;
+  subject: string;
+  topic: EmailTopic;
+  created_at: string;
+}
+export interface SentMessage extends SentMessageSummary {
+  body: string;
+  from: string;
+  reply_to: string;
+  footer: string;
+  recipients: (MailRecipient & { status: SubmissionStatus; reason: string })[];
+}
+export function previewMail(
+  recipients: string[],
+  topic: EmailTopic,
+  subject: string,
+  body: string
+) {
+  return apiSendJson<EmailReview>(
+    '/admin/emails/preview',
+    'POST',
+    { recipients, topic, subject, body },
+    'MAIL_INVALID'
+  );
+}
+export function queueMail(review: string) {
+  return apiSendJson<{ id: string }>('/admin/emails', 'POST', { review }, 'INTERNAL_SERVER_ERROR');
+}
+export function getSentMessages(cursor?: string) {
+  const query = cursor ? '?' + new URLSearchParams({ cursor }) : '';
+  return apiGetJson<{ data: SentMessageSummary[]; next_cursor: string | null }>(
+    '/admin/emails' + query,
+    'DATABASE_FAILURE'
+  );
+}
+export function getSentMessage(id: string) {
+  return apiGetJson<SentMessage>('/admin/emails/' + encodeURIComponent(id), 'DATABASE_FAILURE');
 }

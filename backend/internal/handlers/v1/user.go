@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"opencw/internal/common"
+	"opencw/internal/configs"
 	"opencw/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,9 @@ type UserHandler struct {
 func (h UserHandler) GetUserInfo(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
+	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, common.UserInfoResponse{
+		CanLookupUsers:  configs.App.CanLookupUsers(user.ID),
 		CallSign:        user.CallSign,
 		Username:        user.Username,
 		Email:           user.Email,

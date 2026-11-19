@@ -73,6 +73,7 @@ func migrate(db schemaDatabase) error {
 		&models.LearningEvidenceRecord{},
 		&models.LearningEvidenceSyncState{},
 		&models.LearningEvidenceChange{},
+		&models.EmailConsent{}, &models.OwnerMessage{}, &models.OwnerRecipient{},
 	); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
 	}

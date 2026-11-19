@@ -12,9 +12,13 @@ import (
 	"time"
 
 	"opencw/internal/authlimits"
+
+	"github.com/google/uuid"
 )
 
 type Config struct {
+	OwnerMail             OwnerMail
+	AdminUserID           uuid.UUID
 	Port                  string         `required:"true"`
 	DBHost                string         `required:"true"`
 	DBPort                string         `required:"true"`
@@ -49,6 +53,14 @@ func Load() {
 		slog.Error("Invalid authentication proxy configuration", "err", err)
 		os.Exit(1)
 	}
+	var adminID uuid.UUID
+	if raw := os.Getenv("ADMIN_USER_ID"); raw != "" {
+		adminID, err = uuid.Parse(raw)
+		if err != nil || adminID == uuid.Nil || adminID.String() != strings.ToLower(raw) {
+			slog.Error("ADMIN_USER_ID must be a nonzero canonical UUID")
+			os.Exit(1)
+		}
+	}
 	var corsOrigins []string
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
 		for _, o := range strings.Split(raw, ",") {
@@ -58,7 +70,14 @@ func Load() {
 		}
 	}
 
+	mailFlag := os.Getenv("OWNER_EMAIL_ENABLED")
+	if mailFlag != "" && mailFlag != "true" && mailFlag != "false" {
+		slog.Error("OWNER_EMAIL_ENABLED must be true or false")
+		os.Exit(1)
+	}
 	App = Config{
+		OwnerMail:             OwnerMail{Enabled: mailFlag == "true", ReplyTo: os.Getenv("OWNER_EMAIL_REPLY_TO"), Footer: os.Getenv("OWNER_EMAIL_FOOTER"), UnsubscribeURL: os.Getenv("OWNER_EMAIL_UNSUBSCRIBE_URL")},
+		AdminUserID:           adminID,
 		Port:                  os.Getenv("PORT"),
 		DBHost:                os.Getenv("DB_HOST"),
 		DBPort:                os.Getenv("DB_PORT"),
@@ -145,7 +164,10 @@ func (c Config) Validate() error {
 			return fmt.Errorf("config field %q is required but empty", field.Name)
 		}
 	}
-	return c.validateGoogle()
+	if err := c.validateGoogle(); err != nil {
+		return err
+	}
+	return c.validateOwnerMail()
 }
 
 func isZero(v reflect.Value) bool {
@@ -159,4 +181,8 @@ func isZero(v reflect.Value) bool {
 
 func (c Config) IsRelease() bool {
 	return c.GinMode == "release"
+}
+
+func (c Config) CanLookupUsers(id uuid.UUID) bool {
+	return id != uuid.Nil && id == c.AdminUserID
 }

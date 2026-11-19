@@ -6,6 +6,7 @@ var ErrExpiredToken = errors.New("expired")
 var ErrInvalidToken = errors.New("invalid")
 
 const (
+	ErrorCodeAdminRequired                = "ADMIN_REQUIRED"
 	ErrorCodeInvalidRequestBody           = "INVALID_REQUEST_BODY"
 	ErrorCodeRequestBodyTooLarge          = "REQUEST_BODY_TOO_LARGE"
 	ErrorCodeInternalServerError          = "INTERNAL_SERVER_ERROR"

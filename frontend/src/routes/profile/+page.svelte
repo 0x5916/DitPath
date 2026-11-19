@@ -37,6 +37,7 @@
   let email = $state('');
   let callSign = $state<string | null>(null);
   let emailVerified = $state(false);
+  let canLookupUsers = $state(false);
   let accountInfoKnown = $state(false);
   let earliestHistoryMs = $state<number | null>(null);
   let memberSince = $state('');
@@ -79,12 +80,32 @@
       email = '';
       callSign = null;
       emailVerified = false;
+      canLookupUsers = false;
       accountInfoKnown = false;
       memberSince = m.progress_unmeasured();
       memberCreatedAtMs = null;
       earliestHistoryMs = null;
     }
     loadError = '';
+    if (owner !== 'unclaimed') {
+      // Account details are optional: cached history remains usable while offline.
+      void getUserInfo()
+        .then((info) => {
+          if (!current()) return;
+          username = info.username;
+          email = info.email;
+          callSign = info.call_sign;
+          emailVerified = info.email_verified;
+          canLookupUsers = info.can_lookup_users === true;
+          accountInfoKnown = true;
+          const createdMs = Date.parse(info.created_at);
+          memberCreatedAtMs = Number.isFinite(createdMs) ? utcDayStart(createdMs) : null;
+          memberSince = Number.isFinite(createdMs)
+            ? formatMemberSince(createdMs)
+            : m.progress_unmeasured();
+        })
+        .catch(() => {});
+    }
     let db: IDBDatabase | null = null;
     try {
       db = await openTrainingDb();
@@ -101,23 +122,6 @@
         const createdMs = earliestHistoryMs;
         memberCreatedAtMs = createdMs === null ? null : utcDayStart(createdMs);
         memberSince = createdMs === null ? m.progress_unmeasured() : formatMemberSince(createdMs);
-      } else {
-        // Account details are optional: cached history remains usable while offline.
-        void getUserInfo()
-          .then((info) => {
-            if (!current()) return;
-            username = info.username;
-            email = info.email;
-            callSign = info.call_sign;
-            emailVerified = info.email_verified;
-            accountInfoKnown = true;
-            const createdMs = Date.parse(info.created_at);
-            memberCreatedAtMs = Number.isFinite(createdMs) ? utcDayStart(createdMs) : null;
-            memberSince = Number.isFinite(createdMs)
-              ? formatMemberSince(createdMs)
-              : m.progress_unmeasured();
-          })
-          .catch(() => {});
       }
     } catch (error) {
       if (current()) loadError = localizeApiError(error, () => m.common_load_error());
@@ -147,6 +151,9 @@
         title={m.nav_settings()}><Settings size={20} aria-hidden="true" /></a
       >
     </div>
+    {#if !isGuest && canLookupUsers}
+      <a class="btn-ghost" href={localizedHref('/admin')}>{m.admin_title()}</a>
+    {/if}
     {#if !loading && !loadError}
       <div class="profile-identity">
         <div class="profile-identity-main">

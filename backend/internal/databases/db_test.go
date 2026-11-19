@@ -78,7 +78,7 @@ func TestMigrateRequiresAllCurrentModelsAndIndexes(t *testing.T) {
 	for _, model := range probe.models {
 		models = append(models, reflect.TypeOf(model).Elem().Name())
 	}
-	want := []string{"User", "UserIdentity", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange", "LearningEvidenceRecord", "LearningEvidenceSyncState", "LearningEvidenceChange"}
+	want := []string{"User", "UserIdentity", "EmailOTP", "RefreshToken", "CWSettings", "PageSettings", "Progress", "ForumThread", "ForumReply", "TrainingEvent", "TrainingProfile", "TrainingSession", "TrainingSyncState", "TrainingChange", "LearningEvidenceRecord", "LearningEvidenceSyncState", "LearningEvidenceChange", "EmailConsent", "OwnerMessage", "OwnerRecipient"}
 	if !reflect.DeepEqual(models, want) {
 		t.Fatalf("models = %v, want %v", models, want)
 	}

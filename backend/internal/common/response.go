@@ -35,6 +35,7 @@ type AuthTokenPairResponse struct {
 }
 
 type UserInfoResponse struct {
+	CanLookupUsers  bool      `json:"can_lookup_users"`
 	CallSign        *string   `json:"call_sign"`
 	Username        string    `json:"username"`
 	Email           string    `json:"email"`

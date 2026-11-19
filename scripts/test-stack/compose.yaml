@@ -41,6 +41,7 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
+      ADMIN_USER_ID: ${ADMIN_USER_ID:-}
       JWT_SECRET: ${JWT_SECRET}
       RESEND_API_KEY: ditpath-test-disabled
       RESEND_FROM_EMAIL: DitPath Test <no-reply@example.invalid>

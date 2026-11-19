@@ -99,6 +99,35 @@ All routes above require bearer authentication. Call sign is nonempty and at mos
 
 CW responses use `char_wpm`, `eff_wpm`, `freq`, and `start_delay`; page responses use `language` and `cur_lesson`. Existing settings include `updated_at`; absent settings return model defaults, with the individual CW/page fallback using the input shape without that timestamp. The combined settings response includes both response shapes. User info includes nullable `call_sign`, `username`, `email`, `email_verified`, and `created_at`. See [user handler](internal/handlers/v1/user.go), [settings handler](internal/handlers/v1/settings.go), and [CW defaults](internal/models/cw_settings.go) and [page defaults](internal/models/page_settings.go).
 
+## Owner dashboard
+
+The live account matching the backend's configured owner UUID receives `can_lookup_users: true` on `GET /v1/user/me`. Every `/v1/admin` request independently requires that account. Missing or invalid authentication returns 401 and any other authenticated account receives 403 `ADMIN_REQUIRED`. Responses carry `Cache-Control: no-store`.
+
+`POST /v1/admin/users/search` accepts a JSON object with optional `search` (literal case-insensitive username/email substring, up to 254 characters) and `cursor`. Returns `data` with up to 25 live accounts (ID, username, email, verification, call sign and join date), ordered by join date and ID descending, and nullable `next_cursor`.
+
+`GET /v1/admin/reports/overview` accepts `days` (7, 30 or 90, default 30) and optional `until` (exclusive Singapore date, default today). It returns the period, current and previous totals, and one zero-filled daily series for the selected period. Totals count live signups, distinct completing learners, completed sessions by mode, and the measured subset and recorded milliseconds. Session occurrence determines the period. Reports include synced native sessions and legacy progress counted once across partially mirrored history. All reads are side-effect free.
+
+Directory search also accepts `days`, `until`, and `metric` (`all`, `joined`, `learners`, `sessions` or `duration_ms`). Training filters include each matching account's completed and measured session counts and recorded milliseconds.
+
+`GET /v1/admin/users/:id/report` uses the same period and an optional opaque `cursor`. It returns `account`, `period`, `totals`, nullable lifetime `last_completed_at`, and up to 25 dated `sessions` plus `next_cursor`. Session rows include mode, status, lesson, character/effective speed, nullable score and nullable measured duration. Completed and abandoned records appear newest first. The summary counts completed sessions across the entire period. A missing or deleted target returns 404.
+
+### Custom learner email
+
+Only the configured dashboard owner can preview, queue or read custom messages. Every admin email response uses `Cache-Control: no-store`. The feature switch and public unsubscribe address are described in the [deployment guide](../DEPLOYMENT.md#owner-dashboard).
+
+| Method and path | Request and behavior |
+| --- | --- |
+| `GET /v1/settings/email-preferences` | Signed-in learner. Returns the current `email`, `verified`, and independent Boolean `support` and `product` preferences. Both default to false. |
+| `PUT /v1/settings/email-preferences` | Send the displayed `email`, one `topic` (`support` or `product`), and Boolean `enabled`. Returns the updated preferences. Enabling requires verification. A stale address returns 409 `MAIL_ADDRESS_CHANGED`. Changing the account address revokes both consents atomically. |
+| `GET /v1/email/unsubscribe?token=…` | Public confirmation page. Each opaque URL identifies one grant of consent for one topic and address. |
+| `POST /v1/email/unsubscribe?token=…` | Form-encoded or multipart `List-Unsubscribe=One-Click` revokes that grant idempotently. An old link cannot revoke renewed consent. |
+| `POST /v1/admin/emails/preview` | Supply 1–25 distinct account UUIDs in `recipients`, the `topic`, a single-line `subject` (up to 180 characters) and plain-text `body` (up to 8,000 characters). Returns the sender, reply address, footer, resolved recipients and exclusion reasons. A 15-minute signed `review` is issued when at least one recipient is eligible. Preview writes nothing. |
+| `POST /v1/admin/emails` | Submit the `review` from the final confirmation. Returns the durable message `id`. Identical retries return that same ID, including after review expiry if already queued. An unused expired review returns 409 `MAIL_REVIEW_EXPIRED`. Disabled sending returns 503 `MAIL_DISABLED` for new submissions. |
+| `GET /v1/admin/emails` | Owner-scoped history, newest first, up to 25 summaries with an optional `cursor` and nullable `next_cursor`. |
+| `GET /v1/admin/emails/:id` | Returns the original content, envelope and timestamp, with each reviewed recipient's submission status and reason. |
+
+The [worker](internal/ownermail/worker.go) checks current account, address and consent before each private handoff. `accepted` records a provider acknowledgement. `unknown` records an uncertain submission that cannot safely be retried. The queue persists its first-attempt time and per-recipient key before calling the provider, recovers abandoned leases after restart, and stops retries before the provider's 24-hour idempotency window ends. The [route and dispatch tests](internal/server/owner_email_test.go) exercise these behaviors with a simulated provider.
+
 ## Training synchronization
 
 | Method and canonical path                    | Success                                                                                        | Temporary compatibility alias    |
