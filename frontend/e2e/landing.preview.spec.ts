@@ -231,7 +231,7 @@ test('footer controls share rows when translated links wrap', async ({ page }) =
   const project = columns.last();
   const rowItems = await project.getByRole('link').all();
   await expect(explore).toHaveCount(4);
-  expect(rowItems).toHaveLength(2);
+  expect(rowItems).toHaveLength(3);
   for (const [row, item] of rowItems.entries()) {
     const left = await explore.nth(row).boundingBox();
     const right = await item.boundingBox();
