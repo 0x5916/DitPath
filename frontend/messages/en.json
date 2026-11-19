@@ -10,7 +10,7 @@
   "privacy_google_policy": "Google’s privacy policy",
   "privacy_sharing_title": "Who can see your data",
   "privacy_forum_body": "Anyone can read your forum posts and replies, including your username and the amateur radio callsign you choose to add to your profile. Other users cannot see your account email or synced training history.",
-  "privacy_contact_routing": "Cloudflare forwards privacy email to the owner’s inbox. Google processes incoming support and privacy correspondence, including your email address and the contents of your message.",
+  "privacy_contact_routing": "We receive privacy inquiries through Proton Mail and support inquiries through Google Groups. The service that handles your email processes your email address and the contents of your message.",
   "privacy_providers_body": "Our hosting services and Cloudflare process web requests, including IP addresses, to deliver and protect the site over HTTPS. Resend receives the recipient address and message content to deliver verification codes and any support or product emails you opt into. Morsewell has no advertising or third-party analytics.",
   "privacy_choices_title": "Your choices",
   "privacy_local_controls": "You can manage account details and email preferences in Settings. Clearing the account history cache removes downloaded copies in this browser. Clearing all site data in your browser also erases guest practice and pending uploads on this device. Records already synced to your account remain on the server.",
