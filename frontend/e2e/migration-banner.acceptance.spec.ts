@@ -55,6 +55,7 @@ test.describe('Morsewell migration data guidance', () => {
     await expect(resume).toBeVisible();
     await expect(page.locator('.migration-banner')).toHaveCount(0);
     await resume.click();
+    await page.getByRole('button', { name: 'Start practice' }).click();
     await expect(page.getByRole('textbox', { name: 'Your copy' })).toBeVisible();
     await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
