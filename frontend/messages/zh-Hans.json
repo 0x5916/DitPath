@@ -10,7 +10,7 @@
   "privacy_google_policy": "Google 隐私政策",
   "privacy_sharing_title": "谁可以查看或处理你的数据",
   "privacy_forum_body": "论坛帖子和回复对所有人公开，会显示你的用户名。如果你在个人资料中填写了业余电台呼号，也会一并显示。其他用户无法查看你的账户邮箱或已同步的练习历史。",
-  "privacy_contact_routing": "Cloudflare 会将隐私和支持邮件转发至同一个由 Morsewell 运营者管理的非公开 Google 网上论坛群组。Cloudflare 和 Google 会处理你的邮箱地址和邮件内容。回复将由 {address} 发出。",
+  "privacy_contact_routing": "Cloudflare 会将隐私和支持邮件转发至同一个由 Morsewell 运营者管理的非公开 Google 网上论坛群组。Cloudflare 和 Google 会处理你的邮箱地址和邮件内容。你也可以直接发邮件到 {address} 联系该群组。",
   "privacy_providers_body": "我们的托管服务商和 Cloudflare 会处理包含 IP 地址在内的网络请求，以通过 HTTPS 提供和保护网站。我们把收件地址和邮件内容交给 Resend，由其投递验证码，以及你选择接收的支持邮件或产品邮件。Morsewell 不投放广告，也不使用第三方分析服务。",
   "privacy_choices_title": "管理你的数据",
   "privacy_local_controls": "你可以在设置中管理账户信息和邮件偏好。清除账户历史缓存会移除当前浏览器下载的记录副本。通过浏览器清除所有网站数据，还会删除本设备上的访客练习记录和尚未上传的记录。已同步到账户的记录会保留在服务器上。",
