@@ -149,7 +149,7 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
     await resetToHome(page);
     const routes = [
-      ['/en', page.getByRole('link', { name: 'Start learning', exact: true })],
+      ['/en', page.getByRole('link', { name: 'Start your first lesson', exact: true })],
       ['/en/morse/learn', page.getByText(/lessons unlocked$/)],
       ['/en/morse/practice', page.getByRole('button', { name: 'Start practice', exact: true })],
       ['/en/morse/progress', page.getByRole('heading', { name: 'No training history yet' })]
