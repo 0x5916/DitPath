@@ -23,6 +23,7 @@ export interface GoogleIdentityAPI {
       text: 'continue_with';
       theme: 'outline';
       locale: string;
+      width?: string;
       click_listener: () => void;
     }
   ): void;
@@ -59,6 +60,59 @@ export function loadGoogleIdentity(): Promise<GoogleIdentityAPI> {
     throw error;
   });
   return sdkPromise;
+}
+
+export async function renderGoogleButton(
+  container: HTMLElement,
+  options: {
+    clientId: string;
+    nonce: string;
+    locale: string;
+    fullWidth?: boolean;
+    signal: AbortSignal;
+    begin: () => void;
+    receive: (credential: string) => void;
+  }
+): Promise<void> {
+  const google = await loadGoogleIdentity();
+  if (options.signal.aborted) return;
+  google.initialize({
+    client_id: options.clientId,
+    nonce: options.nonce,
+    callback: ({ credential }) => {
+      if (!options.signal.aborted) options.receive(credential);
+    },
+    auto_select: false,
+    ux_mode: 'popup'
+  });
+  const button = {
+    type: 'standard',
+    size: 'large',
+    text: 'continue_with',
+    theme: 'outline',
+    locale: options.locale,
+    click_listener: () => {
+      if (!options.signal.aborted) options.begin();
+    }
+  } as const;
+  if (!options.fullWidth) {
+    google.renderButton(container, button);
+    return;
+  }
+
+  // GIS takes a pixel width at render time and caps its button at 400px.
+  let renderedWidth = 0;
+  const fitButton = () => {
+    const width = Math.min(container.clientWidth, 400);
+    if (options.signal.aborted || width === 0 || width === renderedWidth) return;
+    renderedWidth = width;
+    container.replaceChildren();
+    google.renderButton(container, { ...button, width: String(width) });
+  };
+  fitButton();
+  const observer = new ResizeObserver(fitButton);
+  observer.observe(container);
+  options.signal.addEventListener('abort', () => observer.disconnect(), { once: true });
 }
 
 export interface GoogleFlowState {

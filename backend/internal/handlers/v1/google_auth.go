@@ -21,8 +21,9 @@ import (
 )
 
 type GoogleAuthHandler struct {
-	DB     *gorm.DB
-	Verify func(context.Context, string, string) (googleauth.Identity, error)
+	DB        *gorm.DB
+	Passwords *utils.PasswordWork
+	Verify    func(context.Context, string, string) (googleauth.Identity, error)
 }
 
 type googleAuthInput struct {
@@ -50,29 +51,16 @@ func (h *GoogleAuthHandler) authenticate(c *gin.Context, register bool) {
 		respondAuthBindingError(c, err)
 		return
 	}
-	if len(input.Credential) > 12*1024 {
-		respondAuthBindingError(c, errors.New("credential exceeds byte limit"))
-		return
-	}
 	nonce, err := base64.RawURLEncoding.Strict().DecodeString(input.Nonce)
 	if err != nil || len(nonce) != 32 || base64.RawURLEncoding.EncodeToString(nonce) != input.Nonce {
 		respondAuthBindingError(c, errors.New("invalid nonce"))
 		return
 	}
-	if h.Verify == nil {
-		h.respondError(c, googleauth.ErrUnavailable)
+	identity, valid := h.verifiedIdentity(c, input.Credential, input.Nonce)
+	if !valid {
 		return
 	}
-	identity, err := h.Verify(c.Request.Context(), input.Credential, input.Nonce)
-	if err != nil {
-		h.respondError(c, err)
-		return
-	}
-	if identity.Subject == "" || len(identity.Subject) > 255 {
-		h.respondError(c, googleauth.ErrInvalidCredential)
-		return
-	}
-	db := h.DB.WithContext(c.Request.Context())
+	db := utils.PrivateSQL(h.DB.WithContext(c.Request.Context()))
 	stored, err := findGoogleIdentity(db, identity.Subject)
 	if err == nil {
 		pair, err := issueGoogleTokens(db, stored)
@@ -109,6 +97,25 @@ func (h *GoogleAuthHandler) authenticate(c *gin.Context, register bool) {
 		return
 	}
 	c.JSON(http.StatusOK, pair)
+}
+
+func (h *GoogleAuthHandler) verifiedIdentity(c *gin.Context, credential, nonce string) (googleauth.Identity, bool) {
+	if len(credential) > 12*1024 {
+		respondAuthBindingError(c, errors.New("credential exceeds byte limit"))
+		return googleauth.Identity{}, false
+	}
+	if h.Verify == nil {
+		h.respondError(c, googleauth.ErrUnavailable)
+		return googleauth.Identity{}, false
+	}
+	identity, err := h.Verify(c.Request.Context(), credential, nonce)
+	if err == nil && (identity.Subject == "" || len(identity.Subject) > 255) {
+		err = googleauth.ErrInvalidCredential
+	}
+	if err != nil {
+		h.respondError(c, err)
+	}
+	return identity, err == nil
 }
 
 func findGoogleIdentity(db *gorm.DB, subject string) (models.UserIdentity, error) {
@@ -203,6 +210,10 @@ func (h *GoogleAuthHandler) respondError(c *gin.Context, err error) {
 	}
 	status, code, message := http.StatusInternalServerError, common.ErrorCodeDatabaseFailure, "Google sign-in failed. Please try again."
 	switch {
+	case errors.Is(err, utils.ErrCredentialsChanged):
+		status, code, message = http.StatusUnauthorized, common.ErrorCodeInvalidCredentials, "Invalid credentials"
+	case errors.Is(err, errGooglePasswordRequired):
+		status, code, message = http.StatusConflict, common.ErrorCodePasswordNotAvailable, "This account has no password."
 	case errors.Is(err, googleauth.ErrInvalidCredential):
 		status, code = http.StatusUnauthorized, common.ErrorCodeGoogleCredentialInvalid
 	case errors.Is(err, googleauth.ErrUnavailable):

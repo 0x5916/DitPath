@@ -551,6 +551,64 @@ describe('auth storage failures', () => {
   });
 });
 
+describe('linking Google to a password account', () => {
+  const body = { challenge: 'challenge', credential: 'google-token', current_password: 'password' };
+
+  it('sends both proofs with the current bearer and keeps the signed-in account', async () => {
+    setSession('alice');
+    auth.initAuth();
+    const session = auth.getAuthSession();
+    const signal = new AbortController().signal;
+    const keys = Object.values(AUTH_STORAGE_KEYS);
+    const original = keys.map((key) => localStorage.getItem(key));
+    const api = await import('#lib/api.ts');
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ challenge: 'challenge', nonce: 'nonce' }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await expect(api.requestGoogleLinkChallenge(session, signal)).resolves.toEqual({
+      challenge: 'challenge',
+      nonce: 'nonce'
+    });
+    await api.linkGoogleAccount(session, signal, body);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      expect.stringMatching(/\/auth\/google\/link\/challenge$/),
+      expect.stringMatching(/\/auth\/google\/link$/)
+    ]);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init.headers.get('Authorization')).toBe(`Bearer ${original[0]}`);
+      expect(init.headers.get('X-OpenCW-Auth')).toBe('google');
+    }
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(body);
+    expect(auth.getAuthSession()).toEqual(session);
+    expect(keys.map((key) => localStorage.getItem(key))).toEqual(original);
+  });
+
+  it('does not refresh or re-submit the Google and password proofs after a wrong password', async () => {
+    setSession('alice');
+    const session = auth.getAuthSession();
+    const api = await import('#lib/api.ts');
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ code: 'INVALID_CREDENTIALS' }, { status: 401 })
+    );
+    await expect(
+      api.linkGoogleAccount(session, new AbortController().signal, body)
+    ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(auth.getAuthSession()).toEqual(session);
+  });
+
+  it('will not submit an old selection under a different signed-in account', async () => {
+    setSession('alice');
+    const session = auth.getAuthSession();
+    setSession('bob');
+    const api = await import('#lib/api.ts');
+    await expect(
+      api.linkGoogleAccount(session, new AbortController().signal, body)
+    ).rejects.toBeInstanceOf(auth.SessionChangedError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe('Google authentication fencing', () => {
   async function flow() {
     const { createGoogleSignInFlow } = await import('#lib/google-sign-in.ts');

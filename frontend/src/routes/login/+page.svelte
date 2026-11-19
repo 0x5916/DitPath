@@ -5,7 +5,6 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
   import AuthCard from '#lib/components/AuthCard.svelte';
-  import GoogleSignIn from '#lib/components/GoogleSignIn.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import PasswordInput from '#lib/components/PasswordInput.svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
@@ -53,10 +52,7 @@
   }
 </script>
 
-<AuthCard title={m.login_title()} subtitle={m.login_subtitle()}>
-  {#key authRevision}
-    <GoogleSignIn disabled={loading} />
-  {/key}
+<AuthCard title={m.login_title()} subtitle={m.login_subtitle()} {loading} {authRevision}>
   <form onsubmit={handleLogin} class="auth-form">
     <label class="field">
       <span class="label-text">{m.login_username_label()}</span>

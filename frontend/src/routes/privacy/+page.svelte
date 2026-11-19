@@ -1,5 +1,7 @@
 <script lang="ts">
   import * as m from '#lib/paraglide/messages.js';
+
+  const supportGroup = 'morsewell-support@googlegroups.com';
 </script>
 
 <article class="page-narrow body-text body-text--prose">
@@ -38,7 +40,8 @@
     <h2 class="section-title">{m.privacy_contact_title()}</h2>
     <p>{m.privacy_contact_body()}</p>
     <a class="link" href="mailto:privacy@morsewell.com">privacy@morsewell.com</a>
-    <p>{m.privacy_contact_routing({ address: 'morsewell-support@googlegroups.com' })}</p>
+    <p>{m.privacy_contact_routing()}</p>
+    <a class="link" href={`mailto:${supportGroup}`}>{supportGroup}</a>
     <p>{m.privacy_retention_body()}</p>
   </section>
 </article>

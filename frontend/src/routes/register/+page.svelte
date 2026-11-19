@@ -5,9 +5,9 @@
   import { localizeApiError } from '#lib/errorLocalization.ts';
   import { goto } from '$app/navigation';
   import AuthCard from '#lib/components/AuthCard.svelte';
-  import GoogleSignIn from '#lib/components/GoogleSignIn.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import PasswordInput from '#lib/components/PasswordInput.svelte';
+  import RegistrationUsername from '#lib/components/RegistrationUsername.svelte';
   import { localizedHref } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
 
@@ -61,24 +61,9 @@
   }
 </script>
 
-<AuthCard title={m.register_title()} subtitle={m.register_subtitle()}>
-  {#key authRevision}
-    <GoogleSignIn disabled={loading} />
-  {/key}
+<AuthCard title={m.register_title()} subtitle={m.register_subtitle()} {loading} {authRevision}>
   <form onsubmit={handleRegister} class="auth-form">
-    <label class="field">
-      <span class="label-text">{m.register_username_label()}</span>
-      <input
-        type="text"
-        bind:value={username}
-        class="input"
-        placeholder={m.register_username_placeholder()}
-        autocomplete="username"
-        minlength="3"
-        maxlength="16"
-        required
-      />
-    </label>
+    <RegistrationUsername label={m.register_username_label()} bind:value={username} />
 
     <label class="field">
       <span class="label-text">{m.register_email_label()}</span>

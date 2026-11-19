@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,7 +22,8 @@ import (
 )
 
 const googleTestOrigin = "https://test.example.invalid"
-const googleTestBody = `{"credential":"test-token","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}`
+const googleTestNonce = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+const googleTestBody = `{"credential":"test-token","nonce":"` + googleTestNonce + `"}`
 
 func googleTestRouter(t *testing.T) (*gin.Engine, *int) {
 	t.Helper()
@@ -39,7 +41,7 @@ func googleTestRouter(t *testing.T) (*gin.Engine, *int) {
 	CORSSetup(engine)
 	auth := engine.Group("/v1/auth")
 	calls := new(int)
-	registerGoogleAuthRoutes(auth, nil, limiter, nil, func(context.Context, string, string) (googleauth.Identity, error) {
+	registerGoogleAuthRoutes(auth, nil, nil, limiter, nil, func(context.Context, string, string) (googleauth.Identity, error) {
 		*calls++
 		return googleauth.Identity{}, googleauth.ErrInvalidCredential
 	})
@@ -162,7 +164,10 @@ func TestGoogleRegisteredRoutesCreateAndReuseAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registerGoogleAuthRoutes(engine.Group("/v1/auth"), db, limiter, nil, func(context.Context, string, string) (googleauth.Identity, error) {
+	work := authHTTPWork(t, nil, nil)
+	auth := engine.Group("/v1/auth")
+	auth.POST("/login", (&handlers.AuthHandler{DB: db, Passwords: work}).Login)
+	registerGoogleAuthRoutes(auth, db, work, limiter, nil, func(context.Context, string, string) (googleauth.Identity, error) {
 		return googleauth.Identity{Subject: subject, Email: email, EmailVerified: true}, nil
 	})
 	userHandler := handlers.UserHandler{DB: db}
@@ -176,6 +181,20 @@ func TestGoogleRegisteredRoutesCreateAndReuseAccount(t *testing.T) {
 	body := strings.TrimSuffix(googleTestBody, "}") + `,"username":"` + username + `"}`
 	created := googleTestRequest(engine, "POST", "/v1/auth/google/register", googleTestOrigin, "application/json", "google", body)
 	first := authHTTPTokenPair(t, created)
+	linkHeaders := http.Header{"Origin": {googleTestOrigin}, "X-Opencw-Auth": {"google"}}
+	for path, body := range map[string]string{
+		linkRoute + "/challenge": "{}",
+		linkRoute:                `{"credential":"test-token","challenge":"challenge","current_password":"unused-password"}`,
+	} {
+		response := authHTTPSend(engine, authHTTPRequest{path: path, body: body, token: first.AccessToken, headers: linkHeaders})
+		authHTTPError(t, response, 409, common.ErrorCodePasswordNotAvailable)
+	}
+	// An already-registered Google identity cannot move to a password account.
+	passwordUser := authHTTPUser(t, db, true)
+	passwordPair := authHTTPTokenPair(t, authHTTPSend(engine, authHTTPRequest{path: "/v1/auth/login", body: authHTTPLogin(passwordUser, "old-password")}))
+	intent := readLinkIntent(t, authHTTPSend(engine, authHTTPRequest{path: linkRoute + "/challenge", token: passwordPair.AccessToken, headers: linkHeaders, body: "{}"}))
+	linkBody := fmt.Sprintf(`{"challenge":%q,"credential":"test-token","current_password":"old-password"}`, intent.Challenge)
+	authHTTPError(t, authHTTPSend(engine, authHTTPRequest{path: linkRoute, token: passwordPair.AccessToken, headers: linkHeaders, body: linkBody}), 409, common.ErrorCodeGoogleAccountConflict)
 	returning := googleTestRequest(engine, "POST", "/v1/auth/google", googleTestOrigin, "application/json", "google", googleTestBody)
 	second := authHTTPTokenPair(t, returning)
 	if first.RefreshToken == second.RefreshToken {
@@ -184,7 +203,7 @@ func TestGoogleRegisteredRoutesCreateAndReuseAccount(t *testing.T) {
 	for _, pair := range []common.AuthTokenPairResponse{first, second} {
 		response := authHTTPSend(engine, authHTTPRequest{method: "GET", path: "/v1/user/me", token: pair.AccessToken})
 		var info common.UserInfoResponse
-		if json.Unmarshal(response.Body.Bytes(), &info) != nil || response.Code != 200 || info.Username != username || info.PasswordEnabled || !info.EmailVerified {
+		if json.Unmarshal(response.Body.Bytes(), &info) != nil || response.Code != 200 || info.Username != username || info.PasswordEnabled || !info.EmailVerified || !info.GoogleLinked {
 			t.Fatalf("issued token did not resolve its Google-only account: %d %s", response.Code, response.Body)
 		}
 	}

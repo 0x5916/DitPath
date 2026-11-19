@@ -8,6 +8,7 @@
   } from '#lib/learning-sync.svelte.ts';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import { onDestroy, onMount, untrack } from 'svelte';
+  import { PUBLIC_GOOGLE_CLIENT_ID } from '$app/env/public';
   import { SvelteSet } from 'svelte/reactivity';
   import { getAuthSession, user } from '#lib/auth.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
@@ -53,6 +54,7 @@
   import SaveButton from '#lib/components/SaveButton.svelte';
   import EmailPreferences from '#lib/components/settings/EmailPreferences.svelte';
   import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
+  import SettingsGoogleLink from '#lib/components/settings/SettingsGoogleLink.svelte';
   import SettingsData from '#lib/components/settings/SettingsData.svelte';
   import { themePreference, setTheme, type Theme } from '#lib/theme.svelte.ts';
   import { Volume2 } from '@lucide/svelte';
@@ -69,6 +71,7 @@
   let initialEmail = $state('');
   let emailVerified = $state(false);
   let passwordEnabled = $state<boolean | null>(null);
+  let googleLinked = $state<boolean | null>(null);
   let emailSaving = $state(false);
   let emailError = $state('');
   let emailSaved = $state(false);
@@ -320,6 +323,7 @@
     initialEmail = '';
     emailVerified = false;
     passwordEnabled = null;
+    googleLinked = null;
     callSignSaving = emailSaving = pageSaving = cwSaving = false;
     callSignSaved = emailSaved = pageSaved = cwSaved = false;
     callSignError = emailError = pageError = cwError = '';
@@ -354,6 +358,7 @@
       initialEmail = info.email;
       emailVerified = info.email_verified;
       passwordEnabled = info.password_enabled;
+      googleLinked = info.google_linked ?? null;
       resetEmailVerificationState();
       applyCwState(cw);
       applyPageState(page);
@@ -865,6 +870,13 @@
 
       {#key [username, initialEmail, emailVerified].join('|')}<EmailPreferences />{/key}
       {#if passwordEnabled === true}
+        {#if PUBLIC_GOOGLE_CLIENT_ID && googleLinked !== null}
+          <SettingsGoogleLink
+            {username}
+            linked={googleLinked}
+            onlinked={() => (googleLinked = true)}
+          />
+        {/if}
         <SettingsPassword />
       {:else if passwordEnabled === false}
         <section class="panel panel--ledger">
