@@ -175,6 +175,7 @@
   "register_confirm_placeholder": "パスワードを再入力",
   "register_confirm_show": "パスワードを表示",
   "register_confirm_hide": "パスワードを非表示",
+  "signup_email_notice": "メールアドレスは、本人のアドレスであることの確認と、アカウントへのアクセスに影響する変更の連絡に使用します。サポートからのフォローアップと製品の最新情報は、初期設定では配信されません。受信を希望する場合は設定で選択できます。",
   "register_submit": "登録",
   "register_submitting": "アカウントを作成中…",
   "register_has_account": "すでにアカウントをお持ちですか？",

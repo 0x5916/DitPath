@@ -175,6 +175,7 @@
   "register_confirm_placeholder": "重复您的密码",
   "register_confirm_show": "显示密码",
   "register_confirm_hide": "隐藏密码",
+  "signup_email_notice": "我们会使用你的邮箱地址进行验证，并通知你影响账户访问的变更。支持跟进和产品动态邮件默认关闭。你可以在设置中开启。",
   "register_submit": "注册",
   "register_submitting": "创建账户中…",
   "register_has_account": "已经有账户？",

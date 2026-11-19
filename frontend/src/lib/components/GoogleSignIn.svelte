@@ -124,7 +124,13 @@
         disabled={disabled || flowState.busy}
         focusOnMount
       />
-      <button class="btn-primary" type="submit" disabled={disabled || flowState.busy}>
+      <p id="google-signup-email-notice" class="body-text">{m.signup_email_notice()}</p>
+      <button
+        class="btn-primary"
+        type="submit"
+        aria-describedby="google-signup-email-notice"
+        disabled={disabled || flowState.busy}
+      >
         {flowState.busy ? m.register_submitting() : m.google_create_account()}
       </button>
       <button
