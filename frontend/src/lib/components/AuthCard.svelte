@@ -6,15 +6,16 @@
   interface Props {
     title: string;
     subtitle: string;
+    maxWidth?: string;
     footer: Snippet;
     children: Snippet;
   }
 
-  let { title, subtitle, footer, children }: Props = $props();
+  let { title, subtitle, maxWidth, footer, children }: Props = $props();
 </script>
 
 <div class="page-narrow auth-layout">
-  <div class="auth-card">
+  <div class="auth-card" style:--auth-card-max-width={maxWidth}>
     <h1 class="page-title auth-title">{title}</h1>
     <p class="body-text auth-subtitle">{subtitle}</p>
 
@@ -29,7 +30,7 @@
 
 <style>
   .auth-card {
-    max-width: 26rem;
+    max-width: min(26rem, var(--auth-card-max-width, 26rem));
     margin-left: auto;
     margin-right: auto;
     padding: 0;

@@ -148,6 +148,7 @@
   "forum_delete_confirm": "Löschen bestätigen",
   "login_title": "Anmelden",
   "login_subtitle": "Willkommen zurück! Melde dich in deinem Konto an.",
+  "login_or": "oder",
   "login_username_label": "Benutzername oder E-Mail",
   "login_username_placeholder": "Dein Benutzername oder deine E-Mail",
   "login_password_label": "Passwort",

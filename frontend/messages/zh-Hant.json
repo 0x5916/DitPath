@@ -148,6 +148,7 @@
   "forum_delete_confirm": "確認刪除",
   "login_title": "登入",
   "login_subtitle": "歡迎回來！請登入你的帳戶。",
+  "login_or": "或",
   "login_username_label": "使用者名稱或電郵",
   "login_username_placeholder": "你的使用者名稱或電郵",
   "login_password_label": "密碼",

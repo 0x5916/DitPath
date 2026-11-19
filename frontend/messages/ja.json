@@ -148,6 +148,7 @@
   "forum_delete_confirm": "削除を確定",
   "login_title": "ログイン",
   "login_subtitle": "おかえりなさい！アカウントにサインインしてください。",
+  "login_or": "または",
   "login_username_label": "ユーザー名またはメールアドレス",
   "login_username_placeholder": "ユーザー名またはメール",
   "login_password_label": "パスワード",

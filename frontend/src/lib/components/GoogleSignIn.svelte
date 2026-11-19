@@ -11,7 +11,8 @@
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import * as m from '#lib/paraglide/messages.js';
 
-  let { disabled = false }: { disabled?: boolean } = $props();
+  let { disabled = false, fullWidth = false }: { disabled?: boolean; fullWidth?: boolean } =
+    $props();
   let flowState = $state<GoogleFlowState>({ busy: false, needsUsername: false, error: null });
   let username = $state('');
   let loading = $state(true);
@@ -29,6 +30,7 @@
         clientId: PUBLIC_GOOGLE_CLIENT_ID,
         nonce: mountedFlow.nonce,
         locale: getLocale(),
+        fullWidth,
         signal: controller.signal,
         begin: () => mountedFlow.begin(),
         receive: (credential) => void mountedFlow.receive(credential)
@@ -106,6 +108,7 @@
 <style>
   .google-sign-in {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
     margin-bottom: var(--space-5);
   }

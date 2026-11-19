@@ -45,6 +45,7 @@ it('routes the selected Google proof only to its mounted consumer', async () => 
     auto_select: false,
     ux_mode: 'popup'
   });
+  expect(button.width).toBeUndefined();
   button.click_listener();
   configuration.callback({ credential: 'first' });
   controller.abort();
@@ -52,6 +53,52 @@ it('routes the selected Google proof only to its mounted consumer', async () => 
   configuration.callback({ credential: 'late' });
   expect(begin).toHaveBeenCalledOnce();
   expect(receive.mock.calls).toEqual([['first']]);
+});
+
+it('fits the Google button to the form as it resizes without restarting sign-in', async () => {
+  const api = { initialize: vi.fn(), renderButton: vi.fn() };
+  vi.stubGlobal('window', { google: { accounts: { id: api } } });
+  const host = { clientWidth: 400, replaceChildren: vi.fn() };
+  const observe = vi.fn();
+  const disconnect = vi.fn();
+  let resized!: () => void;
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resized = callback;
+      }
+      observe = observe;
+      disconnect = disconnect;
+    }
+  );
+
+  const { renderGoogleButton } = await import('#lib/google-sign-in.ts');
+  const controller = new AbortController();
+  await renderGoogleButton(host as unknown as HTMLElement, {
+    clientId: 'client',
+    nonce: 'issued-nonce',
+    locale: 'en',
+    signal: controller.signal,
+    fullWidth: true,
+    begin: vi.fn(),
+    receive: vi.fn()
+  });
+
+  expect(api.renderButton).toHaveBeenCalledWith(host, expect.objectContaining({ width: '400' }));
+  expect(observe).toHaveBeenCalledWith(host);
+  for (const width of [400, 0, 320, 320, 420]) {
+    host.clientWidth = width;
+    resized();
+  }
+  controller.abort();
+  host.clientWidth = 280;
+  resized();
+  expect(disconnect).toHaveBeenCalledOnce();
+  expect(api.initialize).toHaveBeenCalledOnce();
+  expect(api.renderButton.mock.calls.map(([, button]) => Number(button.width))).toEqual([
+    400, 320, 400
+  ]);
 });
 
 it('shares the hosted SDK load and resolves only once the Google API is available', async () => {

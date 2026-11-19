@@ -148,6 +148,7 @@
   "forum_delete_confirm": "Confirm delete",
   "login_title": "Login",
   "login_subtitle": "Welcome back! Sign in to your account.",
+  "login_or": "or",
   "login_username_label": "Username or Email",
   "login_username_placeholder": "Your username or email",
   "login_password_label": "Password",

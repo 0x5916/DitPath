@@ -148,6 +148,7 @@
   "forum_delete_confirm": "确认删除",
   "login_title": "登录",
   "login_subtitle": "欢迎回来！请登录您的账户。",
+  "login_or": "或",
   "login_username_label": "用户名或邮箱",
   "login_username_placeholder": "您的用户名或邮箱",
   "login_password_label": "密码",
