@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { ChevronRight, Mail, Search } from '@lucide/svelte';
+  import { onDestroy, onMount, type Snippet } from 'svelte';
   import { ApiError, searchAdminUsers } from '#lib/api.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import {
     duration,
     metricLabels,
-    rangeLabel,
     reportDate,
     reportHref,
     type Cohort,
@@ -18,6 +18,7 @@
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   let {
+    reportHeader,
     onDenied,
     onPeriod,
     days,
@@ -25,6 +26,7 @@
     metric,
     position
   }: {
+    reportHeader: Snippet<[string, ReportPeriod | null]>;
     onPeriod: (until: string) => void;
     onDenied: (status: number) => void;
     days: number;
@@ -74,41 +76,45 @@
 </script>
 
 <section class="page-stack">
-  <h2 class="card-title">{m.admin_directory()}</h2>
-  {#if period && metric !== 'all'}<p>
-      {metricLabels[metric]()} · {rangeLabel(period)}
-      <a href={reportHref('users', days, until)}>{m.admin_clear()}</a>
-    </p>{/if}
+  {@render reportHeader(m.admin_directory(), period)}
   <form
+    class="field"
     onsubmit={(e) => {
       e.preventDefault();
       submit(draft);
     }}
   >
-    <label for="user-search">{m.admin_search_label()}</label>
+    <label class="label-text" for="user-search">{m.admin_search_label()}</label>
     <div class="actions">
-      <input id="user-search" type="search" maxlength="254" bind:value={draft} />
-      <button class="btn-primary">{m.admin_search()}</button>
+      <input class="input" id="user-search" type="search" maxlength="254" bind:value={draft} />
+      <button class="btn-primary"><Search size={16} aria-hidden="true" />{m.admin_search()}</button>
       {#if draft || search}<button type="button" class="btn-ghost" onclick={() => submit('')}
           >{m.admin_clear()}</button
         >{/if}
     </div>
+    {#if metric !== 'all'}<div class="actions filter">
+        <span class="chip">{metricLabels[metric]()}</span>
+        <a class="link" href={reportHref('users', days, until)}>{m.admin_clear()}</a>
+      </div>{/if}
   </form>
-  <SelectedRecipients />
-  {#if mail.draft.recipients.length}<a
-      class="btn-primary compose"
-      href={reportHref('compose', days, until, metric)}>{m.mail_compose()}</a
-    >{/if}
+  <SelectedRecipients>
+    {#if mail.draft.recipients.length}<a
+        class="btn-ghost"
+        href={reportHref('compose', days, until, metric)}
+      >
+        <Mail size={16} aria-hidden="true" />{m.mail_compose()}</a
+      >{/if}
+  </SelectedRecipients>
   {#if loadState === 'loading'}<LoadingSpinner />
   {:else if loadState === 'error'}<ErrorAlert message={m.common_load_error()} /><button
       class="btn-ghost"
       onclick={load}>{m.common_retry()}</button
     >
-  {:else if accounts.length === 0}<p role="status">
+  {:else if accounts.length === 0}<p class="body-text" role="status">
       {search ? m.admin_no_matches() : m.admin_empty()}
     </p>
   {:else}
-    <ul class="records">
+    <ul class="row-list records" role="list">
       {#each accounts as account (account.id)}
         {@const selected = mail.draft.recipients.some((r) => r.id === account.id)}
         <li>
@@ -122,21 +128,34 @@
               onchange={() => mail.draft.toggle(account)}
             /></label
           >
-          <a href={reportHref('users', days, until, metric, account.id)}
-            ><strong>{account.username}</strong></a
-          > <span>{account.call_sign ?? ''}</span>
-          <div>
-            {account.email} · {account.email_verified
-              ? m.profile_email_status_verified()
-              : m.profile_email_status_not_verified()}
-          </div>
-          {#if metric === 'sessions' || metric === 'learners'}<div>
-              {m.admin_sessions()} · {account.sessions}
+          <a
+            class="row-link account"
+            aria-labelledby={'name-' + account.id}
+            aria-describedby={'email-' + account.id + ' facts-' + account.id}
+            href={reportHref('users', days, until, metric, account.id)}
+          >
+            <div>
+              <div class="identity">
+                <strong id={'name-' + account.id}>{account.username}</strong>
+                {#if account.call_sign}<span class="callsign">{account.call_sign}</span>{/if}
+              </div>
+              <div class="body-text" id={'email-' + account.id}>{account.email}</div>
+              <div class="meta-row">
+                {account.email_verified
+                  ? m.profile_email_status_verified()
+                  : m.profile_email_status_not_verified()}
+              </div>
             </div>
-          {:else if metric === 'duration_ms'}<div>
-              {m.admin_duration()} · {duration(account.duration_ms)}
-            </div>{/if}
-          <small>{m.profile_member_since()} · {reportDate(account.created_at)}</small>
+            <div class="facts" id={'facts-' + account.id}>
+              {#if metric === 'sessions' || metric === 'learners'}
+                <p>{m.admin_sessions()} · <strong>{account.sessions}</strong></p>
+              {:else if metric === 'duration_ms'}
+                <p>{m.admin_duration()} · <strong>{duration(account.duration_ms)}</strong></p>
+              {/if}
+              <p class="meta-row">{m.profile_member_since()} · {reportDate(account.created_at)}</p>
+            </div>
+            <ChevronRight size={16} aria-hidden="true" />
+          </a>
         </li>
       {/each}
     </ul>
@@ -164,22 +183,31 @@
 </section>
 
 <style>
-  .compose {
-    justify-self: start;
-    align-self: start;
+  .actions,
+  .identity {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .actions .input {
+    flex: 1 1 14rem;
+    min-width: 0;
+    max-width: 30rem;
+  }
+  .filter {
+    font-size: var(--text-sm);
   }
   .records li {
-    position: relative;
-    padding-inline-start: 48px;
+    display: grid;
+    grid-template-columns: var(--answer-target-min) minmax(0, 1fr);
+    align-items: center;
+    border-top: 1px solid var(--border);
   }
   .pick {
-    position: absolute;
-    inset-inline-start: 0;
-    top: var(--space-2);
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    min-height: var(--answer-target-min);
     cursor: pointer;
   }
   .pick input {
@@ -187,34 +215,35 @@
     height: 18px;
     accent-color: var(--accent);
   }
-
-  .records {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .records li {
-    border-bottom: 1px solid var(--border);
-    padding-block: var(--space-3);
+  .account {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
     overflow-wrap: anywhere;
   }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    align-items: center;
+  .callsign,
+  .facts {
+    font-size: var(--text-sm);
   }
-  label {
-    display: block;
-    margin-bottom: var(--space-1);
+  .facts {
+    display: grid;
+    gap: var(--space-1);
   }
-  input[type='search'] {
-    max-width: 100%;
-    min-height: 44px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: var(--space-2);
-    background: var(--bg-surface);
-    color: inherit;
+  .account :global(svg) {
+    color: var(--text-muted);
+  }
+  @media (max-width: 639px) {
+    .account {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-2);
+    }
+    .facts {
+      grid-column: 1;
+    }
+    .account :global(svg) {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
   }
 </style>

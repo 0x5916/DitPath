@@ -1,17 +1,13 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
+  import { CircleMinus, UsersRound } from '@lucide/svelte';
   import { goto } from '$app/navigation';
   import { ApiError, previewMail, queueMail } from '#lib/api.ts';
-  import {
-    getAdminMailSession,
-    MailDraft,
-    mailError,
-    mailReason,
-    topicLabels
-  } from '#lib/admin-mail.svelte.ts';
+  import { getAdminMailSession, MailDraft, mailError, mailReason } from '#lib/admin-mail.svelte.ts';
   import { reportHref, type Cohort } from '#lib/admin-report.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import * as m from '#lib/paraglide/messages.js';
+  import MailLetter from './MailLetter.svelte';
   import SelectedRecipients from './SelectedRecipients.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
 
@@ -102,56 +98,54 @@
   }
 </script>
 
-<section class="page-stack">
-  <h2 class="card-title" tabindex="-1" bind:this={heading}>
+<section class="page-stack compose">
+  <h2 class="section-title" tabindex="-1" bind:this={heading}>
     {review ? m.mail_review() : m.mail_compose()}
   </h2>
   {#if error}<div tabindex="-1" bind:this={errorBox}><ErrorAlert message={error} /></div>{/if}
   {#if review}
-    <dl>
-      <div>
-        <dt>{m.mail_topic()}</dt>
-        <dd>{topicLabels[draft.topic]()}</dd>
-      </div>
-      <div>
-        <dt>{m.mail_from()}</dt>
-        <dd>{review.from}</dd>
-      </div>
-      <div>
-        <dt>{m.mail_reply()}</dt>
-        <dd>{review.reply_to}</dd>
-      </div>
-    </dl>
-    <section class="panel">
-      <h3>{draft.subject}</h3>
-      <p class="copy">{draft.body}</p>
-      <p class="copy">{review.footer}</p>
-      <p>{m.mail_unsubscribe()}</p>
-    </section>
+    <MailLetter
+      topic={draft.topic}
+      from={review.from}
+      replyTo={review.reply_to}
+      subject={draft.subject}
+      body={draft.body}
+      footer={review.footer}
+    />
     <section>
-      <h3>{m.mail_recipients()}</h3>
-      <ul>
+      <h3 class="card-title">{m.mail_recipients()}</h3>
+      <ul class="row-list" role="list">
         {#each review.recipients as person (person.id)}
-          <li>
-            <strong>{person.username || m.mail_unavailable()}</strong>
-            {person.email}
-            {#if person.reason}<small
-                >{m.mail_excluded({ reason: mailReason(person.reason) })}</small
-              >{/if}
+          <li class="recipient">
+            <div>
+              <strong>{person.username || m.mail_unavailable()}</strong>{#if person.email}<p
+                  class="body-text"
+                >
+                  {person.email}
+                </p>{/if}
+            </div>
+            {#if person.reason}<p class="meta-item exclusion">
+                <CircleMinus size={14} aria-hidden="true" />{m.mail_excluded({
+                  reason: mailReason(person.reason)
+                })}
+              </p>{/if}
           </li>
         {/each}
       </ul>
     </section>
-    <div class="actions">
+    <div class="composer-actions">
       <a class="btn-ghost" href={reportHref('compose', days, until, metric)}>{m.mail_edit()}</a>
       <button class="btn-primary" disabled={!count || !!draft.pending} onclick={send}
         >{count === 1 ? m.mail_send_one() : m.mail_send_many({ count })}</button
       >
     </div>
   {:else}
-    <SelectedRecipients />
-    <a href={reportHref('users', days, until, metric)}>{m.mail_choose()}</a>
-    <form class="page-stack" onsubmit={preview}>
+    <SelectedRecipients>
+      <a class="btn-ghost" href={reportHref('users', days, until, metric)}
+        ><UsersRound size={16} aria-hidden="true" />{m.mail_choose()}</a
+      >
+    </SelectedRecipients>
+    <form class="panel composer-form" onsubmit={preview}>
       <label class="field"
         ><span class="label-text">{m.mail_topic()}</span>
         <select class="input" bind:value={draft.topic} onchange={edit} disabled={!!draft.pending}>
@@ -174,7 +168,7 @@
       <label class="field"
         ><span class="label-text">{m.mail_body()}</span>
         <textarea
-          class="input"
+          class="input composer-textarea"
           required
           maxlength="8000"
           rows="8"
@@ -182,7 +176,7 @@
           oninput={edit}
           disabled={!!draft.pending}></textarea>
       </label>
-      <div class="actions">
+      <div class="composer-actions">
         <button class="btn-primary" disabled={!draft.recipients.length || !!draft.pending}
           >{m.mail_review()}</button
         >
@@ -199,46 +193,31 @@
 </section>
 
 <style>
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  .copy {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  dl,
-  dd {
-    margin: 0;
-  }
-  dl > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  dt,
-  small {
-    color: var(--text-muted);
-  }
-  small {
-    display: block;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  li {
-    padding-block: var(--space-2);
-    border-block-end: 1px solid var(--border);
-  }
-  section,
-  dd {
+  .compose {
     min-width: 0;
+    max-width: var(--max-width-narrow);
     overflow-wrap: anywhere;
   }
-  textarea {
-    resize: vertical;
+  .recipient {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+  .recipient + .recipient {
+    border-block-start: 1px solid var(--border);
+  }
+  .exclusion {
+    font-size: var(--text-sm);
+    color: var(--status-ok);
+  }
+  .exclusion :global(svg) {
+    flex: none;
+  }
+  .btn-ghost {
+    gap: var(--space-2);
   }
   [role='status']:empty {
     margin: 0;

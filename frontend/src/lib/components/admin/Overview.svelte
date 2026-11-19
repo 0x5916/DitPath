@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { ChevronRight } from '@lucide/svelte';
+  import { onDestroy, onMount, type Snippet } from 'svelte';
   import { ApiError, getAdminOverview } from '#lib/api.ts';
   import { createSessionScope } from '#lib/session-scope.ts';
   import {
@@ -7,10 +8,10 @@
     metrics,
     metricLabels,
     metricValue,
-    rangeLabel,
     reportDate,
     reportHref,
     type Metric,
+    type ReportPeriod,
     type OverviewReport
   } from '#lib/admin-report.ts';
   import { getLocale } from '#lib/paraglide/runtime.js';
@@ -18,11 +19,13 @@
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   let {
+    reportHeader,
     onPeriod,
     days,
     until,
     onDenied
   }: {
+    reportHeader: Snippet<[string, ReportPeriod | null]>;
     days: number;
     until: string;
     onPeriod: (until: string) => void;
@@ -60,33 +63,38 @@
   onDestroy(scope.dispose);
 </script>
 
-{#if report}
-  <section class="page-stack">
-    <header>
-      <h2 class="card-title">{m.admin_overview()}</h2>
-      <p>{rangeLabel(report.period)}</p>
-    </header>
+<section class="page-stack">
+  {@render reportHeader(m.admin_overview(), report?.period ?? null)}
+  {#if report}
     <div class="metrics">
       {#each metrics as metric (metric)}
         {@const peak = Math.max(...report.daily.map((d) => d[metric]), 1)}
-        <a class="panel metric" href={reportHref('users', days, report.period.until, metric)}>
-          <span>{metricLabels[metric]()}</span><strong>{metricValue(metric, report.current)}</strong
-          >
+        <a class="card-sm metric" href={reportHref('users', days, report.period.until, metric)}>
+          <div class="metric-heading">
+            <span class="metric-label">{metricLabels[metric]()}</span><ChevronRight
+              size={16}
+              aria-hidden="true"
+            />
+          </div>
+          <strong class="metric-value">{metricValue(metric, report.current)}</strong>
           <div class="trend" aria-hidden="true">
             {#each report.daily as d (d.day)}<i style:height={`${(100 * d[metric]) / peak}%`}
               ></i>{/each}
           </div>
-          <small>{m.admin_change({ change: change(metric, report) })}</small>
+          <div class="metric-detail">
+            <p>{m.admin_change({ change: change(metric, report) })}</p>
+            {#if metric === 'sessions'}<p>{m.admin_modes(report.current)}</p>
+            {:else if metric === 'duration_ms'}<p>
+                {m.admin_coverage({
+                  measured: report.current.measured,
+                  total: report.current.sessions
+                })}
+              </p>{/if}
+          </div>
         </a>
       {/each}
     </div>
-    <p>
-      {m.admin_modes(report.current)}<br />{m.admin_coverage({
-        measured: report.current.measured,
-        total: report.current.sessions
-      })}
-    </p>
-    <details>
+    <details class="ui-disclosure">
       <summary>{m.admin_daily()}</summary>
       <div class="table-wrap">
         <table>
@@ -108,48 +116,84 @@
       </div>
     </details>
     <p class="body-text">{m.admin_reporting_note()}</p>
-  </section>
-{:else if failed}<ErrorAlert message={m.common_load_error()} /><button
-    class="btn-ghost"
-    onclick={load}>{m.common_retry()}</button
-  >
-{:else}<LoadingSpinner />{/if}
+  {:else if failed}<ErrorAlert message={m.common_load_error()} /><button
+      class="btn-ghost"
+      onclick={load}>{m.common_retry()}</button
+    >
+  {:else}<LoadingSpinner />{/if}
+</section>
 
 <style>
   .metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-3);
   }
   .metric {
-    min-width: 0;
+    display: grid;
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+    align-items: start;
+    gap: var(--space-3);
+    color: var(--text-primary);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .metric:is(:hover, :focus-visible) {
+    border-color: var(--accent);
+  }
+  .metric-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-1);
+  }
+  .metric-heading :global(svg) {
+    flex: none;
+    color: var(--accent);
+  }
+  .metric-value {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-tight);
+    text-wrap: balance;
+  }
+  .metric-detail {
     display: grid;
     gap: var(--space-2);
-    text-decoration: none;
-    color: inherit;
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
   }
-  .metric strong {
-    font-size: var(--text-2xl);
-    font-variant-numeric: tabular-nums;
+  @media (max-width: 799px) {
+    .metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
-  .metric:hover span {
-    text-decoration: underline;
+  @media (max-width: 359px) {
+    .metrics {
+      grid-template-columns: 1fr;
+    }
+    .metric {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: auto;
+      grid-row: auto;
+      align-items: center;
+    }
+    .metric-heading,
+    .metric-detail {
+      grid-column: 1 / -1;
+    }
   }
   .trend {
     display: flex;
     align-items: flex-end;
-    gap: 1px;
+    gap: min(1px, 0.4%);
     height: 2rem;
+    width: 100%;
     border-bottom: 1px solid var(--border);
   }
   .trend i {
     flex: 1;
     background: var(--accent);
-  }
-  summary {
-    cursor: pointer;
-    font-weight: 600;
-    padding-block: var(--space-3);
   }
   .table-wrap {
     overflow-x: auto;
@@ -162,7 +206,17 @@
   th,
   td {
     padding: var(--space-2);
-    text-align: start;
+    text-align: end;
     border-bottom: 1px solid var(--border);
+  }
+  th:first-child {
+    text-align: start;
+  }
+  thead {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  tbody {
+    font-size: var(--text-sm);
   }
 </style>

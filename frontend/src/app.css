@@ -664,6 +664,7 @@ p .link {
 }
 
 .segmented-item[aria-pressed='true'],
+.segmented-item[aria-current='true'],
 .segmented input:checked + .segmented-item {
   border-color: var(--accent);
   color: var(--accent);

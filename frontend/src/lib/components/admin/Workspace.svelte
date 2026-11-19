@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { ChevronLeft } from '@lucide/svelte';
   import { page } from '$app/state';
   import {
     metrics,
+    rangeLabel,
+    type ReportPeriod,
     reportHref,
     type Cohort,
     type DirectoryPosition,
@@ -37,41 +40,67 @@
   }
 </script>
 
-<nav aria-label={m.admin_title()}>
+<nav class="section-nav" aria-label={m.admin_title()}>
   <a
-    class="btn-ghost"
     aria-current={view === 'overview' ? 'page' : undefined}
     href={reportHref('overview', days, until, metric)}>{m.admin_overview()}</a
   >
   <a
-    class="btn-ghost"
-    aria-current={view === 'users' ? 'page' : undefined}
+    aria-current={view === 'users' && !learner
+      ? 'page'
+      : ['users', 'compose', 'review'].includes(view)
+        ? 'location'
+        : undefined}
     href={reportHref('users', days, until, metric)}>{m.admin_directory()}</a
   >
   <a
-    class="btn-ghost"
-    aria-current={view === 'sent' ? 'page' : undefined}
+    aria-current={view === 'sent' ? (message ? 'location' : 'page') : undefined}
     href={reportHref('sent', days, until, metric)}>{m.mail_sent()}</a
   >
 </nav>
-{#if view === 'users' || view === 'overview'}<nav aria-label={m.admin_range()}>
-    {#each [7, 30, 90] as n (n)}<a
-        class="btn-ghost"
+{#snippet rangePicker()}
+  <nav class="segmented" aria-label={m.admin_range()}>
+    {#each [7, 30, 90] as n (n)}
+      <a
+        class="segmented-item"
         aria-current={days === n ? 'true' : undefined}
         href={reportHref(view, n, until, metric, learner)}>{m.admin_days({ days: n })}</a
-      >{/each}
-  </nav>{/if}
+      >
+    {/each}
+  </nav>
+{/snippet}
+
+{#snippet reportHeader(title: string, period: ReportPeriod | null)}
+  <header class="report-toolbar">
+    <div>
+      <h2 class="section-title">{title}</h2>
+      {#if period}<p class="body-text">{rangeLabel(period)}</p>{/if}
+    </div>
+    {@render rangePicker()}
+  </header>
+{/snippet}
 {#key key}
-  {#if view === 'overview'}<Overview onPeriod={pinPeriod} {days} {until} {onDenied} />
+  {#if view === 'overview'}<Overview
+      {reportHeader}
+      onPeriod={pinPeriod}
+      {days}
+      {until}
+      {onDenied}
+    />
   {:else if view === 'compose' || view === 'review'}
     <Composer {view} {days} {until} {metric} {onDenied} />
   {:else if view === 'sent'}
     {#key message}<SentMessages id={message} {days} {until} {metric} {onDenied} />{/key}
-  {:else if learner}{#key learner}<a
-        class="btn-ghost"
-        href={reportHref('users', days, until, metric)}>{m.admin_back_directory()}</a
-      ><Learner id={learner} {days} {until} {onDenied} />{/key}
+  {:else if learner}{#key learner}
+      <div class="report-toolbar">
+        <a class="crumb-link" href={reportHref('users', days, until, metric)}>
+          <ChevronLeft size={16} aria-hidden="true" />{m.admin_back_directory()}
+        </a>
+        {@render rangePicker()}
+      </div>
+      <Learner id={learner} {days} {until} {onDenied} />{/key}
   {:else}<Directory
+      {reportHeader}
       onPeriod={pinPeriod}
       {days}
       {until}
@@ -82,14 +111,20 @@
 {/key}
 
 <style>
-  nav {
+  .report-toolbar {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--space-3);
   }
-  a[aria-current] {
-    color: var(--accent);
-    font-weight: 700;
-    background: var(--bg-inset);
+  .section-title {
+    margin: 0;
+  }
+  .body-text {
+    margin-top: var(--space-1);
+  }
+  .segmented-item {
+    min-height: var(--answer-target-min);
   }
 </style>
