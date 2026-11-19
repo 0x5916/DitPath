@@ -39,7 +39,8 @@ describe('Morsewell public branding', () => {
   it.each(LOCALES)('brands required messages in %s', (locale) => {
     const messages = readCatalog(locale);
 
-    expect(messages.home_hero_title).toBe(resolveSeoMetadata('/', locale).title);
+    const slogan = messages.home_hero_title.replaceAll('\n', ' ');
+    expect(resolveSeoMetadata('/', locale).title).toBe(`${SITE_NAME} — ${slogan}`);
 
     for (const key of BRANDED_MESSAGE_KEYS) {
       expect(messages[key], `${locale}.${key}`).toContain('Morsewell');

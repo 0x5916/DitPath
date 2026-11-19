@@ -10,12 +10,26 @@ for (const theme of ['light', 'dark'] as const)
       const banner = page.locator('.migration-banner');
       await expect(banner.getByRole('heading')).toHaveText('OpenCW is now Morsewell!');
       await expect(banner).toContainText('Progress saves in this browser');
-      const start = page.getByRole('link', { name: 'Start learning', exact: true });
+      await expect(page.getByRole('heading', { level: 1 })).toHaveAccessibleName(
+        'Learn the code. Communicate well.'
+      );
+      await expect(page.locator('.welcome-lede')).toHaveText(
+        'Listen to K and M in Morse code. Then type the letter you hear.'
+      );
+      const start = page.getByRole('link', { name: 'Start your first lesson', exact: true });
       await expect(start).toHaveAttribute('href', '/en/morse/learn/session?step=1');
       await expect(
         page.getByRole('link', { name: 'Already know Morse? Practice' })
       ).toHaveAttribute('href', '/en/morse/practice');
       await expect(page.locator('.welcome-demo')).toHaveCount(0);
+      const preview = page.getByRole('region', { name: 'How the lessons build' });
+      const rows = preview.getByRole('list').getByRole('listitem');
+      await expect(rows.locator('strong')).toHaveText(['Lesson 1', 'Lesson 2', 'Lesson 3']);
+      await expect(rows.locator('span')).toHaveText([
+        'Hear the difference between K and M.',
+        'Add R to the mix. Listen for K, M, or R.',
+        'Add S and practice all four letters by ear.'
+      ]);
       const footer = page.locator('.site-footer--full');
       await expect(footer).toBeVisible();
       await expect(
@@ -57,8 +71,22 @@ for (const theme of ['light', 'dark'] as const)
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
         false
       );
+      await page.evaluate(() => window.scrollBy(0, innerHeight / 2));
+      await expect(preview.getByRole('heading', { level: 2 })).toBeInViewport({ ratio: 1 });
     });
   }
+
+for (const [name, path, heading] of [
+  ['Start your first lesson', '/en/morse/learn/session?step=1', /^Meet [KM]$/],
+  ['Already know Morse? Practice', '/en/morse/practice', 'Practice']
+] as const) {
+  test(`the landing link “${name}” opens its activity`, async ({ page }) => {
+    await page.goto('/en');
+    await page.getByRole('link', { name, exact: true }).click();
+    await expect(page).toHaveURL(path);
+    await expect(page.getByRole('heading', { name: heading, level: 1, exact: true })).toBeVisible();
+  });
+}
 
 for (const theme of ['light', 'dark'] as const)
   for (const width of [320, 375, 390])
@@ -211,15 +239,17 @@ test('footer controls share rows when translated links wrap', async ({ page }) =
   }
 });
 
-test('Home footer scrolls into and out of view on a short page', async ({ page }) => {
+test('Home footer is reachable after the lesson preview', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.goto('/en');
   await expect(page.locator('.migration-banner')).toBeVisible();
   const footer = page.getByRole('contentinfo');
   await expect(footer).not.toBeInViewport();
   await page.keyboard.press('End');
-  await expect(footer).toBeInViewport({ ratio: 1 });
+  // At the document end, scroll offsets round to a pixel while the footer can end on a fraction.
+  await expect(footer).toBeInViewport({ ratio: 0.99 });
   const choices = footer.getByRole('group', { name: 'Language' });
+  await expect(choices).toBeInViewport({ ratio: 1 });
   const columns = footer.getByRole('navigation');
   for (const column of await columns.all()) {
     const box = (await column.boundingBox())!;
@@ -229,7 +259,9 @@ test('Home footer scrolls into and out of view on a short page', async ({ page }
   await expect(footer).not.toBeInViewport();
 });
 
-test('footer language options preserve the selection after reload', async ({ page }) => {
+test('footer language choices persist and the lesson button fits in every locale', async ({
+  page
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/en');
   // The announcement mounts client-side, so it also confirms hydration before input.
@@ -251,6 +283,8 @@ test('footer language options preserve the selection after reload', async ({ pag
     await expect(page.locator('.migration-banner')).toBeVisible();
     await expect(option).toHaveAttribute('aria-pressed', 'true');
     await expect(languages.getByRole('button', { pressed: true })).toHaveCount(1);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await expect(page.locator('.welcome-actions .btn-cta')).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
       false
     );

@@ -34,7 +34,10 @@ test.describe('Morsewell public branding', () => {
     test(`uses Morsewell on the ${locale} home page`, async ({ page }) => {
       await page.goto(`/${locale}`);
 
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText(await page.title());
+      const heading = page.getByRole('heading', { level: 1 });
+      const slogan = (await heading.innerText()).replace(/\s+/g, ' ').trim();
+      expect(slogan).not.toContain('Morsewell');
+      await expect(page).toHaveTitle(`Morsewell — ${slogan}`);
       await expect(navigationBrandLink(page)).toBeVisible();
       await expectNoLegacyBrandOutsideBanner(page);
     });

@@ -3,6 +3,12 @@
   import WelcomeIllustration from './WelcomeIllustration.svelte';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
+
+  const lessons = [
+    { step: 1, description: m.home_preview_lesson_one },
+    { step: 2, description: m.home_preview_lesson_two },
+    { step: 3, description: m.home_preview_lesson_three }
+  ];
 </script>
 
 <div class="welcome">
@@ -20,6 +26,17 @@
       </div>
     </div>
   </section>
+  <section class="lesson-preview" aria-labelledby="lesson-preview-title">
+    <h2 class="section-title" id="lesson-preview-title">{m.home_preview_title()}</h2>
+    <ol role="list">
+      {#each lessons as { step, description } (step)}
+        <li>
+          <strong>{m.learn_path_lesson({ step })}</strong>
+          <span>{description()}</span>
+        </li>
+      {/each}
+    </ol>
+  </section>
 </div>
 
 <style>
@@ -34,6 +51,8 @@
   .welcome-hero {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    min-height: calc(100svh - var(--navbar-min-height) - var(--space-6));
+    align-content: center;
     align-items: center;
     gap: 6rem;
     padding-block: var(--space-8);
@@ -51,11 +70,12 @@
   h1 {
     max-width: 20ch;
     margin: 0;
-    font-size: 3.25rem;
+    font-size: clamp(2rem, 3.6vw, 3.25rem);
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.15;
     letter-spacing: -0.025em;
     text-wrap: balance;
+    white-space: pre-line;
   }
   .welcome-lede {
     max-width: 36ch;
@@ -93,10 +113,38 @@
     line-height: 1.4;
     color: var(--text-muted);
   }
+  .lesson-preview {
+    display: grid;
+    grid-template-columns: fit-content(17rem) minmax(0, 30rem);
+    justify-content: center;
+    column-gap: clamp(var(--space-6), 6vw, 6rem);
+    border-top: 1px solid var(--border);
+    padding-block: var(--space-8);
+  }
+  .lesson-preview ol {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .lesson-preview li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: baseline;
+    color: var(--text-secondary);
+  }
+  .lesson-preview strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
   @media (max-width: 799px) {
     .welcome-hero {
       grid-template-columns: minmax(0, 1fr);
-      gap: var(--space-4);
+      align-content: start;
+      gap: var(--space-3);
       padding-block: var(--space-3) var(--space-6);
       text-align: center;
     }
@@ -115,8 +163,21 @@
       font-size: 2.25rem;
     }
     .welcome-lede {
-      margin: var(--space-4) auto var(--space-8);
+      margin: var(--space-4) auto var(--space-5);
       font-size: var(--text-base);
+    }
+    .lesson-preview {
+      grid-template-columns: minmax(0, 32rem);
+      padding-block: var(--space-6);
+    }
+  }
+  @media (max-width: 479px) {
+    .lesson-preview ol,
+    .lesson-preview li {
+      grid-template-columns: 1fr;
+    }
+    .lesson-preview li {
+      row-gap: var(--space-1);
     }
   }
   @media (max-width: 799px) and (max-height: 700px) {
