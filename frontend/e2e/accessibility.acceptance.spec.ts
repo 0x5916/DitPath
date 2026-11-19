@@ -144,22 +144,30 @@ test('Practice reflows at 200% root text size on a 320px viewport', async ({ pag
   await expect(page.getByRole('button', { name: 'Start practice' })).toBeVisible();
 });
 
-test('primary controls meet the 44px target and key routes do not overflow', async ({ page }) => {
-  await resetToHome(page);
-  for (const width of [320, 390, 1280]) {
+for (const width of [320, 390, 1280]) {
+  test(`key routes fit at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
-    for (const path of ['/en', '/en/morse/learn', '/en/morse/practice', '/en/morse/progress']) {
-      await page.goto(path, { waitUntil: 'networkidle' });
+    await resetToHome(page);
+    const routes = [
+      ['/en', page.getByRole('link', { name: 'Start learning', exact: true })],
+      ['/en/morse/learn', page.getByText(/lessons unlocked$/)],
+      ['/en/morse/practice', page.getByRole('button', { name: 'Start practice', exact: true })],
+      ['/en/morse/progress', page.getByRole('heading', { name: 'No training history yet' })]
+    ] as const;
+
+    for (const [path, ready] of routes) {
+      if (path !== '/en') await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await expect(ready).toBeVisible();
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth + 1
       );
       expect(overflow, `${path} overflows at ${width}px`).toBe(false);
-    }
-  }
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/en/morse/practice');
-  const box = await page.getByRole('button', { name: 'Start practice' }).boundingBox();
-  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
-  expect(box?.width ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
-});
+      if (width === 390 && path === '/en/morse/practice') {
+        const box = await ready.boundingBox();
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
+      }
+    }
+  });
+}
