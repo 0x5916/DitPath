@@ -10,7 +10,14 @@
     // Only a request from the canonical site's own opening window can receive it.
     const destination = 'https://morsewell.com';
     const source = 'https://opencw.net';
-    const databases = ['morsestep_training_v1', 'opencw_learning_pilot_v1', 'opencw_learning_evidence_v1'];
+    const databases = {
+      morsestep_training_v1: {
+        version: 2, stores: ['attempts', 'sessions', 'mastery', 'outbox', 'settings', 'meta',
+          'owned_attempts', 'owned_sessions', 'owned_mastery', 'owned_outbox', 'owned_meta', 'history_imports']
+      },
+      opencw_learning_pilot_v1: { version: 1, stores: ['sessions', 'attempts'] },
+      opencw_learning_evidence_v1: { version: 1, stores: ['records', 'outbox', 'meta'] }
+    };
     const preference = /^(?:learn\.lesson|cw\.settings(?:\.updated_at)?\.v1(?:\.account\.[\w-]+)?|cw\.progress\.queue\.v1|theme|PARAGLIDE_LOCALE_PREF)$/;
 
     function readDatabase(name) {
@@ -25,7 +32,14 @@
         request.onblocked = () => reject(new Error('blocked'));
         request.onsuccess = () => {
           const db = request.result;
-          const tx = db.transaction(Array.from(db.objectStoreNames), 'readonly');
+          const names = Array.from(db.objectStoreNames);
+          const schema = databases[name];
+          if (db.version > schema.version || !names.length || names.some((store) => !schema.stores.includes(store))) {
+            db.close();
+            reject(new Error('unsupported storage schema'));
+            return;
+          }
+          const tx = db.transaction(names, 'readonly');
           const stores = {};
           for (const store of db.objectStoreNames) {
             const rows = tx.objectStore(store).getAll();
@@ -56,7 +70,7 @@
               catch { /* Ignore an invalid legacy preference. */ }
             }
           }
-          const snapshots = (await Promise.all(databases.map(readDatabase))).filter(Boolean);
+          const snapshots = (await Promise.all(Object.keys(databases).map(readDatabase))).filter(Boolean);
           receiver.postMessage({ type: 'morsewell:records', snapshots, preferences }, destination);
         } catch {
           receiver.postMessage({ type: 'morsewell:error' }, destination);

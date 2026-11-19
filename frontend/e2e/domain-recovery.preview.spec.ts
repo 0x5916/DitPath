@@ -73,4 +73,32 @@ test('recovers a guest lesson from its original top-level origin without transfe
   await expect(page.getByText('Practice: Lesson 7', { exact: true })).toBeVisible();
   await page.goto('https://opencw.net/seed');
   expect(await page.evaluate(() => localStorage.getItem('refresh_token'))).toBe('legacy-fixture');
+  // An unfamiliar source schema must be rejected before a snapshot crosses origins.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open('morsestep_training_v1', 2);
+        open.onupgradeneeded = () => {
+          open.result.createObjectStore('not_training');
+        };
+        open.onsuccess = () => {
+          open.result.close();
+          resolve();
+        };
+        open.onerror = () => reject(open.error);
+      })
+  );
+  await page.goto('https://morsewell.com/en/settings#device-recovery');
+  await page.evaluate(() => {
+    addEventListener('message', (event) => {
+      if (event.origin === 'https://opencw.net' && event.data?.type) {
+        document.documentElement.dataset.recoveryResponse = event.data.type;
+      }
+    });
+  });
+  await button.click();
+  await expect(page.locator('html')).toHaveAttribute('data-recovery-response', 'morsewell:error');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Recovery could not finish' })
+  ).toBeVisible();
 });
