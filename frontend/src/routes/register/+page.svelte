@@ -109,7 +109,13 @@
       <ErrorAlert message={err} />
     {/if}
 
-    <button type="submit" class="btn-primary" disabled={loading}>
+    <p id="register-email-notice" class="body-text">{m.signup_email_notice()}</p>
+    <button
+      type="submit"
+      class="btn-primary"
+      aria-describedby="register-email-notice"
+      disabled={loading}
+    >
       {loading ? m.register_submitting() : m.register_submit()}
     </button>
   </form>

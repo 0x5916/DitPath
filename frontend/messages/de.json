@@ -175,6 +175,7 @@
   "register_confirm_placeholder": "Wiederhole dein Passwort",
   "register_confirm_show": "Passwort anzeigen",
   "register_confirm_hide": "Passwort verbergen",
+  "signup_email_notice": "Wir verwenden deine E-Mail-Adresse, um sie zu bestätigen und dich über Änderungen zu informieren, die den Zugang zu deinem Konto betreffen. Rückfragen vom Support und Produktneuigkeiten sind standardmäßig deaktiviert. Du kannst sie in den Einstellungen aktivieren.",
   "register_submit": "Registrieren",
   "register_submitting": "Konto wird erstellt…",
   "register_has_account": "Hast du bereits ein Konto?",

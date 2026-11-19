@@ -7,6 +7,10 @@ const googleEnabled = Boolean(
   loadEnv('production', process.cwd(), 'PUBLIC_GOOGLE_CLIENT_ID').PUBLIC_GOOGLE_CLIENT_ID
 );
 
+const signupNotice =
+  'We use your email to verify your address and tell you about changes that affect access to your account. ' +
+  'Support follow-ups and product updates are off by default. You can turn them on in Settings.';
+
 const googleFixture = `
   let callback;
   window.google = { accounts: { id: {
@@ -44,9 +48,21 @@ for (const path of ['login', 'register']) {
     });
     const password = page.getByLabel('Password', { exact: true });
     const divider = page.getByText('or', { exact: true });
+    const emailNotice = page.getByText(signupNotice, { exact: true });
     await name.fill('kept-name');
     await password.fill('local-draft');
     await expect(divider).toHaveCount(0);
+    if (path === 'register') {
+      await expect(emailNotice).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Register', exact: true })
+      ).toHaveAccessibleDescription(signupNotice);
+      await expect(page.getByRole('checkbox')).toHaveCount(0);
+    } else await expect(emailNotice).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
+      'href',
+      '/en/privacy'
+    );
 
     if (!googleEnabled) {
       await expect(page.getByRole('group', { name: 'Google sign-in' })).toHaveCount(0);
@@ -68,6 +84,15 @@ for (const path of ['login', 'register']) {
 
     const googleName = page.getByLabel('Choose your Morsewell username');
     await expect(googleName).toBeFocused();
+    await expect(emailNotice).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Create account', exact: true })
+    ).toHaveAccessibleDescription(signupNotice);
+    await expect(page.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
+      'href',
+      '/en/privacy'
+    );
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
     await expect(name).toHaveCount(0);
     await expect(password).toHaveCount(0);
     await expect(divider).toHaveCount(0);
@@ -79,6 +104,7 @@ for (const path of ['login', 'register']) {
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(google).toBeFocused();
     await expect(divider).toBeVisible();
+    await expect(emailNotice).toHaveCount(path === 'register' ? 1 : 0);
     await expect(name).toHaveValue('kept-name');
     await expect(password).toHaveValue('local-draft');
   });

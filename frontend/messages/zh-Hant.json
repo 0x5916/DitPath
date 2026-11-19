@@ -175,6 +175,7 @@
   "register_confirm_placeholder": "重複你的密碼",
   "register_confirm_show": "顯示密碼",
   "register_confirm_hide": "隱藏密碼",
+  "signup_email_notice": "我們會使用你的電子郵件地址進行驗證，並通知你影響帳號存取的變更。支援後續聯絡和產品消息郵件預設為關閉。你可以在設定中開啟。",
   "register_submit": "註冊",
   "register_submitting": "建立帳戶中…",
   "register_has_account": "已經有帳戶？",

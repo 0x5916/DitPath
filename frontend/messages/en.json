@@ -175,6 +175,7 @@
   "register_confirm_placeholder": "Repeat your password",
   "register_confirm_show": "Show password",
   "register_confirm_hide": "Hide password",
+  "signup_email_notice": "We use your email to verify your address and tell you about changes that affect access to your account. Support follow-ups and product updates are off by default. You can turn them on in Settings.",
   "register_submit": "Register",
   "register_submitting": "Creating account…",
   "register_has_account": "Already have an account?",
