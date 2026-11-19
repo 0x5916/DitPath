@@ -3,8 +3,8 @@ package middlewares
 import (
 	"net/http"
 
-	"opencw/internal/common"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )

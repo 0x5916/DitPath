@@ -90,7 +90,7 @@ resolve_file() {
 if [[ -z ${DUMP_FILE} ]]; then
   DUMP_FILE="$(latest_backup)"
   [[ -n ${DUMP_FILE} ]] ||
-    die "no dumps in ${BACKUP_DIR}; pass a file: scripts/restore.sh /path/to/opencw_<date>.sql.gz"
+    die "no dumps in ${BACKUP_DIR}; pass a file: scripts/restore.sh /path/to/morsewell_<date>.sql.gz"
 else
   DUMP_FILE="$(resolve_file "${DUMP_FILE}")" || die "cannot find dump '${DUMP_FILE}'"
 fi
@@ -130,13 +130,13 @@ stage_sql() {
 }
 
 if [[ ${DRY_RUN} == 0 ]]; then
-  stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/opencw-restore.XXXXXX")" || die "cannot create restore staging directory"
+  stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/morsewell-restore.XXXXXX")" || die "cannot create restore staging directory"
   stage_sql "${DUMP_FILE}" "${stage_dir}/data.sql"
   if [[ -n ${GLOBALS_FILE} ]]; then
     stage_sql "${GLOBALS_FILE}" "${stage_dir}/globals.sql"
     # Preserve pg_dumpall's quoted identifiers verbatim. A delimiter absent from
     # the input lets existing roles be skipped without masking other SQL errors.
-    role_tag='$opencw_restore$'
+    role_tag='$morsewell_restore$'
     while grep -Fq -- "${role_tag}" "${stage_dir}/globals.sql"; do role_tag="${role_tag%\$}_\$"; done
     final_newline=1
     [[ -z $(tail -c 1 -- "${stage_dir}/globals.sql") ]] || final_newline=0

@@ -3,7 +3,7 @@ package configs
 import "testing"
 
 func TestGoogleConfigurationAndOrigins(t *testing.T) {
-	for _, origin := range []string{"https://opencw.net", "https://app.example.invalid:8443", "http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173"} {
+	for _, origin := range []string{"https://morsewell.com", "https://app.example.invalid:8443", "http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173"} {
 		t.Run(origin, func(t *testing.T) {
 			c := validDirectConfig()
 			c.GoogleClientID = "123-test.apps.googleusercontent.com"
@@ -24,7 +24,7 @@ func TestGoogleConfigurationAndOrigins(t *testing.T) {
 		})
 	}
 	c := validDirectConfig()
-	if !c.GoogleOriginAllowed("https://opencw.net") || c.GoogleOriginAllowed("http://localhost:5173") {
+	if !c.GoogleOriginAllowed("https://morsewell.com") || c.GoogleOriginAllowed("http://localhost:5173") {
 		t.Fatal("development inherited an unconfigured origin")
 	}
 	for _, clientID := range []string{"invalid", " ", "123-test.apps.googleusercontent.com/", "test.apps.googleusercontent.com"} {

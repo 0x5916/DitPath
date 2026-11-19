@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

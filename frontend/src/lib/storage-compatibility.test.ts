@@ -5,7 +5,7 @@ import { TRAINING_DB_NAME, TRAINING_DB_VERSION } from './data/training-schema';
 import { AUTH_STORAGE_KEYS, CW_STORAGE_KEYS, UI_STORAGE_KEYS } from './storageKeys';
 
 // These names are user-data identities, not branding. Renaming any of them
-// would make existing progress appear lost after the DitPath upgrade.
+// would make existing progress appear lost after the Morsewell upgrade.
 describe('legacy storage compatibility', () => {
   it('preserves IndexedDB database identities', () => {
     expect(TRAINING_DB_NAME).toBe('morsestep_training_v1');

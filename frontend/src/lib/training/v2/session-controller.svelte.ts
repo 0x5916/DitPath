@@ -1,5 +1,5 @@
 /**
- * Guided Session Controller for DitPath V2.
+ * Guided Session Controller for Morsewell V2.
  *
  * Svelte 5 reactive controller orchestrating:
  * - Pure guided-session state machine (`guidedSessionTransition`)

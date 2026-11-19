@@ -9,7 +9,11 @@ FRONTEND="$REPO_ROOT/frontend"
 COMPOSE_FILE="$SCRIPT_DIR/compose.yaml"
 RUNTIME="$SCRIPT_DIR/runtime"
 STACK_ENV="$RUNTIME/stack.env"
-PROJECT="ditpath-final-acceptance"
+PROJECT="morsewell-final-acceptance"
+# Stacks initialized before the rebrand keep their containers and database volume.
+if [[ -f "$STACK_ENV" ]] && ! grep -Fxq "COMPOSE_PROJECT_NAME=$PROJECT" "$STACK_ENV"; then
+  PROJECT="ditpath-final-acceptance"
+fi
 FRONTEND_REBUILT=0
 
 usage() {
@@ -91,9 +95,10 @@ ensure_environment() {
 
   umask 077
   cat >"$STACK_ENV" <<EOF
-POSTGRES_USER=ditpath_acceptance
+COMPOSE_PROJECT_NAME=$PROJECT
+POSTGRES_USER=morsewell_acceptance
 POSTGRES_PASSWORD=$password
-POSTGRES_DB=ditpath_acceptance
+POSTGRES_DB=morsewell_acceptance
 JWT_SECRET=$jwt
 TEST_FRONTEND_PORT=$frontend_port
 TEST_API_PORT=$api_port
@@ -134,7 +139,7 @@ frontend_fingerprint() {
 
 build_frontend() {
   [[ -d "$FRONTEND/node_modules/.bin" ]] || (cd "$FRONTEND" && npm ci)
-  local marker="$FRONTEND/build/.ditpath-final-acceptance-build"
+  local marker="$FRONTEND/build/.morsewell-final-acceptance-build"
   local frontend_port expected
   frontend_port="$(env_value TEST_FRONTEND_PORT)"
   expected="api=/v1 origin=http://127.0.0.1:$frontend_port fingerprint=$(frontend_fingerprint)"
@@ -156,7 +161,7 @@ build_frontend() {
 
 build_backend() {
   local image
-  image="ditpath-final-acceptance-backend:$(source_revision)"
+  image="morsewell-final-acceptance-backend:$(source_revision)"
   if docker image inspect "$image" >/dev/null 2>&1; then
     return
   fi
@@ -333,6 +338,7 @@ case "$command" in
     project_resources
     down_stack
     remove_runtime
+    PROJECT="morsewell-final-acceptance"
     start_stack
     ;;
   status)

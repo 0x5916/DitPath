@@ -1,5 +1,5 @@
 /**
- * Versioned schema and object store definitions for the DitPath local training database.
+ * Versioned schema and object store definitions for the Morsewell local training database.
  */
 
 export const TRAINING_DB_NAME = 'morsestep_training_v1' as const;

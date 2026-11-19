@@ -16,9 +16,7 @@ const BRANDED_MESSAGE_KEYS = [
 // transition. Every other public message must use Morsewell.
 const LEGACY_BRAND_ALLOWED_KEYS = new Set([
   'migration_empty_title',
-  'migration_guest_history_title',
-  'migration_signed_in_body',
-  'migration_unknown_body'
+  'migration_guest_history_title'
 ]);
 
 type Catalog = Record<string, string>;
@@ -32,11 +30,16 @@ function readCatalog(locale: (typeof LOCALES)[number]): Catalog {
 describe('Morsewell public branding', () => {
   it('uses the canonical public name and repository URL', () => {
     expect(SITE_NAME).toBe('Morsewell');
-    expect(GITHUB_URL).toBe('https://github.com/0x5916/DitPath');
+    expect(resolveSeoMetadata('/', 'en').title).toBe(
+      'Morsewell — Learn the code. Communicate well.'
+    );
+    expect(GITHUB_URL).toBe('https://github.com/0x5916/Morsewell');
   });
 
   it.each(LOCALES)('brands required messages in %s', (locale) => {
     const messages = readCatalog(locale);
+
+    expect(messages.home_hero_title).toBe(resolveSeoMetadata('/', locale).title);
 
     for (const key of BRANDED_MESSAGE_KEYS) {
       expect(messages[key], `${locale}.${key}`).toContain('Morsewell');

@@ -1,8 +1,8 @@
 // Generates the approved Morsewell app-icon, favicon, PWA, Apple touch, and social-card assets.
 //
 // Authoritative artwork:
-//   src/lib/assets/ditpath-icon-material.svg  (full-detail brand illustration)
-//   src/lib/assets/ditpath-icon-small.svg     (flat small-size brand illustration)
+//   src/lib/assets/morsewell-icon-material.svg  (full-detail brand illustration)
+//   src/lib/assets/morsewell-icon-small.svg     (flat small-size brand illustration)
 //
 // Approved usage:
 //   - full-detail artwork cropped to its visible bounds, scaled to 75% of the
@@ -28,8 +28,8 @@ import sharp from 'sharp';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = path.join(root, 'src/lib/assets');
 const outDir = path.join(root, 'static');
-const materialSource = path.join(sourceDir, 'ditpath-icon-material.svg');
-const smallSource = path.join(sourceDir, 'ditpath-icon-small.svg');
+const materialSource = path.join(sourceDir, 'morsewell-icon-material.svg');
+const smallSource = path.join(sourceDir, 'morsewell-icon-small.svg');
 
 // Original icon canvas and rim are part of the preserved artwork.
 // --brand-only refreshes social metadata without writing any icon assets.
@@ -227,7 +227,7 @@ function socialCardText() {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect x="560" y="180" width="56" height="4" rx="2" fill="${GOLD}"/>
   <text x="560" y="286" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="76" font-weight="700" letter-spacing="-2" fill="${INK}">Morsewell</text>
-  <text x="560" y="354" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="38" font-weight="500" fill="${INK}">Learn Morse by ear.</text>
+  <text x="560" y="354" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="32" font-weight="500" fill="${INK}">Learn the code. Communicate well.</text>
   <text x="560" y="414" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="24" fill="${MUTED}">Guided Koch lessons, free practice,</text>
   <text x="560" y="448" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="24" fill="${MUTED}">and clear progress.</text>
   <text x="560" y="526" font-family="'Avenir Next', Avenir, 'Trebuchet MS', sans-serif" font-size="20" font-weight="600" letter-spacing="1.5" fill="${FOREST}">FREE · NO ACCOUNT NEEDED TO START</text>
@@ -290,7 +290,8 @@ async function generate() {
   const manifest = {
     name: 'Morsewell',
     short_name: 'Morsewell',
-    description: 'Learn Morse by ear with guided Koch lessons, free practice, and clear progress.',
+    description:
+      'Morsewell — Learn the code. Communicate well. Practice Morse by ear with free Koch lessons.',
     id: '/',
     start_url: '/',
     scope: '/',

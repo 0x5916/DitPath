@@ -135,7 +135,7 @@ async function checkBrowser(name, launcher, { audio = false } = {}) {
       const audioPage = await context.newPage();
       await audioPage.addInitScript(() => {
         const stats = { created: 0, closed: 0 };
-        window.__ditpathAudioStats = stats;
+        window.__morsewellAudioStats = stats;
         const Native = window.AudioContext;
         window.AudioContext = new Proxy(Native, {
           construct(target, innerArgs) {
@@ -167,7 +167,7 @@ async function checkBrowser(name, launcher, { audio = false } = {}) {
       await audioPage.getByRole("button", { name: "Replay" }).click();
       await audioPage.waitForTimeout(300);
       await audioPage.keyboard.press("Escape");
-      const stats = await audioPage.evaluate(() => window.__ditpathAudioStats);
+      const stats = await audioPage.evaluate(() => window.__morsewellAudioStats);
       assert.ok(
         stats.created > 0,
         "practice should create a real AudioContext",

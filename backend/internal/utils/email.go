@@ -4,11 +4,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"opencw/internal/configs"
 	"strings"
+
+	"morsewell/internal/configs"
 
 	"github.com/resend/resend-go/v4"
 )
+
+const EmailSignature = "Morsewell — Learn the code. Communicate well."
 
 func GenerateVerificationCode() (string, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
@@ -29,6 +32,8 @@ func verificationEmail(toEmail string, code string) *resend.SendEmailRequest {
 			code,
 			"",
 			"This code expires in 10 minutes.",
+			"",
+			EmailSignature,
 		}, "\n"),
 	}
 }

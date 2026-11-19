@@ -57,6 +57,7 @@ services:
       context: ./source/backend
       target: builder
     environment:
+      # This stack runs the ac25e57 snapshot, whose tests read the historical variable.
       OPENCW_TEST_DATABASE_DSN: host=db port=5432 user=acceptance password=${POSTGRES_PASSWORD:?} dbname=acceptance sslmode=disable
     command: [go, test, -json, -p, '1', ./...]
     networks: [isolated]

@@ -1,5 +1,5 @@
 /**
- * Character Mastery Reducer for DitPath V2.
+ * Character Mastery Reducer for Morsewell V2.
  *
  * Derives explainable character-level mastery from immutable AttemptEvents:
  * - Pure function: depends strictly on attempts, policy configuration, and clock.

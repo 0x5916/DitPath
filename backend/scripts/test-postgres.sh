@@ -2,7 +2,7 @@
 # Run the backend Go suite against a throwaway, isolated PostgreSQL container.
 #
 # Why: the PostgreSQL-backed integration tests are skipped unless
-# OPENCW_TEST_DATABASE_DSN points at an already-migrated, disposable database
+# MORSEWELL_TEST_DATABASE_DSN points at an already-migrated, disposable database
 # (see backend/README.md). This script creates that database, bootstraps the
 # current schema through the repository's own migration test, runs the suite,
 # and removes the container and all of its data afterwards.
@@ -25,9 +25,9 @@
 set -euo pipefail
 
 BACKEND_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${OPENCW_TEST_POSTGRES_IMAGE:-postgres:18.7-alpine3.24}"
-DB_NAME="opencw_test"
-DB_USER="opencw_test"
+IMAGE="${MORSEWELL_TEST_POSTGRES_IMAGE:-${OPENCW_TEST_POSTGRES_IMAGE:-postgres:18.7-alpine3.24}}"
+DB_NAME="morsewell_test"
+DB_USER="morsewell_test"
 
 VERBOSE=0
 RACE=0
@@ -49,7 +49,7 @@ Options
   -h, --help  show this help
 
 Environment
-  OPENCW_TEST_POSTGRES_IMAGE  image to run (default postgres:18.7-alpine3.24)
+  MORSEWELL_TEST_POSTGRES_IMAGE  image to run (default postgres:18.7-alpine3.24)
 
 The DSN lives in a private temporary file. It is never printed, and the
 container is removed on exit unless --keep is given.
@@ -72,9 +72,9 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v go >/dev/null || { echo "go is required" >&2; exit 1; }
 command -v openssl >/dev/null || { echo "openssl is required" >&2; exit 1; }
 
-RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opencw-test-pg.XXXXXX")"
+RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/morsewell-test-pg.XXXXXX")"
 chmod 700 "$RUN_DIR"
-NAME="opencw-test-pg-$(date +%Y%m%d%H%M%S)-$$-${RANDOM}"
+NAME="morsewell-test-pg-$(date +%Y%m%d%H%M%S)-$$-${RANDOM}"
 DSN_FILE="$RUN_DIR/dsn"
 PASSWORD_FILE="$RUN_DIR/password"
 CREATED=0
@@ -120,7 +120,7 @@ docker run -d --name "$NAME" \
   --health-interval 2s \
   --health-timeout 5s \
   --health-retries 40 \
-  --label opencw.test=go-postgres \
+  --label morsewell.test=go-postgres \
   "$IMAGE" >/dev/null
 CREATED=1
 
@@ -164,13 +164,13 @@ echo "verified: new container, empty public schema, loopback-only mapping"
 DSN="$(cat "$DSN_FILE")"
 cd "$BACKEND_DIR"
 
-ENVIRONMENT=(env -u OPENCW_TEST_DATABASE_DSN)
+ENVIRONMENT=(env -u MORSEWELL_TEST_DATABASE_DSN)
 if (( ! HOST_TZ )); then
   ENVIRONMENT+=(TZ=UTC)
 fi
 
 echo "bootstrapping schema through TestHistoryMigrationPreservesData"
-"${ENVIRONMENT[@]}" OPENCW_TEST_DATABASE_DSN="$DSN" \
+"${ENVIRONMENT[@]}" MORSEWELL_TEST_DATABASE_DSN="$DSN" \
   go test -count=1 -run '^TestHistoryMigrationPreservesData$' ./internal/databases
 
 TABLES_AFTER="$(docker exec "$NAME" psql -U "$DB_USER" -d "$DB_NAME" -tAc \
@@ -195,5 +195,5 @@ if (( VERBOSE )); then
 fi
 
 echo "running: go test ${TEST_ARGS[*]}"
-"${ENVIRONMENT[@]}" OPENCW_TEST_DATABASE_DSN="$DSN" go test "${TEST_ARGS[@]}"
+"${ENVIRONMENT[@]}" MORSEWELL_TEST_DATABASE_DSN="$DSN" go test "${TEST_ARGS[@]}"
 echo "all requested tests passed against the disposable database"

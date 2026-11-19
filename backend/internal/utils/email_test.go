@@ -14,8 +14,8 @@ func TestVerificationEmailUsesMorsewellBranding(t *testing.T) {
 	if !strings.Contains(email.Text, "verify your Morsewell email") {
 		t.Fatalf("body = %q; want Morsewell branding", email.Text)
 	}
-	if strings.Contains(strings.ToLower(email.Subject+email.Text), "opencw") {
-		t.Fatalf("verification email still contains legacy branding: %q", email.Subject+email.Text)
+	if !strings.Contains(email.Text, "\n123456\n") || !strings.HasSuffix(email.Text, "Morsewell — Learn the code. Communicate well.") {
+		t.Fatal("verification email must include the requested code and Morsewell signature")
 	}
 	if len(email.To) != 1 || email.To[0] != "learner@example.test" {
 		t.Fatalf("recipients = %v; want the requested learner", email.To)

@@ -1,6 +1,8 @@
 # Morsewell
 
-Morsewell (formerly DitPath and OpenCW) is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. Legacy production domains, deployment paths, and internal identifiers retain their existing OpenCW names.
+**Morsewell — Learn the code. Communicate well.**
+
+[Morsewell](https://morsewell.com) is a sound-first Morse code trainer with guided Koch lessons, free practice, local progress, optional account sync, and a community forum. For accounts and device data created under the former names DitPath and OpenCW, see the [domain migration guide](DEPLOYMENT.md#domain-migration).
 
 ## Start developing
 

@@ -11,7 +11,8 @@ import {
   normalizePathname,
   ORGANIZATION_LOGO_PATH,
   resolveSeoMetadata,
-  SITE_NAME
+  SITE_NAME,
+  SITE_SLOGAN
 } from '#lib/seo.ts';
 
 // The whole app is prerendered at build time; there is no server at runtime.
@@ -50,6 +51,7 @@ export const load: LayoutLoad = ({ url, route }) => {
           '@context': 'https://schema.org',
           '@type': 'Organization',
           name: SITE_NAME,
+          slogan: SITE_SLOGAN,
           url: buildAbsoluteUrl(url.origin, '/'),
           logo: buildAbsoluteUrl(url.origin, ORGANIZATION_LOGO_PATH),
           sameAs: [GITHUB_URL]

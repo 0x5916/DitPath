@@ -8,7 +8,7 @@
 # Design notes
 # ------------
 # * ${ENV_FILE} is parsed, never sourced. example.env ships
-#   `RESEND_FROM_EMAIL=Morsewell <no-reply@example.com>`; sourcing that file would
+#   `RESEND_FROM_EMAIL=Morsewell <no-reply@morsewell.com>`; sourcing that file would
 #   try to execute `Morsewell` as a command.
 # * Database credentials are read from inside the containers (the `db` service
 #   has $POSTGRES_USER / $POSTGRES_DB in its environment) instead of being
@@ -61,7 +61,7 @@ else
   C_RESET='' C_DIM='' C_RED='' C_GREEN='' C_YELLOW='' C_BLUE=''
 fi
 
-_script_name() { basename -- "${0:-opencw}"; }
+_script_name() { basename -- "${0:-morsewell}"; }
 
 # Stream for informational output. Scripts that emit machine-readable data on
 # stdout (backup.sh --print-path) move the log stream to stderr so a caller
@@ -201,7 +201,7 @@ require_git_checkout() {
 # --- compose ----------------------------------------------------------------
 
 # Run docker compose against the root stack. The subshell `cd` keeps the
-# directory-derived project name stable ("opencw") no matter where the caller
+# directory-derived project name stable no matter where the caller
 # was invoked from. Use the same environment file the scripts validate.
 compose() {
   local shm tuning_help=''
@@ -216,10 +216,10 @@ compose() {
   if [[ ${DRY_RUN} == 1 ]]; then
     printf '%s[dry-run]%s (cd %s && %s)\n' \
       "${C_DIM}" "${C_RESET}" "$(_quote_cmd "${ROOT_DIR}")" \
-      "$(_quote_cmd env "OPENCW_POSTGRES_SHM_SIZE=${shm}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@")" >&"${LOG_STREAM}"
+      "$(_quote_cmd env "POSTGRES_SHM_SIZE=${shm}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@")" >&"${LOG_STREAM}"
     return 0
   fi
-  ( cd -- "${ROOT_DIR}" && OPENCW_POSTGRES_SHM_SIZE="${shm}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@" )
+  ( cd -- "${ROOT_DIR}" && POSTGRES_SHM_SIZE="${shm}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@" )
 }
 
 # Image references the Compose configuration resolves, one per line. This
@@ -568,14 +568,14 @@ companion_globals_for() {
 # database dumps.
 list_backups() {
   [[ -d ${BACKUP_DIR} ]] || return 0
-  find "${BACKUP_DIR}" -maxdepth 1 -type f -name 'opencw_*.sql.gz' -printf '%T@ %p\n' 2>/dev/null |
+  find "${BACKUP_DIR}" -maxdepth 1 -type f \( -name 'morsewell_*.sql.gz' -o -name 'opencw_*.sql.gz' \) -printf '%T@ %p\n' 2>/dev/null |
     sort -rn | cut -d' ' -f2-
 }
 
 latest_backup() { list_backups | sed -n '1p'; }
 
 # prune_backups <keep> - delete all but the newest <keep> dumps. Only files
-# matching opencw_*.sql.gz are considered, so unrelated files are never touched.
+# with current or historical backup names are considered.
 prune_backups() {
   local keep file globals seen=0 pruned=0 protected=0
   keep="$(parse_nonnegative_integer "$1" retention)" || return 1
@@ -636,8 +636,8 @@ state_get() {
 now_utc() { date -u +%Y%m%dT%H%M%SZ; }
 
 # Retag an image reference with a new tag, e.g.
-#   tag_snapshot_ref opencw-backend:latest pre-20260928T101500Z
-#   -> opencw-backend:pre-20260928T101500Z
+#   tag_snapshot_ref morsewell-backend:latest pre-20260928T101500Z
+#   -> morsewell-backend:pre-20260928T101500Z
 tag_snapshot_ref() {
   local image="$1" tag="$2" name last
   name="${image%%@*}"

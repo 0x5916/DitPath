@@ -11,7 +11,7 @@ cp example.env .env
 openssl rand -base64 32
 ```
 
-Fill `JWT_SECRET` with the generated value and supply `RESEND_API_KEY` and `RESEND_FROM_EMAIL`; startup validates them. Development database defaults are in the template. Never source `.env` as a shell script.
+Fill `JWT_SECRET` with the generated value. Set `RESEND_API_KEY` and choose a `RESEND_FROM_EMAIL` address on a verified Resend domain. Keep the original `DB_NAME` when using an existing data volume. Development database defaults are in the template. Never source `.env` as a shell script.
 
 ```bash
 docker compose up --build -d
@@ -36,7 +36,7 @@ go vet ./...
 go test -race -p 1 ./internal/authlimits ./internal/utils ./internal/middlewares ./internal/server ./internal/handlers/v1 ./internal/handlers/v2 ./internal/training
 ```
 
-The [email-verification](internal/handlers/v1/email_verification_test.go), [refresh-rotation](internal/handlers/v1/auth_test.go), and [registered auth-route integration tests](internal/server/auth_limits_test.go) require `OPENCW_TEST_DATABASE_DSN` pointing to an already-migrated, disposable PostgreSQL database with the current indexes. They use isolated fixtures and no live email calls. An unset DSN skips database cases; skips do not satisfy the email race or auth resource-limit acceptance gates.
+The [email-verification](internal/handlers/v1/email_verification_test.go), [refresh-rotation](internal/handlers/v1/auth_test.go), and [registered auth-route integration tests](internal/server/auth_limits_test.go) require `MORSEWELL_TEST_DATABASE_DSN` pointing to an already-migrated, disposable PostgreSQL database with the current indexes. They use isolated fixtures and no live email calls. An unset DSN skips database cases; skips do not satisfy the email race or auth resource-limit acceptance gates.
 
 [test-postgres.sh](scripts/test-postgres.sh) creates that database as a throwaway container instead of borrowing a development one. It uses a unique name, a random password, an ephemeral loopback port, and tmpfs storage; bootstraps the schema through `TestHistoryMigrationPreservesData`; verifies that the DSN reached that container; and removes the container on exit.
 
@@ -46,7 +46,7 @@ backend/scripts/test-postgres.sh --verbose  # pass/skip counts
 backend/scripts/test-postgres.sh --race     # documented race subset
 ```
 
-Pass `--keep` only when investigating a failure. Never point `OPENCW_TEST_DATABASE_DSN` at a database whose data must survive.
+Pass `--keep` only when investigating a failure. Never point `MORSEWELL_TEST_DATABASE_DSN` at a database whose data must survive.
 
 The [password reservation tests](internal/utils/password_test.go) include lifecycle/cancellation checks, injected concurrency workers, and a real Argon2 round-trip control. [Limiter](internal/authlimits/limiter_test.go) and [source](internal/authlimits/source_test.go) unit tests use isolated policies and clocks; real-router tests verify shared registration/login/password-change work, no rejected-request side effects, response precedence, existing outcomes, and CORS. The packet also requires existing backend regressions and the relevant [frontend verification](../frontend/README.md) for localized error mappings. Record command exit codes and pass/skip counts; test source presence alone is not acceptance evidence.
 
@@ -54,7 +54,7 @@ The [password reservation tests](internal/utils/password_test.go) include lifecy
 
 ### Google sign-in
 
-Google sign-in is optional. Set `GOOGLE_CLIENT_ID` to a Google OAuth web client ID and set the frontend's build-time `PUBLIC_GOOGLE_CLIENT_ID` to the same value. Empty values keep Google disabled. Google routes require exact frontend origins from `CORS_ORIGINS` in every mode; without that list they permit only `https://opencw.net`. Configure `http://localhost:5173` explicitly for local development. Non-local HTTP, wildcard, null, and malformed origins are rejected when Google is enabled.
+Google sign-in is optional. Set `GOOGLE_CLIENT_ID` to a Google OAuth web client ID and set the frontend's build-time `PUBLIC_GOOGLE_CLIENT_ID` to the same value. Empty values keep Google disabled. Register the canonical frontend origin `https://morsewell.com` with that web client in Google Cloud. Google routes require exact frontend origins from `CORS_ORIGINS` in every mode; without that list they permit only `https://morsewell.com`. Configure `http://localhost:5173` explicitly for local development. Non-local HTTP, wildcard, null, and malformed origins are rejected when Google is enabled.
 
 [Google handlers](internal/handlers/v1/google_auth.go) use the [identity model](internal/models/user_identity.go) and the [bounded verifier](internal/googleauth/verifier.go). Startup adds the identity table through the existing migration path; test migration changes against a disposable database before deployment. Existing password users keep their accounts and are not automatically linked by email. Google-only accounts have no local password and use the existing application refresh/logout flow.
 

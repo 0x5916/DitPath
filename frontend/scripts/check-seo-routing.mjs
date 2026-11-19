@@ -12,12 +12,12 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 const base = new URL(process.argv[2] ?? process.env.SEO_BASE_URL ?? 'http://127.0.0.1:8089');
-const publicOrigin = 'https://opencw.net';
+const publicOrigin = 'https://morsewell.com';
 
 function request(path, headers = {}, forwarded = true) {
   return new Promise((resolve, reject) => {
     const requestHeaders = forwarded
-      ? { Host: 'opencw.net', 'X-Forwarded-Proto': 'https', ...headers }
+      ? { Host: 'morsewell.com', 'X-Forwarded-Proto': 'https', ...headers }
       : { ...headers };
     const req = http.request(
       {
@@ -149,12 +149,32 @@ await expectRedirect(
   false
 );
 
-await expectRedirect('/en?a=1', `${publicOrigin}/en?a=1`, { Host: 'www.opencw.net' });
-await expectRedirect('/en/?a=1', `${publicOrigin}/en?a=1`, { Host: 'www.opencw.net' });
-await expectRedirect('/en/?a=1', `${publicOrigin}/en?a=1`, {
-  Host: 'www.opencw.net',
-  'X-Forwarded-Proto': 'http'
-});
+for (const host of ['www.morsewell.com', 'opencw.net', 'www.opencw.net']) {
+  await expectRedirect('/en?a=1', `${publicOrigin}/en?a=1`, { Host: host });
+  await expectRedirect(
+    '/de/forum/?category=feedback',
+    `${publicOrigin}/de/forum?category=feedback`,
+    {
+      Host: host,
+      'X-Forwarded-Proto': 'http'
+    }
+  );
+  await expectRedirect('/sitemap.xml', `${publicOrigin}/sitemap.xml`, { Host: host });
+}
+
+for (const path of ['/recover-device.html?from=settings', '/service-worker.js']) {
+  for (const headers of [{ 'X-Forwarded-Proto': 'http' }, { 'CF-Visitor': '{"scheme":"http"}' }]) {
+    await expectRedirect(path, `https://opencw.net${path}`, { Host: 'opencw.net', ...headers });
+  }
+}
+const retirementWorker = await expectStatus('/service-worker.js', 200, { Host: 'opencw.net' });
+assert.match(retirementWorker.headers['content-type'], /javascript/);
+assert.match(retirementWorker.body, /registration\.unregister\(/);
+assert.equal(retirementWorker.headers['cache-control'], 'no-store');
+checks += 3;
+const legacyRecovery = await expectStatus('/recover-device.html', 200, { Host: 'opencw.net' });
+assert.ok(robots(legacyRecovery.body)?.includes('noindex'), 'keep browser recovery out of search');
+checks += 1;
 
 // Unknown Host headers must never become the redirect destination.
 await expectRedirect('/en/', `${publicOrigin}/en`, { Host: 'evil.example' });
@@ -162,7 +182,7 @@ await expectRedirect('/en/?x=1', `${publicOrigin}/en?x=1`, {
   Host: 'evil.example',
   'X-Forwarded-Proto': 'http'
 });
-await expectRedirect('/en/', `${publicOrigin}/en`, { Host: 'www.opencw.net.evil.example' });
+await expectRedirect('/en/', `${publicOrigin}/en`, { Host: 'www.morsewell.com.evil.example' });
 
 // A direct container health check sends no forwarding headers and must stay 200.
 await expectStatus('/', 200, {}, false);
@@ -186,6 +206,10 @@ assert.deepEqual(
   ['en', 'zh-Hant', 'zh-Hans', 'ja', 'de', 'x-default'],
   'localized pages keep hreflang alternates'
 );
+checks += 1;
+
+const robotsFile = await expectStatus('/robots.txt', 200);
+assert.ok(robotsFile.body.split(/\r?\n/).includes(`Sitemap: ${publicOrigin}/sitemap.xml`));
 checks += 1;
 
 const sitemap = await expectStatus('/sitemap.xml', 200);

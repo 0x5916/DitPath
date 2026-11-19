@@ -29,7 +29,7 @@ test.describe('Morsewell migration data guidance', () => {
     await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
 
-  test('warns guests to complete unfinished sessions because saving does not transfer them', async ({
+  test('warns guests to complete unfinished sessions before importing their history into an account', async ({
     page
   }) => {
     await resetAcceptance(page, 'Guest with saved unfinished practice', /\/en$/);
@@ -37,8 +37,10 @@ test.describe('Morsewell migration data guidance', () => {
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('unfinished lesson or practice session');
-    await expect(banner).toContainText('Complete it before creating an account or moving');
-    await expect(banner).toContainText('does not transfer it to Morsewell or your account');
+    await expect(banner).toContainText('before importing its history into your account');
+    await expect(
+      banner.getByRole('link', { name: 'Recover history from the previous site' })
+    ).toHaveAttribute('href', '/en/settings#device-recovery');
     await expect(banner.getByRole('link', { name: 'Complete saved session' })).toHaveAttribute(
       'href',
       '/en/morse/practice'
@@ -58,7 +60,7 @@ test.describe('Morsewell migration data guidance', () => {
     const banner = page.locator('.migration-banner[role="alert"]');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText(
-      /Sync your progress before you move|Some progress could not sync/
+      /Your progress is waiting to sync|Some progress could not sync/
     );
     const retry = banner.getByRole('button', { name: 'Retry sync' });
     await expect(retry).toBeVisible();

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 )
 
 const (

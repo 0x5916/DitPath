@@ -95,11 +95,11 @@ Proxmox backups exclude host bind-mount contents; enable the backup option for a
 
 ## Clone and configure
 
-Inside the LXC, clone the complete repository into `/opt/opencw`; Compose bind-mounts [db/tune.sh](db/tune.sh), so the Compose file alone is insufficient. Run all subsequent commands from the checkout root. If you already have a checkout and `.env`, use those rather than copying over your configuration.
+Inside the LXC, clone the complete repository into `/opt/morsewell`; Compose bind-mounts [db/tune.sh](db/tune.sh), so the Compose file alone is insufficient. Run all subsequent commands from the checkout root. If you already have a checkout and `.env`, use those rather than copying over your configuration.
 
 ```bash
-git clone https://github.com/0x5916/DitPath.git /opt/opencw
-cd /opt/opencw
+git clone https://github.com/0x5916/Morsewell.git /opt/morsewell
+cd /opt/morsewell
 cp example.env .env
 chmod 600 .env
 openssl rand -base64 32
@@ -113,7 +113,7 @@ Paste the generated value into `JWT_SECRET` and fill the required values below. 
 | Database       | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; select `POSTGRES_DATA_PATH` on persistent storage. An unset path falls back to `./data/postgres`.           |
 | Access tokens  | `JWT_SECRET`: base64 bytes; `make check` requires at least 32 decoded bytes.                                                                                     |
 | Email          | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; both are required by backend startup validation.                                                                          |
-| Browser API    | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.example.com/v1`. It is embedded when the frontend is built.                                |
+| Browser API    | `PUBLIC_API_BASE`: browser-reachable V1 URL, for example `https://api.morsewell.com/v1`. It is embedded when the frontend is built.                                |
 | CORS           | `CORS_ORIGINS`: comma-separated frontend origins. This is backend runtime configuration.                                                                         |
 | Auth source    | `AUTH_TRUSTED_PROXY_CIDRS`: optional comma-separated proxy CIDRs; empty by default. See [authentication source attribution](#authentication-source-attribution). |
 | Google sign-in | Optional `GOOGLE_CLIENT_ID` and matching build-time `PUBLIC_GOOGLE_CLIENT_ID`; leave both empty to disable. See [Google sign-in setup](#google-sign-in-setup).   |
@@ -131,7 +131,7 @@ PUBLIC_API_BASE=http://192.168.1.50:8080/v1
 CORS_ORIGINS=http://192.168.1.50:3000
 ```
 
-The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this separate legacy `opencw` policy and optional overrides.
+The database budget leaves room for the backend, pgAdmin, and builds; adjust it for your allocation. The local calculator derives PostgreSQL settings without copying values from the PGTune website. CPUs are detected; uncomment `POSTGRES_CPU_LIMIT` if the database needs a smaller share. With `POSTGRES_SHM_SIZE` commented, the deployment scripts calculate `/dev/shm` capacity before creating the container; the 2-GiB budget gives 256 MiB. See [the tuning guide](db/README.md) for this legacy tuning policy and optional overrides.
 
 Fill `POSTGRES_PASSWORD`, `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`, `JWT_SECRET`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` as well. Use separate database and pgAdmin passwords, your Resend API key, and a sender configured in Resend.
 
@@ -246,6 +246,15 @@ For Cloudflare Tunnel, configure `CLOUDFLARED_TUNNEL_TOKEN` and route public hos
 
 A reverse proxy must terminate TLS and forward the frontend to port 3000 and API to port 8080. Preserve both `/v1` and `/v2` API paths. If adding a public path prefix, include the V1 path in `PUBLIC_API_BASE` and configure proxy rewriting consistently. Rebuild the frontend after changing that value; recreate the backend after changing CORS. Production uses `GIN_MODE=release`, which disables profiling routes; development registers `/debug/pprof/*`, so keep development profiling private.
 
+### Domain migration
+
+1. Verify ownership and authoritative DNS delegation of the exact target hostname before enabling redirects or device recovery. On the existing host, keep the checkout at `/opt/opencw` with its original Compose project, volume names, database role, database name and JWT secret. Record the current revision, running image IDs, and resolved Compose configuration in a root-only backup directory. Save the images, environment, pgAdmin settings, and database with globals. Run `sha256sum --check` on the backup. Restore both SQL files with `ON_ERROR_STOP=1` in an isolated instance of the same PostgreSQL image and compare each dumped table's row count. Record the applicable DNS, tunnel ingress, redirects, TLS and sending-domain settings before editing them.
+2. Add proxied tunnel DNS records for `morsewell.com`, `www.morsewell.com` and `api.morsewell.com`. Add the two web hostnames to the existing frontend ingress and the API hostname to the existing backend ingress before the tunnel's catch-all. Keep the legacy web and API routes, preserve the incoming Host, and retain the existing private pgAdmin Access policy. Verify edge certificates cover the new names and test the HTTPS API health endpoint. [Cloudflare tunnel DNS](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/routing-to-tunnel/dns/)
+3. Add the sending domain in Resend and publish its assigned DKIM, SPF and return-path MX records in Cloudflare. Preserve existing mail routing and DNS policies. Wait for Resend verification and check the sending key's domain scope. Keep the previous sender working for queued mail and rollback. [Resend domain verification](https://resend.com/docs/dashboard/domains/introduction)
+4. Set `PUBLIC_API_BASE=https://api.morsewell.com/v1` and `PRERENDER_ORIGIN=https://morsewell.com`. Add `https://morsewell.com` to the existing production CORS allowlist. If Google sign-in is enabled, add the new JavaScript origin to its existing OAuth client. Set the verified `RESEND_FROM_EMAIL` and update the unsubscribe URL for new mail if owner email is enabled. Existing mail clients can continue to POST to the old API. Deploy the checked merge revision and probe both API hostnames.
+5. The web origin issues permanent redirects preserving paths and queries. Allow two exact HTTPS exceptions on the old apex through any edge redirect rules. `/recover-device.html` lets learners copy browser-local progress through Settings while retaining the original. `/service-worker.js` retires the legacy offline app. Test both exceptions, a localized deep link, an unknown page, canonical and alternate links, login, and a delivered verification email. Existing learners sign in again on the new origin.
+6. For rollback, restore the previous environment and revision, reload saved images if necessary, retag each running image ID under its former Compose image name, and recreate the affected services with `--no-build` in the original project. Restore changed edge rules and ingress settings from the recorded values. Continue serving a compatible frontend at the new HTTPS origin and keep its API accessible. Learners may already have unsynchronized sessions there, and clients can cache permanent redirects. Verify the old web origin and API, authentication, and the original mail sender. This migration preserves the database schema. Use the database restore procedure only for confirmed data damage, after capturing writes made since the backup.
+
 ### Cloudflared security update reminder
 
 As of 28 October 2026, Cloudflare's [latest stable release is 2026.10.5](https://github.com/cloudflare/cloudflared/releases/tag/2026.10.5). Upgrade every tunnel connector to the latest stable release when applying the current security update. The Compose service uses `:latest`, but restarting an existing container does not pull a new image. On each deployment host, during an authorized maintenance window:
@@ -305,7 +314,7 @@ The shared [renderer](scripts/render-pgadmin.py) writes `servers.json` and a pri
 ```bash
 make backup
 scripts/backup.sh --dir /mnt/backups
-scripts/restore.sh --file backups/opencw_TIMESTAMP.sql.gz
+scripts/restore.sh --file backups/morsewell_TIMESTAMP.sql.gz
 ```
 
 Backups are verified gzip plain-SQL dumps, with companion globals dumps for roles and grants. Default retention is 14 dumps; `--keep 0` disables pruning. Restore stages inputs before any database recreation and pins its recovery dump until verification succeeds. Keep copies off the host and protect configuration and pgAdmin state separately. Backup frequency determines how much recent data can be lost; the scripts do not implement continuous recovery.
@@ -330,6 +339,6 @@ Rotate the database role password with psql's `\password` prompt, update `.env`,
 
 ## PostgreSQL resource tuning
 
-New installations select `POSTGRES_TUNE_MODE=pgtune` and need only a database RAM budget; the default profile is web. Existing `.env` files without a mode keep the legacy `opencw` calculator. `off` selects the image defaults. Optional lines in [example.env](example.env) use `#`; remove it to override detected CPUs, connection demand, workload, storage assumptions, or shared-memory capacity.
+New installations select `POSTGRES_TUNE_MODE=pgtune` and need only a database RAM budget; the default profile is web. Existing `.env` files without a mode keep the `legacy` calculator. `off` selects the image defaults. Optional lines in [example.env](example.env) use `#`; remove it to override detected CPUs, connection demand, workload, storage assumptions, or shared-memory capacity.
 
 [db/README.md](db/README.md) owns defaults, detection, calculations, compatibility adjustments, and troubleshooting. Preview with `make tune`, then apply changes with `make deploy` or `make update`; these scripts pass calculated shared-memory capacity to Compose. Direct `docker compose` commands do not perform that calculation. Inspect `docker compose logs db` before accepting a deployment; do not edit cluster files to tune it.

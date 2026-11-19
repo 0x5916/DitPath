@@ -1,5 +1,5 @@
 /**
- * Safe migration of legacy localStorage state into the DitPath V2 database.
+ * Safe migration of legacy localStorage state into the Morsewell V2 database.
  *
  * Invariants:
  * - Preserves existing user lesson as `suggestedStep`, NEVER as verified character mastery.

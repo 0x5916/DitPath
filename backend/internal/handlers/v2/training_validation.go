@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"opencw/internal/common"
+	"morsewell/internal/common"
 )
 
 // validatedTrainingEvent is a batch event that passed per-event validation.

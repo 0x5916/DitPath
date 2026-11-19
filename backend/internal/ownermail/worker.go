@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/google/uuid"
 	"github.com/resend/resend-go/v4"

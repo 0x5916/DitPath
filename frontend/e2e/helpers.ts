@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
-export const EVIDENCE_DB = 'ditpath_ui_acceptance_evidence';
-export const TRAINING_DB = 'ditpath_ui_acceptance';
+export const EVIDENCE_DB = 'morsewell_ui_acceptance_evidence';
+export const TRAINING_DB = 'morsewell_ui_acceptance';
 
 /** Page-level alerts, excluding the intentional migration announcement. */
 export function pageAlert(page: Page) {

@@ -13,10 +13,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -170,7 +170,7 @@ func (h AdminHandler) PreviewEmail(c *gin.Context) {
 	msg := models.OwnerMessage{
 		ID: uuid.New(), Topic: req.Topic, Subject: req.Subject, Body: req.Body,
 		Sender: cfg.ResendFromEmail, ReplyTo: cfg.OwnerMail.ReplyTo,
-		Footer: why + "\n" + cfg.OwnerMail.Footer,
+		Footer: why + "\n" + utils.EmailSignature + "\n" + cfg.OwnerMail.Footer,
 	}
 	review := ""
 	if eligible > 0 {

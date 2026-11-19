@@ -12,8 +12,7 @@ import {
   TRAINING_DB_NAME,
   TRAINING_DB_VERSION,
   OWNED_STORES,
-  upgradeTrainingDatabase,
-  type TrainingStoreName
+  upgradeTrainingDatabase
 } from './training-schema';
 import { notifyTrainingDataChange } from './training-data-events';
 import { hasPendingTrainingPersistence } from '../pending-training-persistence';
@@ -110,7 +109,7 @@ export function reqToPromise<T>(request: IDBRequest<T>): Promise<T> {
  */
 export async function withTransaction<T>(
   db: IDBDatabase,
-  storeNames: TrainingStoreName | TrainingStoreName[],
+  storeNames: string | string[],
   mode: IDBTransactionMode,
   fn: (stores: Record<string, IDBObjectStore>, tx: IDBTransaction) => Promise<T>
 ): Promise<T> {

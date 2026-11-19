@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/googleauth"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/googleauth"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"

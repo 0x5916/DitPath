@@ -18,16 +18,16 @@ Every operational Bash script accepts `--help`. Options below supplement that he
 | `restore.sh` / `make restore` | Positional file or `--file PATH`, `--globals PATH`, `--no-globals`, `--append`, `--no-backup`, `--keep N`, `--dry-run`, `--yes` | Defaults to newest dump and replaces live database; accepts `.sql` and `.sql.gz`                                                |
 | `status.sh` / `make status`   | `--skip-disk`                                                                                                                   | Reads environment, containers, endpoints, database readiness, release record, images, backups, and disk                         |
 
-Timeout defaults to 240 seconds per service; retention defaults to 14 dumps. `--keep 0` disables pruning. Positive retention removes data dumps together with their companion globals; pinned recovery dumps can temporarily exceed the limit. Numeric options accept leading zeros as decimal and reject overflow. `backup.sh` rejects `--yes`; `check-env.sh` and `status.sh` reject both `--yes` and `--dry-run`. Make forwards its defined variables; use the script directly for options such as `--auto-rollback` that Make does not expose.
+Timeout defaults to 240 seconds per service; retention defaults to 14 dumps. `--keep 0` disables pruning. Restore, status, and retention recognize both `morsewell_*.sql.gz` and historical `opencw_*.sql.gz` dumps. Positive retention removes data dumps together with their companion globals; pinned recovery dumps can temporarily exceed the limit. Numeric options accept leading zeros as decimal and reject overflow. `backup.sh` rejects `--yes`; `check-env.sh` and `status.sh` reject both `--yes` and `--dry-run`. Make forwards its defined variables; use the script directly for options such as `--auto-rollback` that Make does not expose.
 
 ```bash
 make check
 make tune
-scripts/tune.sh --env-file /opt/opencw/.env
+scripts/tune.sh --env-file /opt/morsewell/.env
 make update DRY_RUN=1
 scripts/update.sh --ref RELEASE --auto-rollback
 scripts/backup.sh --dir /mnt/backups --keep 30
-scripts/restore.sh --file backups/opencw_TIMESTAMP.sql.gz
+scripts/restore.sh --file backups/morsewell_TIMESTAMP.sql.gz
 scripts/status.sh --skip-disk
 ```
 
@@ -47,7 +47,7 @@ Backups use credentials inside the database container, serialize publication/ret
 
 | Path or variable                  | Meaning                                                                                 |
 | --------------------------------- | --------------------------------------------------------------------------------------- |
-| `backups/opencw_TIMESTAMP.sql.gz` | Data dump; collision suffixes preserve runs in the same second                          |
+| `backups/morsewell_TIMESTAMP.sql.gz` | Data dump; collision suffixes preserve runs in the same second                          |
 | `backups/globals/`                | Companion globals dumps                                                                 |
 | `.deploy-state`                   | Last update revision, branch, backup, and image snapshots                               |
 | `BACKUP_DIR`                      | Backup lookup/output directory; default root `backups/`                                 |
@@ -64,11 +64,11 @@ In PGTune mode, the wrapper supplies calculated `POSTGRES_SHM_SIZE` before Compo
 
 ## Scheduled runs
 
-Configure the deployment host's cron PATH so Bash, Docker, gzip, and HTTP probe tools are available. For a checkout at `/opt/opencw`, example entries are:
+Configure the deployment host's cron PATH so Bash, Docker, gzip, and HTTP probe tools are available. For a checkout at `/opt/morsewell`, example entries are:
 
 ```cron
-15 3 * * * /opt/opencw/scripts/backup.sh --dir /mnt/backups >> /var/log/opencw-backup.log 2>&1
-*/5 * * * * /opt/opencw/scripts/status.sh --skip-disk >> /var/log/opencw-status.log 2>&1
+15 3 * * * /opt/morsewell/scripts/backup.sh --dir /mnt/backups >> /var/log/morsewell-backup.log 2>&1
+*/5 * * * * /opt/morsewell/scripts/status.sh --skip-disk >> /var/log/morsewell-status.log 2>&1
 ```
 
 A status job supplies an exit code and log, not a notification service; connect failures to your monitoring. Keep backup storage off the host, rotate cron logs separately, and [rehearse restoration](../DEPLOYMENT.md#backups-and-recovery).
@@ -97,7 +97,7 @@ After building the patched pgAdmin image, run its native/Python Brotli and HTTP-
 ```bash
 docker run --rm -i --network none --read-only --cap-drop ALL \
   --security-opt no-new-privileges --memory 128m --pids-limit 32 \
-  --entrypoint /venv/bin/python3 opencw-pgadmin:9.19.0-brotli1.2.1 \
+  --entrypoint /venv/bin/python3 morsewell-pgadmin:9.19.0-brotli1.2.1 \
   -B - < scripts/tests/test-brotli-runtime.py
 ```
 

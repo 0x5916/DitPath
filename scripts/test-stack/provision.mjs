@@ -39,7 +39,9 @@ function parseEnv(text) {
 
 const env = parseEnv(await readFile(stackEnvPath, "utf8"));
 const API = `http://127.0.0.1:${env.TEST_API_PORT}/v1`;
-const DB_CONTAINER = "ditpath-final-acceptance-db";
+const DB_CONTAINER = env.COMPOSE_PROJECT_NAME === "morsewell-final-acceptance"
+  ? "morsewell-final-acceptance-db"
+  : "ditpath-final-acceptance-db";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

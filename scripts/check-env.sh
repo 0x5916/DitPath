@@ -111,12 +111,12 @@ fi
 
 cors="$(value_of CORS_ORIGINS)"
 if [[ -n ${cors} && ${cors} != *"://"* ]]; then
-  problems+=("CORS_ORIGINS must be a comma-separated list of origins, e.g. https://ditpath.example.com")
+  problems+=("CORS_ORIGINS must be a comma-separated list of origins, e.g. https://morsewell.com")
 fi
 
 api_base="$(value_of PUBLIC_API_BASE)"
 if [[ -n ${api_base} && ${api_base} != http*://* ]]; then
-  problems+=("PUBLIC_API_BASE must be an absolute URL, e.g. https://api.ditpath.example.com/v1")
+  problems+=("PUBLIC_API_BASE must be an absolute URL, e.g. https://api.morsewell.com/v1")
 fi
 
 pgadmin_email="$(value_of PGADMIN_DEFAULT_EMAIL)"

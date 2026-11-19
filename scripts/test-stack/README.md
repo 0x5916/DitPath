@@ -44,13 +44,13 @@ Do not commit that file, copy the credentials into production, or reuse them out
 
 ## Exact resources and safety scope
 
-The Compose project is `ditpath-final-acceptance`. Its fixed container names are:
+New stacks use the Compose project `morsewell-final-acceptance`. Existing `ditpath-final-acceptance` stacks retain their credentials, container names, and volume until explicitly reset. New container names are:
 
-- `ditpath-final-acceptance-frontend`
-- `ditpath-final-acceptance-backend`
-- `ditpath-final-acceptance-db`
+- `morsewell-final-acceptance-frontend`
+- `morsewell-final-acceptance-backend`
+- `morsewell-final-acceptance-db`
 
-It owns the named volume `ditpath-final-acceptance_postgres-data`, project-scoped networks `ditpath-final-acceptance_edge` and `ditpath-final-acceptance_internal`, and generated state under `scripts/test-stack/runtime/`.
+It owns the named volume `morsewell-final-acceptance_postgres-data`, project-scoped networks `morsewell-final-acceptance_edge` and `morsewell-final-acceptance_internal`, and generated state under `scripts/test-stack/runtime/`.
 
 `reset --yes` and `clean --yes` list the containers, volumes, networks and runtime path before removing them. They use either project-scoped Compose `down -v` or label-filtered removal, never `docker system prune`, `docker volume prune`, broad `rm`, production Compose files, or other worktrees. Built backend images are retained for faster restarts; `clean` prints that fact. The shared `frontend/build/` output is not deleted.
 

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"opencw/internal/authlimits"
-	"opencw/internal/common"
+	"morsewell/internal/authlimits"
+	"morsewell/internal/common"
 
 	"github.com/gin-gonic/gin"
 )

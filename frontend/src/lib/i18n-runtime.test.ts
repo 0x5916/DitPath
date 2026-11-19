@@ -9,7 +9,7 @@ let i18n: typeof import('./i18n.svelte');
 let storage: Map<string, string>;
 let assign: ReturnType<typeof vi.fn>;
 function setUrl(path: string) {
-  const url = new URL(path, 'https://opencw.net');
+  const url = new URL(path, 'https://morsewell.com');
   vi.stubGlobal('window', { location: Object.assign(url, { assign }) });
 }
 
@@ -58,7 +58,7 @@ describe('locale startup', () => {
       expect(navigation.goto).not.toHaveBeenCalled();
       await i18n.initializeBrowserLanguage();
       expect(navigation.goto).toHaveBeenCalledExactlyOnceWith(
-        new URL(`https://opencw.net/${locale}/morse/learn?step=2#lesson`),
+        new URL(`https://morsewell.com/${locale}/morse/learn?step=2#lesson`),
         { replace: true }
       );
       expect(i18n.lang.value).toBe(locale);
@@ -82,7 +82,7 @@ describe('locale startup', () => {
     expect(i18n.lang.value).toBe('de');
     expect(storage.get(LOCALE_PREFERENCE_STORAGE_KEY)).toBe('de');
     expect(navigation.goto).toHaveBeenCalledExactlyOnceWith(
-      new URL('https://opencw.net/de/morse/learn?step=2#lesson'),
+      new URL('https://morsewell.com/de/morse/learn?step=2#lesson'),
       { replace: false }
     );
     expect(assign).not.toHaveBeenCalled();

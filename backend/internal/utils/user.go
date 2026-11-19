@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"opencw/internal/models"
+	"morsewell/internal/models"
 
 	"github.com/gin-gonic/gin"
 )

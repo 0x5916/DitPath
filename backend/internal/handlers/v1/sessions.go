@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

@@ -1,7 +1,7 @@
 {
   "name": "Morsewell",
   "short_name": "Morsewell",
-  "description": "Learn Morse by ear with guided Koch lessons, free practice, and clear progress.",
+  "description": "Morsewell — Learn the code. Communicate well. Practice Morse by ear with free Koch lessons.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/training"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/training"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

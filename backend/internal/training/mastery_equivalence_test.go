@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 )
 
 // Compare the streaming state to the former complete-history batch algorithm,

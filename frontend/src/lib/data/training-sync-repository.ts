@@ -36,7 +36,7 @@ interface ImportAssignment {
 }
 const allStores = Object.values(OWNED_STORES);
 
-function canonicalImportRecord(
+export function canonicalImportRecord(
   kind: RecordKind,
   value: AttemptEvent | TrainingSessionRecord
 ): string {

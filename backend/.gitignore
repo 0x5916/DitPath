@@ -58,6 +58,7 @@ build/
 # ========================
 # Production
 # ========================
+morsewell-backend
 opencw-backend
 *.sql
 *.sql.gz

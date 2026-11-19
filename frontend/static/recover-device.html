@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Morsewell</title>
+  <p><a href="https://morsewell.com/en/settings#device-recovery">Morsewell · Device recovery</a></p>
+  <script>
+    // A top-level page can read the original, unpartitioned browser storage.
+    // Only a request from the canonical site's own opening window can receive it.
+    const destination = 'https://morsewell.com';
+    const source = 'https://opencw.net';
+    const databases = ['morsestep_training_v1', 'opencw_learning_pilot_v1', 'opencw_learning_evidence_v1'];
+    const preference = /^(?:learn\.lesson|cw\.settings(?:\.updated_at)?\.v1(?:\.account\.[\w-]+)?|cw\.progress\.queue\.v1|theme|PARAGLIDE_LOCALE_PREF)$/;
+
+    function readDatabase(name) {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(name);
+        let absent = false;
+        request.onupgradeneeded = () => {
+          absent = true;
+          request.transaction.abort(); // Do not create a database on the old origin.
+        };
+        request.onerror = () => absent ? resolve(null) : reject(request.error);
+        request.onblocked = () => reject(new Error('blocked'));
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction(Array.from(db.objectStoreNames), 'readonly');
+          const stores = {};
+          for (const store of db.objectStoreNames) {
+            const rows = tx.objectStore(store).getAll();
+            rows.onsuccess = () => { stores[store] = rows.result; };
+          }
+          tx.oncomplete = () => { db.close(); resolve({ name, version: db.version, stores }); };
+          tx.onabort = () => { db.close(); reject(tx.error); };
+        };
+      });
+    }
+
+    if (location.origin === source && window.opener && window.top === window) {
+      const receiver = window.opener;
+      async function send(event) {
+        if (event.origin !== destination || event.source !== receiver || event.data !== 'morsewell:read') return;
+        removeEventListener('message', send);
+        try {
+          const preferences = Object.keys(localStorage)
+            .filter((key) => preference.test(key))
+            .map((key) => [key, localStorage.getItem(key)])
+            .filter(([, value]) => value !== null);
+          // Older builds stored these two preferences in cookies.
+          for (const [cookie, key] of [['learn.lesson', 'learn.lesson'], ['PARAGLIDE_LOCALE', 'PARAGLIDE_LOCALE_PREF']]) {
+            if (localStorage.getItem(key) !== null) continue;
+            const entry = document.cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(cookie + '='));
+            if (entry) {
+              try { preferences.push([key, decodeURIComponent(entry.slice(cookie.length + 1))]); }
+              catch { /* Ignore an invalid legacy preference. */ }
+            }
+          }
+          const snapshots = (await Promise.all(databases.map(readDatabase))).filter(Boolean);
+          receiver.postMessage({ type: 'morsewell:records', snapshots, preferences }, destination);
+        } catch {
+          receiver.postMessage({ type: 'morsewell:error' }, destination);
+        }
+      }
+      addEventListener('message', send);
+      receiver.postMessage('morsewell:ready', destination);
+    }
+  </script>
+</html>

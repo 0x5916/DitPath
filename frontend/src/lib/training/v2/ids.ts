@@ -1,5 +1,5 @@
 /**
- * Stable, collision-resistant identifier generators for DitPath V2.
+ * Stable, collision-resistant identifier generators for Morsewell V2.
  *
  * Supports injected `random` and `now` functions so all domain tests and
  * replay reducers are 100% deterministic without side effects.

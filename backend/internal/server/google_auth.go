@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"net/netip"
 
-	"opencw/internal/authlimits"
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/googleauth"
-	handlers "opencw/internal/handlers/v1"
-	"opencw/internal/middlewares"
+	"morsewell/internal/authlimits"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/googleauth"
+	handlers "morsewell/internal/handlers/v1"
+	"morsewell/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

@@ -1,5 +1,5 @@
 /**
- * Guided Session State Machine for DitPath V2.
+ * Guided Session State Machine for Morsewell V2.
  *
  * Models discrete prompt-by-prompt training according to the Koch method:
  * - Phases: idle -> introducing -> ready -> playing -> answering -> feedback -> complete / abandoned

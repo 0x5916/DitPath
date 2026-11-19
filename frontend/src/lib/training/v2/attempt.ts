@@ -1,5 +1,5 @@
 /**
- * Prompt-level scoring and response classification for DitPath V2.
+ * Prompt-level scoring and response classification for Morsewell V2.
  *
  * Guarantees:
  * - Correctness is recorded independently from recognition speed.

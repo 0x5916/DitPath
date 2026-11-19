@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
+	"morsewell/internal/testdb"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -18,10 +18,7 @@ import (
 
 // This explicit opt-in uses a disposable database, never application settings.
 func TestHistoryMigrationPreservesData(t *testing.T) {
-	dsn := os.Getenv("OPENCW_TEST_DATABASE_DSN")
-	if dsn == "" {
-		t.Skip("set OPENCW_TEST_DATABASE_DSN to a disposable PostgreSQL database")
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +33,7 @@ func TestHistoryMigrationPreservesData(t *testing.T) {
 	}
 	// Keep the opt-in disposable-database bootstrap above, but exercise the old
 	// schema upgrade in a private namespace without altering shared test tables.
-	schemaName := "ditpath_history_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	schemaName := "morsewell_history_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	quotedSchema := `"` + schemaName + `"`
 	if err := db.Exec("CREATE SCHEMA " + quotedSchema).Error; err != nil {
 		t.Fatal(err)

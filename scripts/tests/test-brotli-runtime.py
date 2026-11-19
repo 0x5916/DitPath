@@ -12,7 +12,7 @@ from urllib3.response import HTTPResponse
 
 
 class BrotliRuntimeTests(unittest.TestCase):
-    payload = b'OpenCW Brotli compatibility control\x00' * 8
+    payload = b'Morsewell Brotli compatibility control\x00' * 8
 
     @classmethod
     def setUpClass(cls):

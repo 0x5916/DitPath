@@ -107,11 +107,11 @@ describe('Morsewell PWA assets', () => {
     expect(sha256('static/favicon.svg')).toBe(
       '42f579636b6c7fee5c5d115dd01229a647461f8341acbded18178eb63fc1a339'
     );
-    expect(sha256('src/lib/assets/ditpath-icon-material.svg')).toBe(
-      '2e0463d3a494d66acb7eaae61dd7603d9bc10e99be3ac97df8f57ce0bc58860f'
+    expect(sha256('src/lib/assets/morsewell-icon-material.svg')).toBe(
+      '47aec55da94b429f21526b1d89e17c5a7fc2da547040d402b8000cf979a9d8c5'
     );
-    expect(sha256('src/lib/assets/ditpath-icon-small.svg')).toBe(
-      '4933a84ff85587c71d2ae5a6cc6b0bd2676eecbf624c3ad2a558f0616576e434'
+    expect(sha256('src/lib/assets/morsewell-icon-small.svg')).toBe(
+      '82c4a67241d9c5d2851a7f550b37e273c2f77e1c6beb04dd8d95adf2b954f8c9'
     );
   });
 

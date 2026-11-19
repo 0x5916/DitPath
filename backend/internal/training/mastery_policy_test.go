@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 )
 
 func computeCharacterMasteries(events []models.TrainingEvent, now time.Time) []common.TrainingCharacterMasteryResponse {

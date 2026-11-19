@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

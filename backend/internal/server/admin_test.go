@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 	"testing"
 	"time"
 )

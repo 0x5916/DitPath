@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/testdb"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -24,10 +24,7 @@ import (
 
 // Run against a migrated, disposable PostgreSQL database; no schema is changed.
 func TestRefreshConcurrentSingleUse(t *testing.T) {
-	dsn := os.Getenv("OPENCW_TEST_DATABASE_DSN")
-	if dsn == "" {
-		t.Skip("set OPENCW_TEST_DATABASE_DSN to a disposable PostgreSQL database")
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		t.Fatal("cannot connect to disposable PostgreSQL database")

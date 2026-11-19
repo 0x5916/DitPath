@@ -11,21 +11,23 @@ New installations select `POSTGRES_TUNE_MODE=pgtune` in the template. Set `POSTG
 | Mode     | Behavior                                                                                   |
 | -------- | ------------------------------------------------------------------------------------------ |
 | `pgtune` | Local PGTune calculations; web workload, Linux, PostgreSQL 18, SSD, and `mid_ram` defaults |
-| `opencw` | Legacy web/OLTP calculator; also selected when the mode is absent                 |
+| `legacy` | Legacy web/OLTP calculator; also selected when the mode is absent                 |
 | `off`    | Image defaults without derived settings; explicit extra arguments still apply              |
+
+Existing installations can continue using `POSTGRES_TUNE_MODE=opencw` as an alias for `legacy`.
 
 [pgtune.sh](pgtune.sh) ports [PGTune at revision `171f129`](https://github.com/le0pard/pgtune/blob/171f1295abd64ec022c7313725db03a191a77db8/src/features/configuration/configurationSlice.js); its [MIT license](PGTUNE-LICENSE) is retained. It runs locally without contacting the website or installing packages. For LXC compatibility, it reports adjustments to `io_method=worker`, `huge_pages=off`, and `wal_compression=pglz`; inspect the preview for the settings applied to your budget. The previous calculator's formulas remain documented below.
 
 ```bash
 make tune
-scripts/tune.sh --env-file /opt/opencw/.env
+scripts/tune.sh --env-file /opt/morsewell/.env
 ```
 
 The preview validates tuning inputs and prints the selected budget, assumptions, settings, shared-memory capacity, and compatibility adjustments without Docker or database changes. Tuning values must be literal; `$` interpolation is rejected. It uses host CPU detection; the running database can observe tighter Docker/cgroup limits. Set `POSTGRES_CPU_LIMIT` for an explicit CPU ceiling.
 
 ## Budget detection
 
-PGTune mode requires a declared, nonzero `POSTGRES_MEMORY_LIMIT`. `opencw` mode uses the first valid source: that explicit limit, cgroup v2 `memory.max`, cgroup v1 `memory.limit_in_bytes`, then `POSTGRES_HOST_MEMORY_SHARE` percent of `/proc/meminfo` memory, capped at 4 GiB. Automatic tuning requires a memory budget of at least 512 MiB; smaller budgets fail before PostgreSQL starts. Leading zeros in numeric values are decimal. The default host share is 50%; it applies only to the `opencw` fallback, not to declared or cgroup limits.
+PGTune mode requires a declared, nonzero `POSTGRES_MEMORY_LIMIT`. `legacy` mode uses the first valid source: that explicit limit, cgroup v2 `memory.max`, cgroup v1 `memory.limit_in_bytes`, then `POSTGRES_HOST_MEMORY_SHARE` percent of `/proc/meminfo` memory, capped at 4 GiB. Automatic tuning requires a memory budget of at least 512 MiB; smaller budgets fail before PostgreSQL starts. Leading zeros in numeric values are decimal. The default host share is 50%; it applies only to the `legacy` fallback, not to declared or cgroup limits.
 
 CPU detection takes the minimum of applicable `POSTGRES_CPU_LIMIT`, cgroup v2/v1 quotas, effective cpuset, and available CPU count. Fractional CPU quotas round up for worker sizing. `0` for either explicit limit means unlimited in Compose. Explicit limits also set Docker's `mem_limit` and `cpus`.
 
@@ -36,7 +38,7 @@ POSTGRES_MEMORY_LIMIT=3g
 POSTGRES_CPU_LIMIT=4
 ```
 
-## Legacy `opencw` calculations
+## Legacy calculator
 
 Let `B` be the memory budget in MiB and `C` the clamped connection ceiling. Integer arithmetic and floors are defined in [tune.sh](tune.sh).
 
@@ -63,12 +65,12 @@ The script also supplies fixed `checkpoint_completion_target=0.9`, `default_stat
 | `POSTGRES_TUNE_STORAGE`                       | `ssd` (default), `hdd`, `san`, or `nvme`                                                                                                                                                                          |
 | `POSTGRES_TUNE_DB_SIZE`                       | `mid_ram` (default), `less_ram`, or `greater_ram`, describing data size relative to RAM                                                                                                                           |
 | `POSTGRES_SHM_SIZE`                           | Explicit Docker shared-memory capacity; overrides the calculated size                                                                                                                                             |
-| `POSTGRES_MAX_CONNECTIONS`                    | PGTune: at least 4, with an upper ceiling reserving PostgreSQL 18 worker slots; preview reports the ceiling computed by [pgtune.sh](pgtune.sh). Defaults: 200 for PGTune web, 100 for `opencw` (clamped to 10–1000) |
+| `POSTGRES_MAX_CONNECTIONS`                    | PGTune: at least 4, with an upper ceiling reserving PostgreSQL 18 worker slots; preview reports the ceiling computed by [pgtune.sh](pgtune.sh). Defaults: 200 for PGTune web, 100 for `legacy` (clamped to 10–1000) |
 | `POSTGRES_HOST_MEMORY_SHARE`                  | Host fallback percentage, 1–100                                                                                                                                                                                   |
 | `POSTGRES_TUNE_EXTRA`                         | Extra server arguments appended last, such as `-c work_mem=8MB`                                                                                                                                                   |
-| `POSTGRES_TUNE_DISABLE=1`                     | Legacy image-default selection when mode is absent or `off`; conflicts with explicit `pgtune`/`opencw`                                                                                                            |
+| `POSTGRES_TUNE_DISABLE=1`                     | Legacy image-default selection when mode is absent or `off`; conflicts with explicit `pgtune`/`legacy`                                                                                                            |
 
-Prefer adjusting the budget when several settings should scale together. Docker's [`shm_size`](https://docs.docker.com/reference/compose-file/services/#shm_size) controls `/dev/shm`, separate from PostgreSQL's `shared_buffers`. In PGTune mode, the operational scripts calculate capacity as RAM / 8, bounded to 64 MiB–2 GiB, before creating the container. This is a legacy `opencw` policy, not a PGTune formula; a 2-GiB budget gives 256 MiB. An enabled `POSTGRES_SHM_SIZE` overrides it; `opencw`/`off` modes retain the 2-GiB fallback when omitted. Keep shared memory below the container memory limit: allocated `/dev/shm` counts toward it. Keep the connection ceiling above the backend pool plus administration and backup connections.
+Prefer adjusting the budget when several settings should scale together. Docker's [`shm_size`](https://docs.docker.com/reference/compose-file/services/#shm_size) controls `/dev/shm`, separate from PostgreSQL's `shared_buffers`. In PGTune mode, the operational scripts calculate capacity as RAM / 8, bounded to 64 MiB–2 GiB, before creating the container. A 2-GiB budget gives 256 MiB under this policy. An enabled `POSTGRES_SHM_SIZE` overrides it; `legacy`/`off` modes retain the 2-GiB fallback when omitted. Keep shared memory below the container memory limit: allocated `/dev/shm` counts toward it. Keep the connection ceiling above the backend pool plus administration and backup connections.
 
 Command-line settings override configuration-file values, including `ALTER SYSTEM`. Persistent overrides belong in the environment, not edits to `PGDATA`. Apply changes with `make deploy`/`make update`; a plain restart does not reload Compose configuration. Direct Compose commands use the static `2gb` shared-memory fallback unless a size is explicitly supplied: after reviewing a 256-MiB preview, for example, `POSTGRES_SHM_SIZE=256mb docker compose up -d db` recreates just the database with that capacity. Invalid inputs fail validation; a missing image entrypoint is fatal.
 
@@ -76,7 +78,7 @@ Command-line settings override configuration-file values, including `ALTER SYSTE
 
 ```bash
 docker compose logs db
-docker compose exec db sh -c 'sh /usr/local/bin/opencw-pg-tune.sh --print'
+docker compose exec db sh -c 'sh /usr/local/bin/morsewell-pg-tune.sh --print'
 docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SHOW shared_buffers"'
 ```
 

@@ -13,7 +13,7 @@ type CWSettings struct {
 	Freq       int       `gorm:"not null"`
 	StartDelay float64   `gorm:"not null"`
 	// TargetDailyMinutes is the learner's daily practice goal in minutes
-	// (DitPath V2 motivation feature). Nullable: rows written by the V1
+	// (V2 motivation feature). Nullable: rows written by the V1
 	// settings endpoint leave it unset.
 	TargetDailyMinutes *int
 }
