@@ -38,7 +38,7 @@
     <h2 class="section-title">{m.privacy_contact_title()}</h2>
     <p>{m.privacy_contact_body()}</p>
     <a class="link" href="mailto:privacy@morsewell.com">privacy@morsewell.com</a>
-    <p>{m.privacy_contact_routing()}</p>
+    <p>{m.privacy_contact_routing({ address: 'morsewell-support@googlegroups.com' })}</p>
     <p>{m.privacy_retention_body()}</p>
   </section>
 </article>

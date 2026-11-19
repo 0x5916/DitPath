@@ -22,6 +22,7 @@ test.describe('public privacy policy', () => {
         'href',
         'mailto:privacy@morsewell.com'
       );
+      await expect(page.locator('article')).toContainText('morsewell-support@googlegroups.com');
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
         'href',
         new RegExp(`${path}$`)
@@ -31,6 +32,11 @@ test.describe('public privacy policy', () => {
         const link = page.getByRole('link', { name: title, exact: true });
         await expect(link).toBeVisible();
         await expect(link).toHaveAttribute('href', path);
+        if (entry === '/about') {
+          const contact = page.getByRole('link', { name: 'contact@morsewell.com' });
+          await expect(contact).toBeVisible();
+          await expect(contact).toHaveAttribute('href', 'mailto:contact@morsewell.com');
+        }
       }
     });
   }

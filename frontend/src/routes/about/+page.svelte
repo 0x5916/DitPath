@@ -91,6 +91,10 @@
     <div class="about-section-icon" aria-hidden="true"><Wrench size={20} /></div>
     <h2 class="section-title">{m.about_project_title()}</h2>
     <p class="body-text body-text--prose">{m.about_project_body()}</p>
+    <p class="body-text body-text--prose">
+      {m.about_project_support()}
+      <a class="link" href="mailto:contact@morsewell.com">contact@morsewell.com</a>
+    </p>
     <p class="body-text about-links">
       <a href={GITHUB_URL} class="link" rel="noopener noreferrer" target="_blank"
         >{m.about_project_github()}</a
