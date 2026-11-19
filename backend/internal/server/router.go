@@ -43,7 +43,7 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	auth.POST("/login", middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), authHandler.Login)
 	auth.POST("/logout", authHandler.Logout)
 	auth.POST("/refresh", authHandler.Refresh)
-	registerGoogleAuthRoutes(auth, db, limiter, proxies, func(ctx context.Context, credential, nonce string) (googleauth.Identity, error) {
+	registerGoogleAuthRoutes(auth, db, work, limiter, proxies, func(ctx context.Context, credential, nonce string) (googleauth.Identity, error) {
 		return googleauth.DefaultVerifier().Verify(ctx, configs.App.GoogleClientID, credential, nonce)
 	})
 

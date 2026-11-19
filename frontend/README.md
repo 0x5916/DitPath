@@ -31,7 +31,7 @@ Sound training saves guided attempts and checked practice passages locally, then
 
 For the move from `https://opencw.net`, open **Settings → Sync & storage** on `https://morsewell.com` in the same browser where you trained. **Copy device history** opens the old origin and copies its local training records, unfinished sessions and supported preferences. Existing records are checked for conflicts. Sign in on the new site to resume account sync. The [recovery importer](src/lib/data/domain-recovery.ts) owns the supported records and settings.
 
-For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for a Morsewell username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
+For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development. Login and Register use Google's official button and ask new users for a Morsewell username. Existing password users can open **Settings → Link Google**, choose their Google account, and confirm their current Morsewell password. Their username and training history are available with either sign-in method. See [backend configuration](../backend/README.md#google-sign-in).
 
 ## Checks and builds
 

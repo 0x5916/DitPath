@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"morsewell/internal/common"
 	"morsewell/internal/configs"
+	"morsewell/internal/googleauth"
+	"morsewell/internal/models"
 	"morsewell/internal/utils"
 	"net/http"
 
@@ -21,6 +23,14 @@ func (h UserHandler) GetUserInfo(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
 	c.Header("Cache-Control", "no-store")
+	var links int64
+	if err := h.DB.WithContext(c.Request.Context()).Model(&models.UserIdentity{}).
+		Where("user_id = ? AND provider = ? AND issuer = ?", user.ID, "google", googleauth.Issuer).Count(&links).Error; err != nil {
+		if !authCanceled(c, err) {
+			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeDatabaseFailure, "Unable to load account"))
+		}
+		return
+	}
 	c.JSON(http.StatusOK, common.UserInfoResponse{
 		CanLookupUsers:  configs.App.CanLookupUsers(user.ID),
 		CallSign:        user.CallSign,
@@ -28,6 +38,7 @@ func (h UserHandler) GetUserInfo(c *gin.Context) {
 		Email:           user.Email,
 		EmailVerified:   user.EmailVerified,
 		PasswordEnabled: user.Password != "",
+		GoogleLinked:    links != 0,
 		CreatedAt:       user.CreatedAt,
 	})
 }

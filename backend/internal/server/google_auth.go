@@ -12,16 +12,21 @@ import (
 	"morsewell/internal/googleauth"
 	handlers "morsewell/internal/handlers/v1"
 	"morsewell/internal/middlewares"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func isGoogleAuthPath(path string) bool {
-	return path == "/v1/auth/google" || path == "/v1/auth/google/register"
+	return path == "/v1/auth/google" || path == "/v1/auth/google/register" || isGoogleLinkPath(path)
 }
 
-// googleCORS handles only the two Google endpoints; other routes retain their
+func isGoogleLinkPath(path string) bool {
+	return path == "/v1/auth/google/link" || path == "/v1/auth/google/link/challenge"
+}
+
+// googleCORS handles only the Google endpoints; other routes retain their
 // existing policy. In particular, debug mode cannot enable arbitrary origins.
 func googleCORS(c *gin.Context) bool {
 	if !isGoogleAuthPath(c.Request.URL.Path) {
@@ -32,7 +37,11 @@ func googleCORS(c *gin.Context) bool {
 	if allowed {
 		c.Header("Access-Control-Allow-Origin", c.GetHeader("Origin"))
 		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, X-OpenCW-Auth")
+		headers := "Content-Type, X-OpenCW-Auth"
+		if isGoogleLinkPath(c.Request.URL.Path) {
+			headers += ", Authorization"
+		}
+		c.Header("Access-Control-Allow-Headers", headers)
 		c.Header("Access-Control-Expose-Headers", "Retry-After")
 	}
 	if c.Request.Method == http.MethodOptions {
@@ -66,8 +75,12 @@ func googleRequestProtection(c *gin.Context) {
 	c.Next()
 }
 
-func registerGoogleAuthRoutes(auth *gin.RouterGroup, db *gorm.DB, limiter *authlimits.Limiter, proxies []netip.Prefix, verify func(context.Context, string, string) (googleauth.Identity, error)) {
-	handler := handlers.GoogleAuthHandler{DB: db, Verify: verify}
+func registerGoogleAuthRoutes(auth *gin.RouterGroup, db *gorm.DB, work *utils.PasswordWork, limiter *authlimits.Limiter, proxies []netip.Prefix, verify func(context.Context, string, string) (googleauth.Identity, error)) {
+	handler := handlers.GoogleAuthHandler{DB: db, Passwords: work, Verify: verify}
 	auth.POST("/google", googleRequestProtection, middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), handler.Login)
 	auth.POST("/google/register", googleRequestProtection, middlewares.AuthRequestLimit(authlimits.Registration, limiter, proxies), handler.Register)
+	link := auth.Group("/google/link", googleRequestProtection, middlewares.AuthRequired(),
+		middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), middlewares.LoadUser(db))
+	link.POST("/challenge", handler.LinkChallenge)
+	link.POST("", handler.Link)
 }

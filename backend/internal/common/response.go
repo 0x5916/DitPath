@@ -41,6 +41,7 @@ type UserInfoResponse struct {
 	Email           string    `json:"email"`
 	EmailVerified   bool      `json:"email_verified"`
 	PasswordEnabled bool      `json:"password_enabled"`
+	GoogleLinked    bool      `json:"google_linked"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 

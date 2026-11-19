@@ -92,12 +92,17 @@ async function apiSendJson<T = void>(
   method: 'POST' | 'PUT',
   body: unknown,
   fallback: string,
-  options?: { retryUnauthorized?: boolean }
+  options?: { retryUnauthorized?: boolean; headers?: Record<string, string>; signal?: AbortSignal }
 ): Promise<T> {
   const session = getAuthSession();
   const res = await apiFetch(
     path,
-    { method, headers: JSON_HEADERS, body: JSON.stringify(body) },
+    {
+      method,
+      headers: { ...JSON_HEADERS, ...options?.headers },
+      body: JSON.stringify(body),
+      signal: options?.signal
+    },
     options
   );
 
@@ -146,6 +151,7 @@ export interface UserInfo {
   email: string;
   email_verified: boolean;
   password_enabled: boolean;
+  google_linked?: boolean;
   created_at: string;
 }
 
@@ -310,6 +316,43 @@ export async function getSettings(): Promise<CombinedSettings> {
 
 export async function getUserInfo(): Promise<UserInfo> {
   return apiGetJson<UserInfo>('/user/me', 'INTERNAL_SERVER_ERROR');
+}
+
+export interface GoogleLinkChallenge {
+  challenge: string;
+  nonce: string;
+}
+
+function googleLinkOptions(signal: AbortSignal) {
+  return { headers: { 'X-OpenCW-Auth': 'google' }, signal, retryUnauthorized: false };
+}
+
+export async function requestGoogleLinkChallenge(session: AuthSession, signal: AbortSignal) {
+  assertAuthSessionCurrent(session);
+  const result = await apiSendJson<GoogleLinkChallenge>(
+    '/auth/google/link/challenge',
+    'POST',
+    {},
+    'GOOGLE_SIGN_IN_UNAVAILABLE',
+    googleLinkOptions(signal)
+  );
+  if (!result?.challenge || !result.nonce) throw new Error('GOOGLE_SIGN_IN_UNAVAILABLE');
+  return result;
+}
+
+export async function linkGoogleAccount(
+  session: AuthSession,
+  signal: AbortSignal,
+  body: { current_password: string; challenge: string; credential: string }
+): Promise<void> {
+  assertAuthSessionCurrent(session);
+  await apiSendJson(
+    '/auth/google/link',
+    'POST',
+    body,
+    'GOOGLE_SIGN_IN_UNAVAILABLE',
+    googleLinkOptions(signal)
+  );
 }
 
 export async function savePageSettings(settings: PageSettings): Promise<void> {

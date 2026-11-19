@@ -329,7 +329,8 @@ func TestGoogleOnlyAccountPasswordGuardsAndCapability(t *testing.T) {
 			user.Password = "password-hash"
 		}
 		c.Set("user", &user)
-		(&UserHandler{}).GetUserInfo(c)
+		c.Request = httptest.NewRequest(http.MethodGet, "/v1/user/me", nil)
+		(&UserHandler{DB: db}).GetUserInfo(c)
 		var result common.UserInfoResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != 200 || result.PasswordEnabled != enabled {
 			t.Fatalf("password capability returned %d %s", response.Code, response.Body.String())

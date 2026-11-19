@@ -2,7 +2,7 @@
   import { PUBLIC_GOOGLE_CLIENT_ID } from '$app/env/public';
   import {
     createGoogleSignInFlow,
-    loadGoogleIdentity,
+    renderGoogleButton,
     type GoogleFlowState
   } from '#lib/google-sign-in.ts';
   import { localizeApiError } from '#lib/errorLocalization.ts';
@@ -19,36 +19,25 @@
 
   function mountGoogleButton(container: HTMLElement) {
     if (!PUBLIC_GOOGLE_CLIENT_ID) return;
-    let alive = true;
+    const controller = new AbortController();
     try {
       flow = createGoogleSignInFlow((value) => {
         flowState = value;
       });
       const mountedFlow = flow;
-      void loadGoogleIdentity()
-        .then((google) => {
-          if (!alive) return;
-          google.initialize({
-            client_id: PUBLIC_GOOGLE_CLIENT_ID,
-            nonce: mountedFlow.nonce,
-            callback: ({ credential }) => {
-              void mountedFlow.receive(credential);
-            },
-            auto_select: false,
-            ux_mode: 'popup'
-          });
-          google.renderButton(container, {
-            type: 'standard',
-            size: 'large',
-            text: 'continue_with',
-            theme: 'outline',
-            locale: getLocale(),
-            click_listener: () => mountedFlow.begin()
-          });
-          loading = false;
+      void renderGoogleButton(container, {
+        clientId: PUBLIC_GOOGLE_CLIENT_ID,
+        nonce: mountedFlow.nonce,
+        locale: getLocale(),
+        signal: controller.signal,
+        begin: () => mountedFlow.begin(),
+        receive: (credential) => void mountedFlow.receive(credential)
+      })
+        .then(() => {
+          if (!controller.signal.aborted) loading = false;
         })
         .catch((error: unknown) => {
-          if (alive) {
+          if (!controller.signal.aborted) {
             loading = false;
             flowState = { busy: false, needsUsername: false, error };
           }
@@ -58,7 +47,7 @@
       flowState = { busy: false, needsUsername: false, error };
     }
     return () => {
-      alive = false;
+      controller.abort();
       flow?.dispose();
     };
   }

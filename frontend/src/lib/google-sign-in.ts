@@ -61,6 +61,40 @@ export function loadGoogleIdentity(): Promise<GoogleIdentityAPI> {
   return sdkPromise;
 }
 
+export async function renderGoogleButton(
+  container: HTMLElement,
+  options: {
+    clientId: string;
+    nonce: string;
+    locale: string;
+    signal: AbortSignal;
+    begin: () => void;
+    receive: (credential: string) => void;
+  }
+): Promise<void> {
+  const google = await loadGoogleIdentity();
+  if (options.signal.aborted) return;
+  google.initialize({
+    client_id: options.clientId,
+    nonce: options.nonce,
+    callback: ({ credential }) => {
+      if (!options.signal.aborted) options.receive(credential);
+    },
+    auto_select: false,
+    ux_mode: 'popup'
+  });
+  google.renderButton(container, {
+    type: 'standard',
+    size: 'large',
+    text: 'continue_with',
+    theme: 'outline',
+    locale: options.locale,
+    click_listener: () => {
+      if (!options.signal.aborted) options.begin();
+    }
+  });
+}
+
 export interface GoogleFlowState {
   busy: boolean;
   needsUsername: boolean;
