@@ -37,7 +37,7 @@ for (const theme of ['light', 'dark'] as const)
       ).toHaveText(['Learn', 'Practice', 'Progress', 'Forum']);
       await expect(
         footer.getByRole('navigation', { name: 'Morsewell' }).getByRole('link')
-      ).toHaveText(['About', 'Resources & settings']);
+      ).toHaveText(['About', 'Resources & settings', 'Privacy policy']);
       await expect(page.locator('.welcome').getByRole('link', { name: 'Sign in' })).toHaveCount(0);
       const languages = footer.getByRole('group', { name: 'Language' });
       await expect(languages.getByRole('button')).toHaveText([

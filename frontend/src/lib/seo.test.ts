@@ -60,8 +60,8 @@ describe('sitemap', () => {
   const xml = buildSitemapXml(ORIGIN, LOCALES);
 
   it('contains one slashless HTTPS URL for every public locale route', () => {
-    expect(urls).toHaveLength(25);
-    expect(new Set(urls).size).toBe(25);
+    expect(urls).toHaveLength(30);
+    expect(new Set(urls).size).toBe(30);
 
     for (const url of urls) {
       const parsed = new URL(url);
@@ -74,6 +74,7 @@ describe('sitemap', () => {
     expect(urls).toContain(`${ORIGIN}/ja/morse/learn`);
     expect(urls).toContain(`${ORIGIN}/zh-Hans/morse`);
     expect(urls).toContain(`${ORIGIN}/zh-Hant/forum`);
+    for (const locale of LOCALES) expect(urls).toContain(`${ORIGIN}/${locale}/privacy`);
   });
 
   it('never lists noindex application routes', () => {
@@ -93,7 +94,7 @@ describe('sitemap', () => {
 
   it('omits build-date lastmod values but retains valid XML entries', () => {
     expect(xml).not.toContain('<lastmod>');
-    expect(xml.match(/<loc>/g)).toHaveLength(25);
+    expect(xml.match(/<loc>/g)).toHaveLength(30);
     expect(xml).toContain('<loc>https://morsewell.com/en/morse/learn</loc>');
     expect(xml).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?>/);
     expect(xml.trimEnd().endsWith('</urlset>')).toBe(true);

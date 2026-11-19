@@ -3,6 +3,7 @@ const SECONDARY_ROUTES = new Set([
   '/morse',
   '/more',
   '/about',
+  '/privacy',
   '/settings',
   '/profile',
   '/login',

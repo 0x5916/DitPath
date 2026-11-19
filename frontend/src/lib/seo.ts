@@ -128,6 +128,35 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
       }
     }
   },
+  '/privacy': {
+    localized: {
+      en: {
+        title: 'Privacy policy | Morsewell',
+        description:
+          'Read how Morsewell handles practice history, account information and Google sign-in, who can see your data, and how to request deletion.'
+      },
+      de: {
+        title: 'Datenschutzerklärung | Morsewell',
+        description:
+          'Erfahre, wie Morsewell Übungsdaten, Kontoinformationen und die Anmeldung mit Google verarbeitet, wer Daten einsehen kann und wie du die Löschung beantragst.'
+      },
+      ja: {
+        title: 'プライバシーポリシー | Morsewell',
+        description:
+          'Morsewellで練習したときやGoogleでログインしたときに、端末とサーバーに保存される情報を説明します。フォーラムで公開される内容、メール配信に使う情報、アカウントデータの削除を依頼する方法も確認できます。'
+      },
+      'zh-Hans': {
+        title: '隐私政策 | Morsewell 如何处理你的数据',
+        description:
+          '了解在 Morsewell 练习摩尔斯电码或使用 Google 登录时，哪些信息会保存在浏览器中，哪些记录会与账户同步。你还可以了解谁能看到论坛帖子、哪些服务商处理数据，以及如何联系项目负责人申请删除账户或数据。'
+      },
+      'zh-Hant': {
+        title: '隱私權政策 | Morsewell 如何處理你的資料',
+        description:
+          '瞭解在 Morsewell 練習摩斯電碼或使用 Google 登入時，哪些資料會儲存在瀏覽器中，哪些紀錄會與帳號同步。你也可以瞭解誰能看到論壇貼文、哪些服務供應商會處理資料，以及如何聯絡專案負責人申請刪除帳號或資料。'
+      }
+    }
+  },
   '/morse': {
     localized: {
       en: {

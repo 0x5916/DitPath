@@ -9,6 +9,7 @@
 export const ROUTE_PATHS = [
   '/',
   '/about',
+  '/privacy',
   '/forum',
   '/morse',
   '/morse/learn',
