@@ -37,7 +37,7 @@ for (const theme of ['light', 'dark'] as const)
       ).toHaveText(['Learn', 'Practice', 'Progress', 'Forum']);
       await expect(
         footer.getByRole('navigation', { name: 'Morsewell' }).getByRole('link')
-      ).toHaveText(['About', 'Resources & settings']);
+      ).toHaveText(['About', 'Resources & settings', 'Privacy policy']);
       await expect(page.locator('.welcome').getByRole('link', { name: 'Sign in' })).toHaveCount(0);
       const languages = footer.getByRole('group', { name: 'Language' });
       await expect(languages.getByRole('button')).toHaveText([
@@ -231,7 +231,7 @@ test('footer controls share rows when translated links wrap', async ({ page }) =
   const project = columns.last();
   const rowItems = await project.getByRole('link').all();
   await expect(explore).toHaveCount(4);
-  expect(rowItems).toHaveLength(2);
+  expect(rowItems).toHaveLength(3);
   for (const [row, item] of rowItems.entries()) {
     const left = await explore.nth(row).boundingBox();
     const right = await item.boundingBox();

@@ -95,6 +95,7 @@ test('localized Home routes update the shell during client navigation', async ({
       '/morse/progress',
       '/forum',
       '/about',
+      '/privacy',
       '/more'
     ]) {
       await expect(footer.locator(`a[href="/${locale}${path}"]`)).toHaveCount(1);

@@ -1,5 +1,47 @@
 import { expect, test } from '@playwright/test';
 
+test.describe('public privacy policy', () => {
+  test.use({ javaScriptEnabled: false });
+
+  for (const [locale, title] of Object.entries({
+    en: 'Privacy policy',
+    de: 'Datenschutzerklärung',
+    ja: 'プライバシーポリシー',
+    'zh-Hans': '隐私政策',
+    'zh-Hant': '隱私權政策'
+  })) {
+    test(`publishes the ${locale} policy and contact without sign-in or JavaScript`, async ({
+      page
+    }) => {
+      const path = `/${locale}/privacy`;
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page.locator('html')).toHaveAttribute('lang', locale);
+      await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'privacy@morsewell.com' })).toHaveAttribute(
+        'href',
+        'mailto:privacy@morsewell.com'
+      );
+      await expect(page.locator('article')).toContainText('morsewell-support@googlegroups.com');
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+        'href',
+        new RegExp(`${path}$`)
+      );
+      for (const entry of ['', '/login', '/register', '/about']) {
+        await page.goto(`/${locale}${entry}`);
+        const link = page.getByRole('link', { name: title, exact: true });
+        await expect(link).toBeVisible();
+        await expect(link).toHaveAttribute('href', path);
+        if (entry === '/about') {
+          const contact = page.getByRole('link', { name: 'contact@morsewell.com' });
+          await expect(contact).toBeVisible();
+          await expect(contact).toHaveAttribute('href', 'mailto:contact@morsewell.com');
+        }
+      }
+    });
+  }
+});
+
 test.describe('SEO metadata', () => {
   test('keeps a self-canonical and hreflang on translated pages', async ({ page }) => {
     await page.goto('/de/about');

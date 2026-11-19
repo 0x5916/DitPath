@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { localizedHref } from '#lib/i18n.svelte.ts';
+  import * as m from '#lib/paraglide/messages.js';
 
   interface Props {
     title: string;
@@ -19,6 +21,9 @@
     {@render children()}
 
     <p class="body-text auth-footer-text">{@render footer()}</p>
+    <p class="body-text auth-footer-text">
+      <a class="link" href={localizedHref('/privacy')}>{m.privacy_title()}</a>
+    </p>
   </div>
 </div>
 

@@ -214,8 +214,8 @@ checks += 1;
 
 const sitemap = await expectStatus('/sitemap.xml', 200);
 const locations = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-assert.equal(locations.length, 25, 'sitemap URL count');
-assert.equal(new Set(locations).size, 25, 'sitemap URLs are unique');
+assert.equal(locations.length, 30, 'sitemap URL count');
+assert.equal(new Set(locations).size, 30, 'sitemap URLs are unique');
 assert.ok(!sitemap.body.includes('<lastmod>'), 'sitemap must not stamp build-date lastmod');
 checks += 3;
 

@@ -24,7 +24,7 @@
 >
   <div class="footer-inner">
     {#if variant === 'full'}
-      <div class="footer-groups" style:--footer-rows={1 + Math.max(primaryLinks.length, 2)}>
+      <div class="footer-groups" style:--footer-rows={1 + Math.max(primaryLinks.length, 3)}>
         <nav aria-labelledby="footer-explore-title">
           <h2 id="footer-explore-title">{m.footer_explore()}</h2>
           <ul class="footer-links">
@@ -38,6 +38,7 @@
           <ul class="footer-links">
             <li><a href={href('/about')}>{m.nav_about()}</a></li>
             <li><a href={href('/more')}>{m.home_resources()}</a></li>
+            <li><a href={href('/privacy')}>{m.privacy_title()}</a></li>
           </ul>
         </nav>
       </div>
