@@ -295,6 +295,9 @@
           {/if}
         </div>
       {/if}
+      <a class="link" href={`${localizedHref('/settings')}#device-recovery`}
+        >{m.domain_recovery_title()}</a
+      >
     </div>
 
     <button

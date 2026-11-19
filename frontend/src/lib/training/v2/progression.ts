@@ -1,5 +1,5 @@
 /**
- * Progression Decision Engine for DitPath V2.
+ * Progression Decision Engine for Morsewell V2.
  *
  * Evaluates whether a completed training session satisfies the Koch method criteria
  * to unlock the next character, requires review of struggling symbols, or continues

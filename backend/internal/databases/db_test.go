@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"

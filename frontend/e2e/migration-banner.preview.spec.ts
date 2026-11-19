@@ -15,7 +15,7 @@ test.describe('Morsewell migration banner', () => {
       const banner = page.locator('.migration-banner');
       await expect(banner).toBeVisible();
       await expect(banner.getByRole('heading', { name: title })).toBeVisible();
-      await expect(banner.getByRole('link', { name: /./ })).toBeVisible();
+      await expect(banner.locator(`a[href="/${locale}/settings#device-recovery"]`)).toBeVisible();
     }
   });
 

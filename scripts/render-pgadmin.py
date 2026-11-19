@@ -14,7 +14,7 @@ def publish(path: Path, content: str) -> None:
     try:
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", dir=path.parent,
-            prefix=".opencw-", delete=False,
+            prefix=".morsewell-", delete=False,
         ) as output:
             temporary = Path(output.name)
             output.write(content)
@@ -49,7 +49,7 @@ def render(root: Path) -> None:
     )
     publish(storage / ".pgpass", f"db:5432:{credentials}\n")
     server = {
-        "Name": "DitPath", "Group": "Servers", "Host": "db", "Port": 5432,
+        "Name": "Morsewell", "Group": "Servers", "Host": "db", "Port": 5432,
         "Username": values["DB_USER"], "MaintenanceDB": values["DB_NAME"],
         "ConnectionParameters": {"sslmode": "prefer", "passfile": ".pgpass"},
     }

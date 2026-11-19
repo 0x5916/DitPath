@@ -3,10 +3,10 @@ package handlers
 import (
 	"errors"
 	"log/slog"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/utils"
 	"net/http"
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

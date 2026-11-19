@@ -1,9 +1,9 @@
-name: ditpath-final-acceptance
+name: morsewell-final-acceptance
 
 services:
   db:
     image: postgres:18.7-alpine3.24
-    container_name: ditpath-final-acceptance-db
+    container_name: ${COMPOSE_PROJECT_NAME}-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?Run scripts/test-stack/manage.sh start first}
@@ -26,13 +26,13 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   backend:
-    image: ditpath-final-acceptance-backend:${SOURCE_REVISION:-local}
-    container_name: ditpath-final-acceptance-backend
+    image: morsewell-final-acceptance-backend:${SOURCE_REVISION:-local}
+    container_name: ${COMPOSE_PROJECT_NAME}-backend
     restart: unless-stopped
     build:
       context: ../../backend
       labels:
-        com.ditpath.test-stack: "true"
+        com.morsewell.test-stack: "true"
     environment:
       PORT: "8080"
       GIN_MODE: release
@@ -43,8 +43,8 @@ services:
       DB_NAME: ${POSTGRES_DB}
       ADMIN_USER_ID: ${ADMIN_USER_ID:-}
       JWT_SECRET: ${JWT_SECRET}
-      RESEND_API_KEY: ditpath-test-disabled
-      RESEND_FROM_EMAIL: DitPath Test <no-reply@example.invalid>
+      RESEND_API_KEY: morsewell-test-disabled
+      RESEND_FROM_EMAIL: Morsewell Test <no-reply@example.invalid>
       CORS_ORIGINS: http://127.0.0.1:${TEST_FRONTEND_PORT:-13000},http://localhost:${TEST_FRONTEND_PORT:-13000}
       AUTH_TRUSTED_PROXY_CIDRS: ""
       GOOGLE_CLIENT_ID: ""
@@ -60,7 +60,7 @@ services:
 
   frontend:
     image: nginx:1.31.8-alpine
-    container_name: ditpath-final-acceptance-frontend
+    container_name: ${COMPOSE_PROJECT_NAME}-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:${TEST_FRONTEND_PORT:-13000}:80"

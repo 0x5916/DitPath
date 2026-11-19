@@ -37,13 +37,13 @@
 #   4. cpuset.cpus.effective / cpuset.cpus
 #   5. nproc
 #
-# The legacy opencw formulas are conventional "web/OLTP on SSD" heuristics: shared_buffers at a
+# The legacy formulas are conventional "web/OLTP on SSD" heuristics: shared_buffers at a
 # quarter of the budget, the planner's cache estimate at three quarters, maintenance_work_mem
 # at a sixteenth, work_mem divided by the connection count, wal_buffers at a thirty-second of
 # shared_buffers, and parallel worker counts derived from the CPU count. Every value is
 # clamped to a sane range so that a tiny budget still produces a server that starts.
 #
-# In opencw mode, settings describing storage or workload rather than machine size are
+# In legacy mode, settings describing storage or workload rather than machine size are
 # deliberately left alone: checkpoint_completion_target, default_statistics_target,
 # random_page_cost, effective_io_concurrency and huge_pages. Revisit those if the backing
 # storage changes.
@@ -57,17 +57,17 @@
 #                              but it feeds the work_mem calculation.
 #
 # `--print` previews settings; `--shm` prints only the Docker shared-memory capacity.
-# POSTGRES_TUNE_MODE selects opencw (legacy default), pgtune, or off.
+# POSTGRES_TUNE_MODE selects legacy (the historical default), pgtune, or off.
 #
 # POSIX sh only: the image ships busybox ash, and this runs before the official entrypoint,
 # so no bashisms and no arrays.
 
 set -eu
 
-log()  { printf 'opencw-pg-tune: %s\n' "$*"; }
-warn() { printf 'opencw-pg-tune: WARNING: %s\n' "$*" >&2; }
-die()  { printf 'opencw-pg-tune: ERROR: %s\n' "$*" >&2; exit 1; }
-show() { printf 'opencw-pg-tune:   %-32s = %s\n' "$1" "$2"; }
+log()  { printf 'morsewell-pg-tune: %s\n' "$*"; }
+warn() { printf 'morsewell-pg-tune: WARNING: %s\n' "$*" >&2; }
+die()  { printf 'morsewell-pg-tune: ERROR: %s\n' "$*" >&2; exit 1; }
+show() { printf 'morsewell-pg-tune:   %-32s = %s\n' "$1" "$2"; }
 
 # --- helpers ----------------------------------------------------------------
 
@@ -472,8 +472,12 @@ add_setting() {
 
 # Resolve modes without changing existing installations that omit the new selector.
 resolve_mode() {
-  TUNE_MODE=${POSTGRES_TUNE_MODE:-opencw}
-  case $TUNE_MODE in opencw|pgtune|off) ;; *) die 'POSTGRES_TUNE_MODE must be opencw, pgtune or off' ;; esac
+  TUNE_MODE=${POSTGRES_TUNE_MODE:-legacy}
+  case $TUNE_MODE in
+    opencw) TUNE_MODE=legacy ;; # Historical spelling in existing .env files.
+    legacy|pgtune|off) ;;
+    *) die 'POSTGRES_TUNE_MODE must be legacy, pgtune or off' ;;
+  esac
   case ${POSTGRES_TUNE_DISABLE:-0} in
     0|false|'') ;;
     1|true)

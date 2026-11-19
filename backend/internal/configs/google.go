@@ -31,7 +31,7 @@ func (c Config) GoogleOriginAllowed(origin string) bool {
 		return false
 	}
 	if len(c.CORSOrigins) == 0 {
-		return origin == "https://opencw.net"
+		return origin == DefaultProductionOrigin
 	}
 	for _, allowed := range c.CORSOrigins {
 		if origin == allowed {

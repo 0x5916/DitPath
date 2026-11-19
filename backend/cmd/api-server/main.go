@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"os"
 
-	"opencw/internal/configs"
-	"opencw/internal/databases"
-	handlers "opencw/internal/handlers/v1"
-	"opencw/internal/server"
-	"opencw/internal/utils"
+	"morsewell/internal/configs"
+	"morsewell/internal/databases"
+	handlers "morsewell/internal/handlers/v1"
+	"morsewell/internal/server"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"

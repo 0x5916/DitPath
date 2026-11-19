@@ -37,3 +37,37 @@ test('offline practice saves, reloads, and resumes from the cached shell', async
     .poll(async () => (await readCopyCheckpoint(page, PREVIEW_EVIDENCE_DB)) !== null)
     .toBe(true);
 });
+
+test('the retirement worker waits for old training tabs and keeps their browser data', async ({
+  context,
+  page
+}) => {
+  await page.goto('/en/morse/practice');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
+  await page.evaluate(async () => {
+    localStorage.setItem('learn.lesson', '8');
+    await navigator.serviceWorker.register('/retire-legacy-worker.js', { scope: '/' });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () => (await navigator.serviceWorker.getRegistration())?.waiting?.scriptURL
+      )
+    )
+    .toContain('/retire-legacy-worker.js');
+  await page.close();
+
+  // The recovery document has no app bootstrap to re-register the trainer's worker.
+  const recovery = await context.newPage();
+  await recovery.goto('/recover-device.html');
+  await expect
+    .poll(() =>
+      recovery.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration()))
+    )
+    .toBe(false);
+  expect(await recovery.evaluate(() => localStorage.getItem('learn.lesson'))).toBe('8');
+});

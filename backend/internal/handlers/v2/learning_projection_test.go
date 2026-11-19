@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"gorm.io/gorm"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
 	"net/url"
-	"opencw/internal/configs"
-	"opencw/internal/models"
 	"testing"
 	"time"
 )

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 
 	"github.com/gin-gonic/gin"
 )

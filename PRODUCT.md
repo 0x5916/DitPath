@@ -75,7 +75,7 @@ Morsewell uses Penpot as its design source of truth.
 
 **Implementation boundaries:** Design must respect existing capabilities and behavior. Do not invent targeted drills, native apps, offline support, analytics, or other unimplemented functionality.
 
-**Naming:** Morsewell is the current product name; DitPath and OpenCW are former names. Use Morsewell in new user-facing designs. Do not rename technical identifiers or infrastructure without separate authorization.
+**Morsewell — Learn the code. Communicate well.** Use Morsewell as the product name and `morsewell.com` as its public domain.
 
 ## Brand Commitments
 
@@ -98,7 +98,7 @@ The repository and acceptance notes document implemented behavior. Editable Penp
 
 The About page documents the author's radio amateur background. No verified testimonials, user statistics, performance benchmarks, or partnerships are available.
 
-Legacy technical identifiers and deployment domains retain their existing OpenCW names. Do not interpret planned functionality or design concepts as implemented features.
+Compatibility with existing accounts, browser training records and shared links is part of the [domain migration](DEPLOYMENT.md#domain-migration).
 
 ## Product Principles
 

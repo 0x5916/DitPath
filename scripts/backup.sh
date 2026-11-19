@@ -95,15 +95,15 @@ if [[ ${DRY_RUN} == 0 ]]; then
 fi
 
 stamp="$(now_utc)"
-target="${BACKUP_DIR}/opencw_${stamp}.sql.gz"
+target="${BACKUP_DIR}/morsewell_${stamp}.sql.gz"
 # Timestamps have one-second resolution, so two runs inside the same second would
 # otherwise silently overwrite each other. Keep both.
 if [[ -e ${target} ]]; then
   n=2
-  while [[ -e "${BACKUP_DIR}/opencw_${stamp}-${n}.sql.gz" ]]; do
+  while [[ -e "${BACKUP_DIR}/morsewell_${stamp}-${n}.sql.gz" ]]; do
     n=$(( n + 1 ))
   done
-  target="${BACKUP_DIR}/opencw_${stamp}-${n}.sql.gz"
+  target="${BACKUP_DIR}/morsewell_${stamp}-${n}.sql.gz"
 fi
 partial="${work_dir:-${BACKUP_DIR}/.backup.XXXXXX}/data.sql"
 

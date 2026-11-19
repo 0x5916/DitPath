@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )

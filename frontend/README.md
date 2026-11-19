@@ -27,7 +27,9 @@ cp example.env .env
 npm run dev
 ```
 
-Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Unfinished guided/practice checkpoints are device-local and are not included in account import; complete them before creating an account or moving. Saving a checkpoint does not transfer it. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
+Sound training saves guided attempts and checked practice passages locally, then synchronizes signed-in accounts through V1. Account history, pending uploads, and download checkpoints use separate immutable-account-ID partitions; guest and migrated history remain unclaimed until explicitly imported. Unfinished guided/practice checkpoints stay on the device and account import excludes them. Lessons, Progress, and Profile read the same local partition and remain usable offline. API access is needed for synchronization, accounts, the forum, and server-backed settings; follow the [backend setup](../backend/README.md) to start it. [example.env](example.env) defaults `PUBLIC_API_BASE` to `http://localhost:8080/v1`; `PRERENDER_ORIGIN` controls canonical and sitemap origins. Both are build-time values.
+
+For the move from `https://opencw.net`, open **Settings → Sync & storage** on `https://morsewell.com` in the same browser where you trained. **Copy device history** opens the old origin and copies its local training records, unfinished sessions and supported preferences. Existing records are checked for conflicts. Sign in on the new site to resume account sync. The [recovery importer](src/lib/data/domain-recovery.ts) owns the supported records and settings.
 
 For optional Google sign-in, set `PUBLIC_GOOGLE_CLIENT_ID` to the same web client ID as backend `GOOGLE_CLIENT_ID`, then rebuild. Empty values omit the Google button and SDK. The backend must explicitly allow the frontend origin even in development; see [backend configuration](../backend/README.md#google-sign-in). Login and Register use Google's official button and ask new users only for a Morsewell username. Existing password accounts require a separately implemented linking flow to add Google to that same account.
 
@@ -38,7 +40,7 @@ Chrome and TalkBack.
 
 For repeatable synthetic UI states, run `npm run acceptance` and open
 `http://127.0.0.1:4174/__acceptance`. The chooser replaces only the dedicated
-`ditpath_ui_acceptance` database and test-origin auth/training preferences; close
+`morsewell_ui_acceptance` database and test-origin auth/training preferences; close
 other acceptance tabs first. It covers empty/returning/interrupted/completed
 learning, ten-second loading, a Practice save that fails once, unavailable account
 settings, and pending uploads. Finish and check a Practice passage to trigger the
@@ -52,7 +54,7 @@ normal builds do not import its fixtures or fault hooks. The
 [fixture tests](scripts/acceptance/fixtures.test.ts) check actual repository and
 guidance outcomes and fail when a source injection seam changes.
 
-[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. For brand-only social-card and manifest updates, run `npm run icons -- --brand-only`; this leaves the canonical paddle SVGs and all favicon/app-icon files unchanged. The legacy `ditpath-icon-material.svg` and `ditpath-icon-small.svg` filenames are intentional. Run `npm run icons` only after a separately approved artwork change; it regenerates the favicon, PWA, Apple touch, and social card assets from the source SVGs in [src/lib/assets/](src/lib/assets/). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
+[package.json](package.json) is the command inventory. `npm run verify` runs message validation, SEO validation, Svelte/TypeScript checking, script checking, and Vitest. Run `npm run lint` for Prettier/ESLint and `npm run build` for the static output in `build/`. `npm run preview` serves that build locally. For brand-only social-card and manifest updates, run `npm run icons -- --brand-only`; this leaves the canonical paddle SVGs and all favicon/app-icon files unchanged. Run `npm run icons` only after a separately approved artwork change; it regenerates the favicon, PWA, Apple touch, and social card assets from the source SVGs in [src/lib/assets/](src/lib/assets/). `npm run audio:audit` renders the real timing and audio-engine schedule into an `OfflineAudioContext` in Chromium, Firefox, and WebKit and writes measured evidence to `.artifacts/audio-audit.json`; see the [test-stack guide](../scripts/test-stack/README.md#audio-measurement).
 
 Browser regressions run with Playwright against the acceptance harness and a production preview in Chromium, Firefox, and WebKit. Install the engines once with `npx playwright install chromium firefox webkit`, then run `npm run test:e2e`. The suite covers checkpoint persistence, cross-tab leases, stale/corrupt checkpoints, guided completion, keyboard/overflow checks, audio cleanup, and offline recovery. It is not a substitute for the authenticated, native-device, and screen-reader acceptance listed above.
 
@@ -69,8 +71,8 @@ The autofixer reports issues and suggestions without editing source. Review both
 [Dockerfile](Dockerfile) runs verification before building. To build and serve the image:
 
 ```sh
-docker build --build-arg PUBLIC_API_BASE=https://api.example.com/v1 --build-arg PRERENDER_ORIGIN=https://opencw.net -t opencw-frontend .
-docker run -p 3000:80 opencw-frontend
+docker build --build-arg PUBLIC_API_BASE=https://api.morsewell.com/v1 --build-arg PRERENDER_ORIGIN=https://morsewell.com -t morsewell-frontend .
+docker run -p 3000:80 morsewell-frontend
 ```
 
 ## Documentation and source ownership

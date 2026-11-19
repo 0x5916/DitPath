@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/ownermail"
-	"opencw/internal/utils"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/ownermail"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -302,7 +302,7 @@ func TestOwnerEmailDispatchAndHistory(t *testing.T) {
 	}
 	e := sent[accepted.Email]
 	link := strings.Trim(e.Headers["List-Unsubscribe"], "<>")
-	if !strings.HasPrefix(link, configs.App.OwnerMail.UnsubscribeURL+"?token=") || !strings.Contains(e.Text, link) || !strings.Contains(e.Text, "Second line") || e.ReplyTo != configs.App.OwnerMail.ReplyTo || e.Headers["List-Unsubscribe-Post"] != "List-Unsubscribe=One-Click" {
+	if !strings.HasPrefix(link, configs.App.OwnerMail.UnsubscribeURL+"?token=") || !strings.Contains(e.Text, link) || !strings.Contains(e.Text, "Second line") || !strings.Contains(e.Text, "Morsewell — Learn the code. Communicate well.") || e.ReplyTo != configs.App.OwnerMail.ReplyTo || e.Headers["List-Unsubscribe-Post"] != "List-Unsubscribe=One-Click" {
 		t.Fatal("bad message or unsubscribe headers")
 	}
 	want := map[uuid.UUID]string{accepted.ID: "accepted", rejected.ID: "failed", revoked.ID: "skipped", unverified.ID: "skipped", changed.ID: "skipped"}

@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"opencw/internal/common"
+	"morsewell/internal/common"
 
 	"github.com/gin-gonic/gin"
 )

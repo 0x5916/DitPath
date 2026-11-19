@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )

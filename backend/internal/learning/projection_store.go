@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"opencw/internal/models"
+	"morsewell/internal/models"
 )
 
 type checkAggregate struct {

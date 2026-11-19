@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"opencw/internal/models"
+	"morsewell/internal/models"
 	"slices"
 	"time"
 )

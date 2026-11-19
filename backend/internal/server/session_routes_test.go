@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/utils"
 )
 
 func TestSessionRoutesAuthenticateBeforeValidatingRequests(t *testing.T) {

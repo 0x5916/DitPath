@@ -16,7 +16,7 @@ export default defineConfig(({ command }) => {
     },
     plugins: [
       {
-        name: 'ditpath-acceptance',
+        name: 'morsewell-acceptance',
         enforce: 'pre',
         transform: acceptanceTransform,
         configureServer(server) {

@@ -15,10 +15,11 @@ function localizedPaths(paths: readonly string[]): string[] {
 }
 
 const CORE_ROUTES = ['/', '/morse/learn', '/morse/practice', '/morse/progress'];
+const LEGACY_RECOVERY_ASSETS = new Set(['/recover-device.html', '/retire-legacy-worker.js']);
 const BUILD_ASSETS = [
   // Generated files are relative to the worker's application scope.
   ...immutable.map(({ path }) => new URL(path, self.registration.scope).pathname),
-  ...assets.map(({ path }) => asset(path))
+  ...assets.map(({ path }) => asset(path)).filter((path) => !LEGACY_RECOVERY_ASSETS.has(path))
 ];
 const PRECACHE_ASSETS = [...BUILD_ASSETS, ...CORE_ROUTES, ...localizedPaths(CORE_ROUTES)];
 

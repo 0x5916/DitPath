@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

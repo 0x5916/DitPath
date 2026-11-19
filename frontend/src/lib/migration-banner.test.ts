@@ -187,20 +187,18 @@ describe('migration banner state', () => {
 });
 
 describe('migration data-preservation messaging', () => {
-  it('states the supported limits without promising automatic or checkpoint transfer', () => {
+  it('distinguishes browser recovery from account synchronization', () => {
     expect(en.migration_guest_history_body).toContain('will not transfer automatically');
     expect(en.migration_guest_history_body).toContain('import your device history');
     expect(en.migration_guest_history_body).toContain('confirm synchronization');
     expect(en.migration_checkpoint_body).toContain(
-      'Complete it before creating an account or moving'
+      'before importing its history into your account'
     );
-    expect(en.migration_checkpoint_body).toContain(
-      'does not transfer it to Morsewell or your account'
+    expect(en.migration_unclaimed_body).toContain(
+      'Saved checkpoints are not imported into an account'
     );
-    expect(en.migration_checkpoint_body).not.toContain('Finish or save');
-    expect(en.migration_unclaimed_body).toContain('sign out and complete any guest session');
-    expect(en.migration_unclaimed_body).toContain('Saved checkpoints are not imported');
-    expect(en.migration_signed_in_body).toContain('latest sessions show as synced');
+    expect(en.migration_signed_in_body).toContain('same account');
+    expect(en.domain_recovery_hint).toContain('same browser');
     expect(en.migration_signed_in_empty_body).toContain('New progress will sync');
   });
 

@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadEnvironment(t *testing.T) {
-	const key = "DITPATH_ENV_LOAD_TEST"
+	const key = "MORSEWELL_ENV_LOAD_TEST"
 	for _, tc := range []struct {
 		name      string
 		mode      string

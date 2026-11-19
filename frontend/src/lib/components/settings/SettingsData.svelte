@@ -3,6 +3,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { openTrainingDb, closeTrainingDb, clearTrainingCache } from '#lib/data/training-db.ts';
+  import DeviceRecovery from '#lib/components/migration/DeviceRecovery.svelte';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
   import { Trash2 } from '@lucide/svelte';
@@ -100,6 +101,7 @@
   <p class="field-hint">
     {owner === 'unclaimed' ? m.review_local_only() : m.review_local_legacy()}
   </p>
+  <DeviceRecovery />
   <details class="cache-options">
     <summary>{m.settings_data_title()}</summary>
     <p class="field-hint">{m.settings_data_description()}</p>

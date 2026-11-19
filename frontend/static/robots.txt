@@ -2,4 +2,4 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://opencw.net/sitemap.xml
+Sitemap: https://morsewell.com/sitemap.xml

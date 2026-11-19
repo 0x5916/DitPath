@@ -13,7 +13,7 @@
 #   make update DRY_RUN=1     # show what an update would do
 #   make update REF=v1.2.0    # update to a specific ref
 #   make backup KEEP=30       # keep 30 dumps
-#   make restore FILE=backups/opencw_20260928T101500Z.sql.gz
+#   make restore FILE=backups/morsewell_20260928T101500Z.sql.gz
 #   make status               # health, versions, disk usage
 
 SHELL := /bin/bash

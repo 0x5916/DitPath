@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	handlers "opencw/internal/handlers/v1"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	handlers "morsewell/internal/handlers/v1"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 )
 
 func TestAuthBodyCapRegisteredRoutes(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"opencw/internal/googleauth"
-	"opencw/internal/models"
+	"morsewell/internal/googleauth"
+	"morsewell/internal/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

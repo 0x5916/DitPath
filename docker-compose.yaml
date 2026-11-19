@@ -33,7 +33,7 @@ services:
       # the image snapshots in scripts/update.sh keep working on postgres itself.
       - type: bind
         source: ./db/tune.sh
-        target: /usr/local/bin/opencw-pg-tune.sh
+        target: /usr/local/bin/morsewell-pg-tune.sh
         read_only: true
       - type: bind
         source: ./db/pgtune.sh
@@ -41,7 +41,7 @@ services:
         read_only: true
     # The tuner derives the settings and then hands off to the image's own entrypoint,
     # so initdb, pg_hba.conf and /docker-entrypoint-initdb.d behave exactly as before.
-    entrypoint: ["/bin/sh", "/usr/local/bin/opencw-pg-tune.sh"]
+    entrypoint: ["/bin/sh", "/usr/local/bin/morsewell-pg-tune.sh"]
     command: ["postgres"]
     # Optional hard ceilings: 0 means "no limit". When set, they are also the tuner's
     # memory and CPU budget, so declaring them is the reliable way to size the database on
@@ -71,6 +71,7 @@ services:
       dockerfile: Dockerfile
       args:
         PUBLIC_API_BASE: ${PUBLIC_API_BASE}
+        PRERENDER_ORIGIN: ${PRERENDER_ORIGIN:-https://morsewell.com}
         PUBLIC_GOOGLE_CLIENT_ID: ${PUBLIC_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     # Keep host probes on loopback; Cloudflare Tunnel reaches the service over
@@ -141,7 +142,7 @@ services:
   # One-shot renderer: turns the credentials in .env into pgAdmin's server definition and
   # .pgpass, then exits. Runs before pgadmin on every `docker compose up -d`.
   pgadmin-config:
-    image: opencw-pgadmin:9.19.0-brotli1.2.1
+    image: morsewell-pgadmin:9.19.0-brotli1.2.1
     build:
       context: ./pgadmin
     restart: "no"
@@ -151,13 +152,13 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-    command: ["exec /venv/bin/python3 /usr/local/bin/opencw-pgadmin-config.py"]
+    command: ["exec /venv/bin/python3 /usr/local/bin/morsewell-pgadmin-config.py"]
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-      - ./scripts/render-pgadmin.py:/usr/local/bin/opencw-pgadmin-config.py:ro
+      - ./scripts/render-pgadmin.py:/usr/local/bin/morsewell-pgadmin-config.py:ro
 
   pgadmin:
-    image: opencw-pgadmin:9.19.0-brotli1.2.1
+    image: morsewell-pgadmin:9.19.0-brotli1.2.1
     build:
       context: ./pgadmin
     restart: unless-stopped
@@ -168,7 +169,7 @@ services:
         condition: service_completed_successfully
     ports:
       # Loopback only. Public access is through the Cloudflare tunnel at
-      # https://pgadmin.opencw.net, guarded by a Zero Trust Access policy.
+      # the pgAdmin hostname, guarded by a Zero Trust Access policy.
       - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}

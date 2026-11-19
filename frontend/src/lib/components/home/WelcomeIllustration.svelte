@@ -1,5 +1,5 @@
 <script lang="ts">
-  import paddle from '#lib/assets/ditpath-icon-material.svg';
+  import paddle from '#lib/assets/morsewell-icon-material.svg';
 </script>
 
 <img src={paddle} alt="" width="512" height="512" aria-hidden="true" />

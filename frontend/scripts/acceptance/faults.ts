@@ -1,6 +1,6 @@
-export const FIXTURE_DB = 'ditpath_ui_acceptance';
-export const FIXTURE_LEARNING_PILOT_DB = 'ditpath_ui_acceptance_learning_pilot';
-export const FIXTURE_EVIDENCE_DB = 'ditpath_ui_acceptance_evidence';
+export const FIXTURE_DB = 'morsewell_ui_acceptance';
+export const FIXTURE_LEARNING_PILOT_DB = 'morsewell_ui_acceptance_learning_pilot';
+export const FIXTURE_EVIDENCE_DB = 'morsewell_ui_acceptance_evidence';
 
 /** Fail loudly if a production seam moves instead of silently dropping fault coverage. */
 function replaceOnce(source: string, needle: string, replacement: string): string {

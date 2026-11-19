@@ -3,10 +3,10 @@ package handlers
 import (
 	"errors"
 	"log/slog"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 	"net/http"
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/utils"
 	"strings"
 	"time"
 

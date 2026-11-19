@@ -1,4 +1,4 @@
-module opencw
+module morsewell
 
 go 1.27.4
 

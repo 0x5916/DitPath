@@ -137,7 +137,7 @@ test('a corrupt checkpoint is ignored without blocking a new practice', async ({
   await expect(page.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('ditpath_ui_acceptance_evidence');
+      const request = indexedDB.open('morsewell_ui_acceptance_evidence');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

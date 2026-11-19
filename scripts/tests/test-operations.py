@@ -61,8 +61,10 @@ elif name == "date":
         clock.write_text(str(value)); print(value)
     else: print(os.environ.get("STAMP", "20261006T000000Z"))
 elif name == "find":
-    for path in Path(args[0]).glob("opencw_*.sql.gz"):
-        if path.is_file(): print(str(path.stat().st_mtime)+" "+str(path))
+    for index, arg in enumerate(args):
+        if arg == "-name":
+            for path in Path(args[0]).glob(args[index+1]):
+                if path.is_file(): print(str(path.stat().st_mtime)+" "+str(path))
 elif name == "stat":
     value=Path(args[-1]).stat(); print(value.st_size if "%s" in args else int(value.st_mtime))
 elif name in ["curl", "wget"]: event(name); sys.exit(int(os.environ.get("HTTP_FAIL", "0")))
@@ -138,7 +140,7 @@ else: sys.exit(2)
 
 class Operations(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="morsestep-operations-")
+        self.temp = tempfile.TemporaryDirectory(prefix="morsewell-operations-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         for directory in ["bin", "backups", "tmp", "scripts/lib", "cgroup"]:
@@ -212,7 +214,10 @@ class Operations(unittest.TestCase):
         result = self.run_script("backup.sh", "--keep", "00", "--print-path")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(old.exists())
-        self.assertTrue(Path(result.stdout.strip()).exists())
+        new = Path(result.stdout.strip())
+        self.assertTrue(new.name.startswith("morsewell_"))
+        self.assertEqual(self.shell("list_backups").stdout.splitlines(), [str(new), str(old)])
+        self.assertEqual(self.shell("latest_backup").stdout.strip(), str(new))
 
     def test_failed_backup_never_publishes(self):
         for variable in ["GZIP_FAIL", "DUMP_FAIL", "EMPTY_DUMP"]:

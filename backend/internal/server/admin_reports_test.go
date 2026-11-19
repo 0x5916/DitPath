@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 )
 
 // Keep all fixtures in one rolled-back transaction so this site-wide report

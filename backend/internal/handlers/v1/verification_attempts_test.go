@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

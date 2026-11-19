@@ -22,7 +22,7 @@ BASH, COMPATIBILITY = operations.BASH, operations.COMPATIBILITY
 
 class PGTune(unittest.TestCase):
     def setUp(self):
-        temp = tempfile.TemporaryDirectory(prefix="opencw-pgtune-")
+        temp = tempfile.TemporaryDirectory(prefix="morsewell-pgtune-")
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         for directory in ["bin", "cgroup", "db", "scripts/lib"]:
@@ -44,7 +44,7 @@ class PGTune(unittest.TestCase):
         (self.root/".env").write_text("POSTGRES_TUNE_MODE=pgtune\nPOSTGRES_MEMORY_LIMIT=2g\nPOSTGRES_CPU_LIMIT=2\n")
         for name, body in {
             "nproc": "printf '8\\n'",
-            "docker": "printf '%s\\n' \"${OPENCW_POSTGRES_SHM_SIZE:-missing}\" > \"$DOCKER_EVENT\"",
+            "docker": "printf '%s\\n' \"${POSTGRES_SHM_SIZE:-missing}\" > \"$DOCKER_EVENT\"",
             "docker-entrypoint.sh": "printf '%s\\n' \"$@\" > \"$ENTRY_ARGS\"",
         }.items():
             path = self.root/"bin"/name
@@ -106,7 +106,7 @@ class PGTune(unittest.TestCase):
         (self.root/"cgroup/cpuset.cpus.effective").write_text("0-1\n")
         actual = self.settings(POSTGRES_CPU_LIMIT="8")
         self.assertNotIn("max_worker_processes", actual)
-        for mode in ["", "opencw"]:
+        for mode in ["", "legacy", "opencw"]:
             self.assertEqual(self.settings(POSTGRES_TUNE_MODE=mode)["max_connections"], "100")
         self.assertEqual(self.run_tuner("--print", POSTGRES_TUNE_MODE="off").stdout.splitlines()[-1], "")
 

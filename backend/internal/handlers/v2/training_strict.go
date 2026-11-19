@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/training"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/training"
 
 	"github.com/google/uuid"
 )

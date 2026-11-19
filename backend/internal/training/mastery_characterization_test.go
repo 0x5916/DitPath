@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/models"
+	"morsewell/internal/models"
 )
 
 func TestMasteryPolicyCharacterization(t *testing.T) {

@@ -34,7 +34,7 @@ test.describe('Morsewell public branding', () => {
     test(`uses Morsewell on the ${locale} home page`, async ({ page }) => {
       await page.goto(`/${locale}`);
 
-      await expect(page).toHaveTitle(/Morsewell/);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(await page.title());
       await expect(navigationBrandLink(page)).toBeVisible();
       await expectNoLegacyBrandOutsideBanner(page);
     });
@@ -161,5 +161,5 @@ test('guest account menu and system theme remain available on mobile', async ({ 
   );
   await page.keyboard.press('Escape');
   await expect(account).toBeFocused();
-  await expect(page.locator('.welcome-art img')).toHaveAttribute('src', /ditpath-icon-material/);
+  await expect(page.locator('.welcome-art img')).toHaveAttribute('src', /morsewell-icon-material/);
 });

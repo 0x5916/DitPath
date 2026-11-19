@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"

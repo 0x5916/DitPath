@@ -1,7 +1,7 @@
 package training
 
 import (
-	"opencw/internal/models"
+	"morsewell/internal/models"
 	"reflect"
 	"testing"
 	"time"

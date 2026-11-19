@@ -7,8 +7,8 @@ import (
 	"errors"
 	"time"
 
-	"opencw/internal/configs"
-	"opencw/internal/models"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

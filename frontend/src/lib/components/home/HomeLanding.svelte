@@ -49,7 +49,7 @@
     min-width: 0;
   }
   h1 {
-    max-width: 12ch;
+    max-width: 20ch;
     margin: 0;
     font-size: 3.25rem;
     font-weight: 700;

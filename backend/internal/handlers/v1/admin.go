@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 )
 
 type AdminHandler struct{ DB *gorm.DB }

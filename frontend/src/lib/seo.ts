@@ -10,11 +10,12 @@ export type SeoMetadata = {
 };
 
 export const SITE_NAME = 'Morsewell';
-export const GITHUB_URL = 'https://github.com/0x5916/DitPath';
+export const SITE_SLOGAN = 'Learn the code. Communicate well.';
+export const GITHUB_URL = 'https://github.com/0x5916/Morsewell';
 export const DEFAULT_OG_IMAGE_PATH = '/og-image.png';
 export const DEFAULT_OG_IMAGE_WIDTH = 1200;
 export const DEFAULT_OG_IMAGE_HEIGHT = 630;
-export const DEFAULT_OG_IMAGE_ALT = 'Morsewell — learn Morse code by ear.';
+export const DEFAULT_OG_IMAGE_ALT = `${SITE_NAME} — ${SITE_SLOGAN}`;
 export const ORGANIZATION_LOGO_PATH = '/icon-512.png';
 
 // Indexable surfaces, derived from the one route list so a route cannot be
@@ -72,29 +73,29 @@ const ROUTE_SEO: Record<string, SeoRouteOverride> = {
   '/': {
     localized: {
       en: {
-        title: 'Morsewell - Learn Morse Code at Real Speed',
+        title: `${SITE_NAME} — ${SITE_SLOGAN}`,
         description:
           'Morsewell is a free Koch-method Morse code trainer: listen at full speed, type what you hear, and watch your accuracy climb. No account needed to start.'
       },
       de: {
-        title: 'Morsewell - Morsecode in echtem Tempo lernen',
+        title: 'Morsewell — Morsecode lernen. Klar kommunizieren.',
         description:
-          'Morsewell ist ein kostenloser Morsecode-Trainer nach der Koch-Methode: in vollem Tempo hoeren, Gehoertes tippen und die Genauigkeit steigern. Ohne Konto nutzbar.'
+          'Morsewell ist ein kostenloser Morsecode-Trainer nach der Koch-Methode: in vollem Tempo hören, Gehörtes tippen und die Genauigkeit steigern. Ohne Konto nutzbar.'
       },
       ja: {
-        title: 'Morsewell - Jissen Sokudo de Morse o Manabu',
+        title: 'Morsewell — モールス信号を学び、思いを伝えよう。',
         description:
-          'Morsewell wa muryo no Koch methodo Morse toreena desu. Jissen sokudo de kiki, kiki totta moji o taipu shi, seido o nobashite ikemasu. Touroku wa fuyo desu.'
+          'Morsewellは、コッホ法でモールス信号を耳から学べる無料の練習サイトです。まずは2文字から始め、実際の交信速度で聞こえた文字を入力しましょう。アカウント登録なしで練習でき、この端末に進捗を保存できます。'
       },
       'zh-Hans': {
-        title: 'Morsewell - Yi Shizhan Sudu Xuexi Mosi Ma',
+        title: 'Morsewell — 学好摩尔斯电码，自如交流。',
         description:
-          'Morsewell shi mianfei de Koch fangfa Mosi ma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
+          'Morsewell 是一款免费的摩尔斯电码听力训练工具。从两个字符开始，用科赫教学法按实际通信速度听音、输入字符，再逐步学习新的字母、数字与标点。无需注册即可开始课程、自由练习听抄，在本机查看学习进度。'
       },
       'zh-Hant': {
-        title: 'Morsewell - Yi Shizhan Sudu Xuexi Moshi Dianma',
+        title: 'Morsewell — 學好摩斯電碼，自在溝通。',
         description:
-          'Morsewell shi mianfei de Koch fangfa Moshi dianma xunlianqi: yi shizhan sudu tingxie, shuru nitingdao de neirong, buduan tisheng zhunquelu. Wuxu zhanghu.'
+          'Morsewell 是一款免費的摩斯電碼聽力訓練工具。從兩個字元開始，透過科赫教學法按實際通訊速度聽音、輸入字元，再逐步學習新的字母、數字與標點。無須註冊即可開始課程、自由練習聽抄，並在此裝置上查看學習進度。'
       }
     }
   },

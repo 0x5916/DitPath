@@ -14,7 +14,7 @@ COPY . .
 # canonical/hreflang/Open Graph URLs and sitemap.xml written during the build.
 ARG PUBLIC_API_BASE=http://localhost:8080/v1
 ARG PUBLIC_GOOGLE_CLIENT_ID=
-ARG PRERENDER_ORIGIN=https://opencw.net
+ARG PRERENDER_ORIGIN=https://morsewell.com
 ENV PUBLIC_API_BASE=$PUBLIC_API_BASE
 ENV PUBLIC_GOOGLE_CLIENT_ID=$PUBLIC_GOOGLE_CLIENT_ID
 ENV PRERENDER_ORIGIN=$PRERENDER_ORIGIN

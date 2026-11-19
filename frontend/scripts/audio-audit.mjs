@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Render DitPath's real Web Audio schedule offline and measure the signal.
+ * Render Morsewell's real Web Audio schedule offline and measure the signal.
  *
  * The frontend module is loaded through Vite's development server so the audit
  * uses the same `buildAudioPlan` and `createWebAudioEngine` code as the app.

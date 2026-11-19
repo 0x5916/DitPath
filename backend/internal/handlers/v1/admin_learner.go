@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 )
 
 type learnerSession struct {

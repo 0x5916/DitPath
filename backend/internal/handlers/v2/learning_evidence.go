@@ -9,10 +9,10 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"log/slog"
+	"morsewell/internal/common"
+	"morsewell/internal/learning"
+	"morsewell/internal/utils"
 	"net/http"
-	"opencw/internal/common"
-	"opencw/internal/learning"
-	"opencw/internal/utils"
 	"time"
 )
 

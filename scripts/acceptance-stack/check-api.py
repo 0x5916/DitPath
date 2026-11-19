@@ -92,7 +92,7 @@ def main():
         else:
             accounts = {}
             for label in ("A", "B"):
-                name = "ditpath" + label.lower() + secrets.token_hex(3)
+                name = "morsewell" + label.lower() + secrets.token_hex(3)
                 accounts[label] = {"username": name, "email": name + "@example.invalid",
                                    "password": secrets.token_urlsafe(24)}
             with os.fdopen(os.open(credential_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as file:

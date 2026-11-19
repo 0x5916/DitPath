@@ -1,5 +1,5 @@
 /**
- * Attempt Repository for DitPath local storage.
+ * Attempt Repository for Morsewell local storage.
  *
  * Provides transactional, indexed access to immutable AttemptEvents.
  */

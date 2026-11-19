@@ -15,7 +15,7 @@ import (
 )
 
 func TestLoadProcessCharacterization(t *testing.T) {
-	if os.Getenv("DITPATH_CONFIG_CHILD") == "1" {
+	if os.Getenv("MORSEWELL_CONFIG_CHILD") == "1" {
 		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 			ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
 				if attr.Key == slog.TimeKey {
@@ -33,7 +33,7 @@ func TestLoadProcessCharacterization(t *testing.T) {
 
 	const secret = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
 	base := map[string]string{
-		"DITPATH_CONFIG_CHILD": "1", "PORT": "8080", "DB_HOST": "db.invalid", "DB_PORT": "5432",
+		"MORSEWELL_CONFIG_CHILD": "1", "PORT": "8080", "DB_HOST": "db.invalid", "DB_PORT": "5432",
 		"DB_USER": "fixture", "DB_PASSWORD": "synthetic-password", "DB_NAME": "fixture",
 		"JWT_SECRET": secret, "RESEND_API_KEY": "synthetic-key", "RESEND_FROM_EMAIL": "test@example.invalid", "GIN_MODE": "debug",
 	}

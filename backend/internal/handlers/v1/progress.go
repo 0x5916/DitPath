@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"log/slog"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/training"
+	"morsewell/internal/utils"
 	"net/http"
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/training"
-	"opencw/internal/utils"
 	"strconv"
 	"time"
 

@@ -9,7 +9,7 @@ import {
 import { buildSitemapXml } from './sitemap';
 
 const LOCALES = ['en', 'de', 'ja', 'zh-Hans', 'zh-Hant'] as const;
-const ORIGIN = 'https://opencw.net';
+const ORIGIN = 'https://morsewell.com';
 
 describe('Progress document metadata', () => {
   it('keeps a page-specific, noindex title in every locale', () => {
@@ -66,7 +66,7 @@ describe('sitemap', () => {
     for (const url of urls) {
       const parsed = new URL(url);
       expect(parsed.protocol).toBe('https:');
-      expect(parsed.host).toBe('opencw.net');
+      expect(parsed.host).toBe('morsewell.com');
       expect(parsed.pathname).not.toMatch(/\/$/);
     }
 
@@ -94,7 +94,7 @@ describe('sitemap', () => {
   it('omits build-date lastmod values but retains valid XML entries', () => {
     expect(xml).not.toContain('<lastmod>');
     expect(xml.match(/<loc>/g)).toHaveLength(25);
-    expect(xml).toContain('<loc>https://opencw.net/en/morse/learn</loc>');
+    expect(xml).toContain('<loc>https://morsewell.com/en/morse/learn</loc>');
     expect(xml).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?>/);
     expect(xml.trimEnd().endsWith('</urlset>')).toBe(true);
   });

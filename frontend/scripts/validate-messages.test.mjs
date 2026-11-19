@@ -52,7 +52,7 @@ const cases = [
 
 for (const [name, source, filename, english, german, expected, diagnostic] of cases) {
   test(name, () => {
-    const fixture = mkdtempSync(join(tmpdir(), 'opencw-messages-'));
+    const fixture = mkdtempSync(join(tmpdir(), 'morsewell-messages-'));
     try {
       for (const folder of ['scripts', 'src', 'messages', 'project.inlang'])
         mkdirSync(join(fixture, folder));

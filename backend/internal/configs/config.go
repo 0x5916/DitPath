@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"opencw/internal/authlimits"
+	"morsewell/internal/authlimits"
 
 	"github.com/google/uuid"
 )
@@ -44,6 +44,9 @@ type Config struct {
 	DBConnMaxLifetime time.Duration `required:"true"`
 	DBConnMaxIdleTime time.Duration `required:"true"`
 }
+
+// DefaultProductionOrigin is the browser origin allowed without an explicit allowlist.
+const DefaultProductionOrigin = "https://morsewell.com"
 
 var App Config
 

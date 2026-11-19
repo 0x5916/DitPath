@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"opencw/internal/configs"
-	"opencw/internal/models"
+	"morsewell/internal/configs"
+	"morsewell/internal/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

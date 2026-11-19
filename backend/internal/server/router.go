@@ -7,22 +7,20 @@ import (
 	"net/netip"
 	"time"
 
-	"opencw/internal/authlimits"
-	"opencw/internal/common"
-	"opencw/internal/configs"
-	"opencw/internal/databases"
-	"opencw/internal/googleauth"
-	handlers "opencw/internal/handlers/v1"
-	v2handlers "opencw/internal/handlers/v2"
-	"opencw/internal/middlewares"
-	"opencw/internal/models"
-	"opencw/internal/utils"
+	"morsewell/internal/authlimits"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
+	"morsewell/internal/databases"
+	"morsewell/internal/googleauth"
+	handlers "morsewell/internal/handlers/v1"
+	v2handlers "morsewell/internal/handlers/v2"
+	"morsewell/internal/middlewares"
+	"morsewell/internal/models"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
-
-const defaultProductionOrigin = "https://opencw.net"
 
 func RouterV1Setup(engine *gin.Engine) {
 	routerV1Setup(engine, databases.DB, utils.DefaultPasswordWork(), authlimits.DefaultLimiter(), configs.App.AuthTrustedProxyCIDRs)
@@ -184,7 +182,7 @@ func CORSSetup(engine *gin.Engine) {
 // Priority order:
 //  1. Non-release mode -> allow everything
 //  2. CORS_ORIGINS env var (explicit allowlist, comma-separated)
-//  3. Production -> only https://opencw.net
+//  3. Production -> only the canonical public origin
 func isCORSAllowed(origin string) bool {
 	if !configs.App.IsRelease() {
 		return true
@@ -197,7 +195,7 @@ func isCORSAllowed(origin string) bool {
 		}
 		return false
 	}
-	return origin == defaultProductionOrigin
+	return origin == configs.DefaultProductionOrigin
 }
 
 // PprofSetup registers the net/http/pprof endpoints on the Gin engine,

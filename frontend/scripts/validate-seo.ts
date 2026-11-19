@@ -85,7 +85,7 @@ async function validateSitemap(): Promise<CheckResult[]> {
   const checks: CheckResult[] = [];
   // The sitemap is built for the configured origin (PRERENDER_ORIGIN, matching
   // kit-options.js) rather than a hard-coded production host.
-  const origin = process.env.PRERENDER_ORIGIN ?? 'https://opencw.net';
+  const origin = process.env.PRERENDER_ORIGIN ?? 'https://morsewell.com';
   const generatedUrls = buildSitemapUrlSet(origin, locales);
   const urlSet = new Set(generatedUrls);
 
@@ -160,7 +160,7 @@ function validateInfra(): CheckResult[] {
   const forumIndex = alternation?.index ?? -1;
   if (
     slashRedirectIndex === -1 ||
-    !nginxConfig.includes('return 301 https://opencw.net$1$is_args$args;') ||
+    !nginxConfig.includes('return 301 https://morsewell.com$1$is_args$args;') ||
     forumIndex === -1 ||
     slashRedirectIndex > forumIndex
   ) {
@@ -190,8 +190,11 @@ function validateInfra(): CheckResult[] {
   const schemeRedirect =
     nginxConfig.includes('if ($http_x_forwarded_proto = "http")') &&
     nginxConfig.includes('if ($http_cf_visitor ~* \'"scheme":"http"\')') &&
-    nginxConfig.includes('return 301 https://opencw.net$request_uri;');
-  const hostRedirect = nginxConfig.includes('if ($host = "www.opencw.net")');
+    nginxConfig.includes('return 301 https://morsewell.com$request_uri;');
+  const hostRedirect = nginxConfig.includes('server_name www.morsewell.com www.opencw.net;');
+  const legacyRecovery =
+    nginxConfig.includes('server_name opencw.net;') &&
+    nginxConfig.includes('location = /recover-device.html');
 
   if (!schemeRedirect) {
     checks.push({ ok: false, message: 'nginx.conf: HTTP-to-HTTPS redirect is missing' });
@@ -203,6 +206,10 @@ function validateInfra(): CheckResult[] {
     checks.push({ ok: false, message: 'nginx.conf: www-to-apex redirect is missing' });
   } else {
     checks.push({ ok: true, message: 'nginx.conf redirects the www host to the apex host' });
+  }
+
+  if (!legacyRecovery) {
+    checks.push({ ok: false, message: 'nginx.conf: missing legacy device recovery location' });
   }
 
   return checks;

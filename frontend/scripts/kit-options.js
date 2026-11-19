@@ -15,7 +15,7 @@ export const kitOptions = {
   }),
   paths: {
     // Canonical, hreflang, Open Graph and sitemap origins are build-time values.
-    origin: process.env.PRERENDER_ORIGIN ?? 'https://opencw.net'
+    origin: process.env.PRERENDER_ORIGIN ?? 'https://morsewell.com'
   },
   prerender: {
     // The JavaScript language switcher cannot expose every locale to the crawler.

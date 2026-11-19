@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
 )
 
 // These thresholds mirror the client's DEFAULT_MASTERY_POLICY

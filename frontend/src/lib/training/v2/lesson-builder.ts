@@ -1,5 +1,5 @@
 /**
- * Deterministic guided lesson plan builder for DitPath V2.
+ * Deterministic guided lesson plan builder for Morsewell V2.
  *
  * Constructs a structured, prompt-by-prompt session plan following the Koch method:
  * 1. Unscored introduction of the newest character(s)

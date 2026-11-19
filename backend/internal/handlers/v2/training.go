@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"opencw/internal/common"
-	"opencw/internal/models"
-	"opencw/internal/training"
-	"opencw/internal/utils"
+	"morsewell/internal/common"
+	"morsewell/internal/models"
+	"morsewell/internal/training"
+	"morsewell/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

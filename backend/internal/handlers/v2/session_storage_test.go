@@ -7,13 +7,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
-	"opencw/internal/common"
-	v1handlers "opencw/internal/handlers/v1"
-	"opencw/internal/models"
+	"morsewell/internal/common"
+	v1handlers "morsewell/internal/handlers/v1"
+	"morsewell/internal/models"
+	"morsewell/internal/testdb"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,10 +25,7 @@ import (
 // Tests use the existing disposable database contract and never migrate schemas.
 func sessionStorageDB(t *testing.T) (*gorm.DB, models.User) {
 	t.Helper()
-	dsn := os.Getenv("OPENCW_TEST_DATABASE_DSN")
-	if dsn == "" {
-		t.Skip("set OPENCW_TEST_DATABASE_DSN to a migrated disposable PostgreSQL database")
-	}
+	dsn := testdb.DSN(t)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		t.Fatal("cannot connect to disposable PostgreSQL database")

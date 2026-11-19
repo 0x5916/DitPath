@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"opencw/internal/common"
-	"opencw/internal/configs"
+	"morsewell/internal/common"
+	"morsewell/internal/configs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

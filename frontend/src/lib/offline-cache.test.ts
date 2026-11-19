@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createOfflineCache } from './offline-cache';
 
-const origin = 'https://ditpath.example';
+const origin = 'https://morsewell.example';
 const asset = `${origin}/_app/immutable/app.js`;
 const route = `${origin}/en/morse/learn`;
 
@@ -29,7 +29,7 @@ function fixture(network = html('network')) {
   const fetch = vi.fn<(request: Request) => Promise<Response>>().mockResolvedValue(network);
   const handle = createOfflineCache({
     origin,
-    cacheName: 'ditpath-test',
+    cacheName: 'morsewell-test',
     assets: ['/_app/immutable/app.js'],
     routes: ['/en/morse/learn'],
     storage,
@@ -117,7 +117,7 @@ describe('offline cache strategies', () => {
     expect(f.cache.put).toHaveBeenCalledTimes(1);
     expect(f.cache.put.mock.calls[0][0]).toBe(route);
     expect(typeof f.cache.put.mock.calls[0][0]).toBe('string');
-    expect(f.storage.open).toHaveBeenCalledWith('ditpath-test');
+    expect(f.storage.open).toHaveBeenCalledWith('morsewell-test');
   });
 
   it('falls back to the same document shell across query changes', async () => {

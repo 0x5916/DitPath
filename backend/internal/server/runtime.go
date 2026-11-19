@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"opencw/internal/configs"
-	"opencw/internal/databases"
-	"opencw/internal/models"
-	"opencw/internal/ownermail"
+	"morsewell/internal/configs"
+	"morsewell/internal/databases"
+	"morsewell/internal/models"
+	"morsewell/internal/ownermail"
 
 	"github.com/resend/resend-go/v4"
 )

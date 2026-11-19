@@ -1,5 +1,5 @@
 /**
- * DitPath V2 Learning Domain Types.
+ * Morsewell V2 Learning Domain Types.
  *
  * Pure data types and contracts only.
  * Invariants:

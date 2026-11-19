@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"opencw/internal/common"
+	"morsewell/internal/common"
 )
 
 // validEventMap returns a fully valid batch event payload; tests override

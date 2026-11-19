@@ -66,24 +66,24 @@ jobs:
       - name: Build production frontend image
         run: >
           docker build
-          --build-arg PUBLIC_API_BASE=https://api.opencw.net/v1
-          --build-arg PRERENDER_ORIGIN=https://opencw.net
-          -t ditpath-seo-routing frontend
+          --build-arg PUBLIC_API_BASE=https://api.morsewell.com/v1
+          --build-arg PRERENDER_ORIGIN=https://morsewell.com
+          -t morsewell-seo-routing frontend
       - name: Start nginx
         run: |
-          docker run -d --name ditpath-seo-routing -p 127.0.0.1:8089:80 ditpath-seo-routing
+          docker run -d --name morsewell-seo-routing -p 127.0.0.1:8089:80 morsewell-seo-routing
           for attempt in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8089/en >/dev/null; then
               break
             fi
             sleep 1
           done
-          docker exec ditpath-seo-routing nginx -t
+          docker exec morsewell-seo-routing nginx -t
       - name: Verify routing against production image
         run: node frontend/scripts/check-seo-routing.mjs http://127.0.0.1:8089
       - name: Stop nginx
         if: always()
-        run: docker rm -f ditpath-seo-routing || true
+        run: docker rm -f morsewell-seo-routing || true
 
   e2e:
     name: Frontend browser tests
