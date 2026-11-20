@@ -14,6 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const routeEventBatch = `{"schema_version":1,"events":[{"id":"route-event","session_id":"route-session","prompt_id":"route-prompt","prompt_kind":"recall","target_character":"K","entered_text":"K","is_correct":true,"classification":"automatic","latency_ms":1000,"replay_count":0,"input_mode":"keyboard","char_wpm":20,"eff_wpm":12,"freq_hz":600,"created_at":"2026-10-20T00:00:00Z"}]}`
+
 func TestTrainingRoutesRequireAuthentication(t *testing.T) {
 	engine := authHTTPRouter(t, nil, authHTTPWork(t, nil, nil), authHTTPPolicy(), time.Now)
 	routerV2Setup(engine, nil)
@@ -102,7 +104,7 @@ func TestTrainingRoutesShareStoredData(t *testing.T) {
 	if settings.CharWPM != 22 || settings.TargetDailyMinutes == nil || *settings.TargetDailyMinutes != 15 {
 		t.Fatalf("legacy settings lost shared values or daily goal: %+v", settings)
 	}
-	batch := `{"schema_version":1,"events":[{"id":"route-event","session_id":"route-session","prompt_id":"route-prompt","prompt_kind":"recall","target_character":"K","entered_text":"K","is_correct":true,"classification":"automatic","latency_ms":1000,"replay_count":0,"input_mode":"keyboard","char_wpm":20,"eff_wpm":12,"freq_hz":600,"created_at":"2026-10-20T00:00:00Z"}]}`
+	batch := routeEventBatch
 	for _, version := range []string{"/v2", "/v1"} {
 		var result common.TrainingEventBatchResponse
 		if err := json.Unmarshal(send("POST", version+"/training/events/batch", batch), &result); err != nil || len(result.AcknowledgedIDs) != 1 || result.AcknowledgedIDs[0] != "route-event" || len(result.RejectedEvents) != 0 {
@@ -138,6 +140,68 @@ func TestLearningEvidenceRoutesRequireAuthentication(t *testing.T) {
 				code = common.ErrorCodeInvalidToken
 			}
 			authHTTPError(t, authHTTPSend(engine, authHTTPRequest{method: route.method, path: "/v1" + route.path, body: "{", token: token}), 401, code)
+		}
+	}
+}
+
+func TestProgressResetFencesAllTrainingWriters(t *testing.T) {
+	db := authHTTPDB(t)
+	user := authHTTPUser(t, db, true)
+	engine := authHTTPRouter(t, db, authHTTPWork(t, nil, nil), authHTTPPolicy(), time.Now)
+	routerV2Setup(engine, db)
+	token, err := utils.GenerateAccessToken(user.ID, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reset := authHTTPSend(engine, authHTTPRequest{method: "DELETE", path: "/v1/user/progress", token: token})
+	epoch := reset.Header().Get(common.TrainingEpochHeader)
+	if reset.Code != 204 || epoch != "2" {
+		t.Fatalf("reset: %d, epoch %q", reset.Code, epoch)
+	}
+	const client = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	const sessions = `{"schema_version":1,"client_id":"` + client + `","sessions":[{
+		"session_id":"practice","mode":"practice","curriculum_version":"koch-39-v1","lesson":1,"status":"completed",
+		"started_at":"2026-10-20T00:00:00Z","ended_at":"2026-10-20T00:01:00Z","char_wpm":20,"eff_wpm":12,"freq_hz":600,
+		"prompt_count":1,"attempt_count":1,"event_ids":[],"accuracy":0.92,"scoring_version":"practice-copy-v1"}]}`
+	const evidence = `{"schema_version":1,"client_id":"` + client + `","records":[{
+		"id":"open","kind":"exposure-open","policy_version":"learning-policy-1.0","recorded_at":"2026-10-27T00:01:00Z",
+		"session_id":null,"presentation_id":"sound","characters":["K"],"source":"reference","started_at":null}]}`
+	routes := []struct{ path, body, id string }{
+		{"/v1/training/events/batch", strings.Replace(routeEventBatch, `"schema_version":1`, `"schema_version":2,"client_id":"`+client+`"`, 1), "route-event"},
+		{"/v2/training/events/batch", routeEventBatch, "route-event"},
+		{"/v1/training/sessions/batch", sessions, "practice"},
+		{"/v1/training/learning-evidence/batch", evidence, "open"},
+	}
+	for _, generation := range []string{"", "1", epoch} {
+		for _, route := range routes {
+			headers := http.Header{}
+			if generation != "" {
+				headers.Set(common.TrainingEpochHeader, generation)
+			}
+			r := authHTTPSend(engine, authHTTPRequest{path: route.path, body: route.body, token: token, headers: headers})
+			if r.Header().Get(common.TrainingEpochHeader) != epoch {
+				t.Fatalf("%s failed to report current generation: %s", route.path, r.Body)
+			}
+			if generation != epoch {
+				authHTTPError(t, r, 409, "TRAINING_EPOCH_CHANGED")
+				continue
+			}
+			var result struct {
+				IDs []string `json:"acknowledged_ids"`
+			}
+			if r.Code != 200 || json.Unmarshal(r.Body.Bytes(), &result) != nil || len(result.IDs) != 1 || result.IDs[0] != route.id {
+				t.Fatalf("%s did not accept current generation: %d %s", route.path, r.Code, r.Body)
+			}
+		}
+		wantCount := int64(0)
+		if generation == epoch {
+			wantCount = 1
+		}
+		for _, model := range []any{&models.TrainingEvent{}, &models.TrainingSession{}, &models.LearningEvidenceRecord{}} {
+			var count int64
+			if err := db.Model(model).Where("user_id=?", user.ID).Count(&count).Error; err != nil || count != wantCount {
+				t.Fatalf("generation %q %T: count %d, want %d, err %v", generation, model, count, wantCount, err)
+			}
 		}
 	}
 }

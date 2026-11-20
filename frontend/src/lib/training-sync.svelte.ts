@@ -1,4 +1,7 @@
-import { apiFetch, getAuthAccountId, getAuthSession, isAuthSessionCurrent, user } from './auth';
+import { getTrainingOwner, subscribeTrainingEpoch } from './training-owner';
+import { requestTrainingData } from './account-data';
+export { getTrainingOwner } from './training-owner';
+import { getAuthSession, isAuthSessionCurrent, user } from './auth';
 import { SvelteSet } from 'svelte/reactivity';
 import { openTrainingDb } from './data/training-db';
 import {
@@ -30,7 +33,7 @@ const listeners = new SvelteSet<(state: TrainingSyncSnapshot) => void>();
 let mounts = 0;
 let disposeRuntime: (() => void) | null = null;
 let controller = new AbortController();
-let inFlight: { generation: number; promise: Promise<void> } | null = null;
+let inFlight: { owner: string; generation: number; promise: Promise<void> } | null = null;
 let rerun = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let failures = 0;
@@ -62,11 +65,6 @@ export function subscribeTrainingSync(listener: (state: TrainingSyncSnapshot) =>
     listeners.delete(listener);
   };
 }
-export function getTrainingOwner(): string {
-  const id = getAuthAccountId();
-  return id ? `account:${id}` : 'unclaimed';
-}
-
 async function refreshStatus(owner: string, generation: number) {
   const db = await openTrainingDb();
   try {
@@ -100,15 +98,15 @@ function scheduleRetry(error: unknown) {
 export async function syncTrainingNow(): Promise<void> {
   if (!mounted || !getTrainingOwner().startsWith('account:') || !navigator.onLine) return;
   const session = getAuthSession();
-  if (inFlight?.generation === session.generation) {
+  const owner = getTrainingOwner();
+  if (inFlight?.generation === session.generation && inFlight.owner === owner) {
     rerun = true;
     return inFlight.promise;
   }
-  const owner = getTrainingOwner();
   const signal = controller.signal;
   const current = () =>
     mounted && !signal.aborted && isAuthSessionCurrent(session) && getTrainingOwner() === owner;
-  const entry = { generation: session.generation, promise: Promise.resolve() };
+  const entry = { owner, generation: session.generation, promise: Promise.resolve() };
   entry.promise = (async () => {
     clearTimeout(timer);
     publish({ syncing: true });
@@ -127,7 +125,7 @@ export async function syncTrainingNow(): Promise<void> {
             isCurrent: current,
             request: (path, init) => {
               if (!current()) throw new DOMException('Training owner changed', 'AbortError');
-              return apiFetch(path, { ...init, signal });
+              return requestTrainingData(owner, path, { ...init, signal });
             }
           });
         } finally {
@@ -231,6 +229,7 @@ export function initializeTrainingSync(): () => void {
       void syncTrainingNow();
     };
     const unsubscribeUser = user.subscribe(authChanged);
+    const unsubscribeEpoch = subscribeTrainingEpoch(authChanged);
     const channel =
       typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('ditpath:training');
     const changed = (owner: string, pilot = false) => {
@@ -263,6 +262,7 @@ export function initializeTrainingSync(): () => void {
       controller.abort();
       clearTimeout(timer);
       unsubscribeUser();
+      unsubscribeEpoch();
       unsubscribeData();
       channel?.close();
       window.removeEventListener('online', wake);

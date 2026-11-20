@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ArrowRight, ChevronRight, Dumbbell, Radio, Wrench } from '@lucide/svelte';
+  import {
+    ArrowRight,
+    ChevronRight,
+    CircleAlert,
+    CircleCheck,
+    Dumbbell,
+    Radio,
+    Wrench
+  } from '@lucide/svelte';
+  import { page } from '$app/state';
   import { user } from '#lib/auth.ts';
   import { homeLessonLink } from '#lib/components/home/home-lesson-link.ts';
   import HomeLanding from '#lib/components/home/HomeLanding.svelte';
@@ -105,6 +114,15 @@
   });
 </script>
 
+{#if page.state.accountDeleted && !$user}
+  <p class="page-narrow deletion-notice" role="status">
+    {#if page.state.accountDeleted === 'cleanup-failed'}
+      <CircleAlert size={18} aria-hidden="true" />{m.settings_account_data_cleanup_error()}
+    {:else}
+      <CircleCheck size={18} aria-hidden="true" />{m.settings_account_data_deleted()}
+    {/if}
+  </p>
+{/if}
 {#if !dashboardVisible && !learning.snapshot?.hasProspectiveEvidence}
   <HomeLanding />
 {:else}
@@ -176,6 +194,15 @@
 {/if}
 
 <style>
+  .deletion-notice {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+  .deletion-notice :global(svg) {
+    flex: none;
+  }
   .home-heading {
     display: flex;
     align-items: center;

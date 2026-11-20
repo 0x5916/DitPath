@@ -57,6 +57,7 @@ test('the icon-only mobile theme control follows shared header visibility', asyn
 
   await page.goto('/en/settings', { waitUntil: 'networkidle' });
   await expect(theme).toHaveCount(0);
+  await page.getByRole('link', { name: 'Appearance & language' }).click();
   await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toHaveValue('light');
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(theme).toBeVisible();

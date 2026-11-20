@@ -91,6 +91,7 @@ func (h TrainingHandler) GetLearningEvidenceChanges(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeDatabaseFailure, "Failed to download learning evidence changes"))
 		return
 	}
+	c.Header(common.TrainingEpochHeader, strconv.Itoa(state.FeedEpoch))
 	if retired {
 		c.JSON(http.StatusGone, common.NewErrorResponse("LEARNING_EVIDENCE_CURSOR_RESET_REQUIRED", "Learning evidence cursor has expired; restart download"))
 		return

@@ -189,6 +189,8 @@ for (const theme of ['light', 'dark'] as const)
         await expect(page.getByRole('link', { name: 'Login', exact: true })).toBeVisible();
         await expect(page.getByRole('link', { name: 'Register', exact: true })).toBeVisible();
         await page.locator('main').getByRole('link', { name: 'Settings', exact: true }).tap();
+        const directory = page.getByRole('navigation', { name: 'Settings', exact: true });
+        await directory.getByRole('link', { name: 'Appearance & language', exact: true }).tap();
         await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
           false

@@ -218,6 +218,28 @@ func (h AdminHandler) QueueEmail(c *gin.Context) {
 		return
 	}
 	err := db.Transaction(func(tx *gorm.DB) error {
+		// Serialize queue creation with account erasure. A signed preview may
+		// still contain an address or username from before the account was deleted.
+		ids := []uuid.UUID{msg.OwnerID}
+		for _, r := range review.Recipients {
+			if r.Reason != "unavailable" {
+				ids = append(ids, r.ID)
+			}
+		}
+		var live []uuid.UUID
+		if err := tx.Model(&models.User{}).Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("id IN ?", ids).Order("id").Pluck("id", &live).Error; err != nil {
+			return err
+		}
+		exists := make(map[uuid.UUID]bool, len(live))
+		for _, id := range live {
+			exists[id] = true
+		}
+		for _, id := range ids {
+			if !exists[id] {
+				return gorm.ErrRecordNotFound
+			}
+		}
 		insert := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&msg)
 		if insert.Error != nil || insert.RowsAffected == 0 {
 			return insert.Error
@@ -235,6 +257,10 @@ func (h AdminHandler) QueueEmail(c *gin.Context) {
 		}
 		return tx.Create(&rows).Error
 	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		mailError(c, 409, "MAIL_REVIEW_EXPIRED")
+		return
+	}
 	if err != nil {
 		adminDBFailure(c)
 		return

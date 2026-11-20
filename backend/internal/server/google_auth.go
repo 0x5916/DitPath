@@ -5,6 +5,7 @@ import (
 	"mime"
 	"net/http"
 	"net/netip"
+	"strings"
 
 	"morsewell/internal/authlimits"
 	"morsewell/internal/common"
@@ -29,16 +30,24 @@ func isGoogleLinkPath(path string) bool {
 // googleCORS handles only the Google endpoints; other routes retain their
 // existing policy. In particular, debug mode cannot enable arbitrary origins.
 func googleCORS(c *gin.Context) bool {
-	if !isGoogleAuthPath(c.Request.URL.Path) {
+	path := c.Request.URL.Path
+	deletion := path == "/v1/user/me" && ((c.Request.Method == http.MethodDelete && c.GetHeader("X-OpenCW-Auth") != "") ||
+		(c.Request.Method == http.MethodOptions && strings.Contains(strings.ToLower(c.GetHeader("Access-Control-Request-Headers")), "x-opencw-auth")))
+	challenge := path == "/v1/user/deletion-challenge"
+	if !isGoogleAuthPath(path) && !deletion && !challenge {
 		return false
+	}
+	method := http.MethodPost
+	if deletion {
+		method = http.MethodDelete
 	}
 	allowed := configs.App.GoogleClientID != "" && len(c.Request.Header.Values("Origin")) == 1 && configs.App.GoogleOriginAllowed(c.GetHeader("Origin"))
 	c.Header("Vary", "Origin")
 	if allowed {
 		c.Header("Access-Control-Allow-Origin", c.GetHeader("Origin"))
-		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", method+", OPTIONS")
 		headers := "Content-Type, X-OpenCW-Auth"
-		if isGoogleLinkPath(c.Request.URL.Path) {
+		if isGoogleLinkPath(path) || deletion || challenge {
 			headers += ", Authorization"
 		}
 		c.Header("Access-Control-Allow-Headers", headers)
@@ -46,7 +55,7 @@ func googleCORS(c *gin.Context) bool {
 	}
 	if c.Request.Method == http.MethodOptions {
 		c.Header("Cache-Control", "no-store")
-		if !allowed || c.GetHeader("Access-Control-Request-Method") != http.MethodPost {
+		if !allowed || c.GetHeader("Access-Control-Request-Method") != method {
 			c.AbortWithStatusJSON(http.StatusForbidden, common.NewErrorResponse(common.ErrorCodeGoogleRequestRejected, "Google sign-in request rejected."))
 		} else {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -55,6 +64,26 @@ func googleCORS(c *gin.Context) bool {
 		c.Next()
 	}
 	return true
+}
+
+func registerAccountDeletionRoutes(v1 *gin.RouterGroup, db *gorm.DB, work *utils.PasswordWork, limiter *authlimits.Limiter, proxies []netip.Prefix, verify func(context.Context, string, string) (googleauth.Identity, error)) {
+	handler := handlers.GoogleAuthHandler{DB: db, Passwords: work, Verify: verify}
+	user := v1.Group("/user", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		if c.Request.Method == http.MethodPost || len(c.Request.Header.Values("X-OpenCW-Auth")) != 0 {
+			googleRequestProtection(c)
+			return
+		}
+		if origin := c.GetHeader("Origin"); origin != "" && (len(c.Request.Header.Values("Origin")) != 1 || !isCORSAllowed(origin)) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+		if c.ContentType() != "application/json" {
+			c.AbortWithStatus(http.StatusUnsupportedMediaType)
+		}
+	}, middlewares.AuthRequired(), middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), middlewares.LoadUser(db))
+	user.POST("/deletion-challenge", handler.DeletionChallenge)
+	user.DELETE("/me", handler.DeleteAccount)
 }
 
 func googleRequestProtection(c *gin.Context) {

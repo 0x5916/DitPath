@@ -112,6 +112,9 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 			if err != nil {
 				return err
 			}
+			if err := common.CheckTrainingEpoch(c, state.FeedEpoch); err != nil {
+				return err
+			}
 			var latest *time.Time
 			for i := range events {
 				event := &events[i]
@@ -152,6 +155,9 @@ func (h TrainingHandler) PostEventsBatch(c *gin.Context) {
 			}
 			return nil
 		}); err != nil {
+			if common.RespondStaleTrainingEpoch(c, err) {
+				return
+			}
 			slog.Error("Failed to ingest training events", "user_id", user.ID, "count", len(events), "err", err)
 			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(
 				common.ErrorCodeTrainingIngestFailed, "Failed to store training events"))

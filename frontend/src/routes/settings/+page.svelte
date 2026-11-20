@@ -10,7 +10,16 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { PUBLIC_GOOGLE_CLIENT_ID } from '$app/env/public';
   import { SvelteSet } from 'svelte/reactivity';
-  import { getAuthSession, user } from '#lib/auth.ts';
+  import {
+    assertAuthSessionCurrent,
+    clearAuthSession,
+    getAuthSession,
+    isAuthSessionCurrent,
+    user,
+    type AuthSession
+  } from '#lib/auth.ts';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { createSessionScope } from '#lib/session-scope.ts';
   import {
     getTrainingOwner,
@@ -21,6 +30,8 @@
     getUnclaimedTrainingCount
   } from '#lib/training-sync.svelte.ts';
   import {
+    deleteAccount,
+    type AccountDeletionProof,
     saveCWSettings,
     getUserInfo,
     updateCallSign,
@@ -30,7 +41,7 @@
     savePageSettings,
     type PageSettings
   } from '#lib/api.ts';
-  import { langPreference, setLangPreference } from '#lib/i18n.svelte.ts';
+  import { langPreference, localizedHref, setLangPreference } from '#lib/i18n.svelte.ts';
   import { locales } from '#lib/paraglide/runtime.js';
   import { getLocaleLongLabel, type LocalePreference } from '#lib/locale.ts';
   import { LESSONS } from '#lib/training/sequence.ts';
@@ -55,7 +66,11 @@
   import EmailPreferences from '#lib/components/settings/EmailPreferences.svelte';
   import SettingsPassword from '#lib/components/settings/SettingsPassword.svelte';
   import SettingsGoogleLink from '#lib/components/settings/SettingsGoogleLink.svelte';
+  import SettingsLayout from '#lib/components/settings/SettingsLayout.svelte';
   import SettingsData from '#lib/components/settings/SettingsData.svelte';
+  import SettingsAccountData from '#lib/components/settings/SettingsAccountData.svelte';
+  import { clearDeletedAccountData, resetAccountProgress } from '#lib/account-data.ts';
+  import { downloadAccountData } from '#lib/data/account-export.ts';
   import { themePreference, setTheme, type Theme } from '#lib/theme.svelte.ts';
   import { Volume2 } from '@lucide/svelte';
   import * as m from '#lib/paraglide/messages.js';
@@ -115,6 +130,9 @@
   let syncMounted = false;
   let countVersion = 0;
   let lastAuthLoaded: string | null = null;
+  const accountIdentity = $derived(
+    JSON.stringify([getAuthSession().generation, $user?.username ?? null])
+  );
   const sessionScope = createSessionScope();
   const timers = new SvelteSet<ReturnType<typeof setTimeout>>();
   onDestroy(() => {
@@ -156,9 +174,21 @@
     syncMounted = true;
     let identity = '';
     let revision = '';
+    let previousGeneration = -1;
+    let previousOwner = '';
     const unsubscribe = subscribeTrainingSync((state) => {
-      const nextIdentity = `${state.owner}:${getAuthSession().generation}`;
+      const { generation } = getAuthSession();
+      const nextIdentity = `${state.owner}:${generation}`;
       if (identity !== nextIdentity) {
+        if (
+          generation === previousGeneration &&
+          previousOwner.startsWith('account:') &&
+          state.owner.split(':')[1] === previousOwner.split(':')[1]
+        ) {
+          pageLesson = initialPageLesson = 1;
+        }
+        previousOwner = state.owner;
+        previousGeneration = generation;
         identity = nextIdentity;
         countVersion++;
         unclaimedCount = 0;
@@ -272,7 +302,7 @@
   );
 
   $effect(() => {
-    const identity = JSON.stringify([getAuthSession().generation, $user?.username ?? null]);
+    const identity = accountIdentity;
     if (lastAuthLoaded === identity) return;
     lastAuthLoaded = identity;
     untrack(() => void loadAll());
@@ -312,6 +342,37 @@
     later(() => setter(false), durationMs);
   }
 
+  async function resetProgress(signal: AbortSignal) {
+    const current = sessionScope.capture();
+    await resetAccountProgress(signal);
+    if (current()) pageLesson = initialPageLesson = 1;
+  }
+
+  async function removeAccount(
+    session: AuthSession,
+    signal: AbortSignal,
+    proof: AccountDeletionProof
+  ) {
+    assertAuthSessionCurrent(session);
+    const owner = getTrainingOwner();
+    if (owner === 'unclaimed') throw new Error('INVALID_TOKEN');
+    await deleteAccount(session, signal, proof);
+    clearAuthSession(session);
+    const signedOut = getAuthSession();
+    let cleanupFailed = false;
+    try {
+      await clearDeletedAccountData(owner);
+    } catch {
+      cleanupFailed = true;
+    }
+    if (isAuthSessionCurrent(signedOut) && page.route.id === '/settings') {
+      await goto(localizedHref('/'), {
+        replace: true,
+        state: { accountDeleted: cleanupFailed ? 'cleanup-failed' : 'done' }
+      });
+    }
+  }
+
   async function loadAll() {
     const current = sessionScope.begin();
     for (const timer of timers) clearTimeout(timer);
@@ -347,6 +408,7 @@
       return;
     }
 
+    const requestedOwner = getTrainingOwner();
     try {
       const [info, settings] = await Promise.all([getUserInfo(), restoreSettingsFromServer()]);
       if (!current()) return;
@@ -361,7 +423,8 @@
       googleLinked = info.google_linked ?? null;
       resetEmailVerificationState();
       applyCwState(cw);
-      applyPageState(page);
+      if (getTrainingOwner() === requestedOwner) applyPageState(page);
+      else pageLesson = initialPageLesson = 1;
     } catch (e) {
       if (!current()) return;
       loadError = localizeApiError(e, () => m.settings_load_error());
@@ -546,6 +609,7 @@
 
   async function savePage(e: SubmitEvent) {
     const current = sessionScope.capture();
+    const owner = getTrainingOwner();
     e.preventDefault();
     if (!pageDirty || pageSaving) return;
     pageSaving = true;
@@ -561,7 +625,7 @@
 
       if ($user) {
         await savePageSettings(pagePayload);
-        if (!current()) return;
+        if (!current() || owner !== getTrainingOwner()) return;
       }
 
       applyClientPageSettings(pagePayload, LESSONS.length, setLangPreference, {
@@ -581,20 +645,15 @@
   }
 </script>
 
-<div class="page-narrow settings-page">
-  <header class="settings-heading"><h1 class="page-title">{m.settings_title()}</h1></header>
-  <nav class="settings-sections" aria-label={m.settings_title()}>
-    <a href="#preferences">{m.settings_appearance_title()}</a>
-    {#if !loading && !loadError}
-      <a href="#sound-defaults">{m.settings_sound_defaults()}</a>
-    {/if}
-    <a href="#sync-storage">{m.settings_sync_storage_title()}</a>
-    {#if !loading && !loadError}
-      <a href="#account">{m.settings_account_section()}</a>
-    {/if}
-  </nav>
+{#snippet sectionHeading(detail: boolean, label: string, id?: string)}
+  <svelte:element this={detail ? 'h1' : 'h2'} {id} class={detail ? 'page-title' : 'card-title'}
+    >{label}</svelte:element
+  >
+{/snippet}
+
+{#snippet preferences(detail: boolean)}
   <section class="panel panel--ledger" id="preferences" aria-labelledby="preferences-title">
-    <h2 class="card-title" id="preferences-title">{m.settings_appearance_title()}</h2>
+    {@render sectionHeading(detail, m.settings_appearance_title(), 'preferences-title')}
     <div class="settings-form">
       <label class="field">
         <span class="label-text">{m.settings_theme_label()}</span>
@@ -623,60 +682,64 @@
       </label>
     </div>
   </section>
-  {#if !loading && !loadError}
-    <!-- CW Settings -->
-    <section class="panel panel--ledger" id="sound-defaults">
-      <h2 class="card-title">{m.settings_sound_defaults()}</h2>
-      <form onsubmit={saveCW} class="settings-form">
-        <label class="field">
-          <span class="label-text">{m.trainer_label_char_wpm()}</span>
-          <input type="number" bind:value={charWpm} min="5" max="50" class="input" />
-        </label>
-        <label class="field">
-          <span class="label-text">{m.trainer_label_eff_wpm()}</span>
-          <input type="number" bind:value={effWpm} min="5" max="50" class="input" />
-        </label>
-        <div class="field">
-          <label class="label-text" for="settings-frequency">{m.trainer_label_freq()}</label>
-          <div class="settings-tone-action">
-            <input
-              id="settings-frequency"
-              type="number"
-              bind:value={freq}
-              min="300"
-              max="2000"
-              class="input"
-            />
-            <button
-              type="button"
-              class="btn-ghost"
-              onclick={playTestTone}
-              disabled={!canTestTone}
-              title={m.settings_test_tone_label()}
-              aria-label={m.settings_test_tone_label()}
-            >
-              <Volume2 size={16} aria-hidden="true" />
-              <span>{m.settings_test_tone()}</span>
-            </button>
-          </div>
+{/snippet}
+
+{#snippet sound(detail: boolean)}
+  <section class="panel panel--ledger" id="sound-defaults">
+    {@render sectionHeading(detail, m.settings_sound_defaults())}
+    <form onsubmit={saveCW} class="settings-form">
+      <label class="field">
+        <span class="label-text">{m.trainer_label_char_wpm()}</span>
+        <input type="number" bind:value={charWpm} min="5" max="50" class="input" />
+      </label>
+      <label class="field">
+        <span class="label-text">{m.trainer_label_eff_wpm()}</span>
+        <input type="number" bind:value={effWpm} min="5" max="50" class="input" />
+      </label>
+      <div class="field">
+        <label class="label-text" for="settings-frequency">{m.trainer_label_freq()}</label>
+        <div class="settings-tone-action">
+          <input
+            id="settings-frequency"
+            type="number"
+            bind:value={freq}
+            min="300"
+            max="2000"
+            class="input"
+          />
+          <button
+            type="button"
+            class="btn-ghost"
+            onclick={playTestTone}
+            disabled={!canTestTone}
+            title={m.settings_test_tone_label()}
+            aria-label={m.settings_test_tone_label()}
+          >
+            <Volume2 size={16} aria-hidden="true" />
+            <span>{m.settings_test_tone()}</span>
+          </button>
         </div>
-        <label class="field">
-          <span class="label-text">{m.trainer_label_start_delay()}</span>
-          <input type="number" bind:value={startDelay} min="0" max="10" step="0.5" class="input" />
-        </label>
-        {#if cwError}
-          <ErrorAlert message={cwError} />
-        {/if}
-        {#if cwDirty || cwSaving || cwSaved}
-          <div class="settings-action-row">
-            <SaveButton saving={cwSaving} saved={cwSaved} />
-          </div>
-        {/if}
-      </form>
-    </section>
-  {/if}
+      </div>
+      <label class="field">
+        <span class="label-text">{m.trainer_label_start_delay()}</span>
+        <input type="number" bind:value={startDelay} min="0" max="10" step="0.5" class="input" />
+      </label>
+      {#if cwError}
+        <ErrorAlert message={cwError} />
+      {/if}
+      {#if cwDirty || cwSaving || cwSaved}
+        <div class="settings-action-row">
+          <SaveButton saving={cwSaving} saved={cwSaved} />
+        </div>
+      {/if}
+    </form>
+  </section>
+{/snippet}
+
+{#snippet sync(detail: boolean)}
   {#key trainingSyncState.owner}
     <SettingsData
+      {detail}
       owner={trainingSyncState.owner}
       pending={trainingSyncState.pending}
       syncing={trainingSyncState.syncing}
@@ -689,8 +752,11 @@
       {importing}
     />
   {/key}
+{/snippet}
+
+{#snippet evidence(detail: boolean)}
   <section class="panel panel--ledger" id="learning-evidence">
-    <h2 class="card-title">{m.learning_overview_heading()}</h2>
+    {@render sectionHeading(detail, m.learning_overview_heading())}
     <p class="body-text">{m.learning_guest_boundary()}</p>
     <TrainingSyncStatus
       expanded
@@ -742,7 +808,9 @@
         </p>{/if}
     {/if}
   </section>
+{/snippet}
 
+{#snippet status()}
   {#if loading}
     <LoadingSpinner />
   {:else if loadError}
@@ -750,162 +818,199 @@
     <button type="button" class="btn-ghost" onclick={() => void loadAll()}
       >{m.common_retry()}</button
     >
-  {:else}
-    {#if !$user}<section class="panel panel--ledger" id="account">
-        <h2 class="card-title">{m.settings_account_section()}</h2>
-        <GuestNotice class="body-text" />
-      </section>{/if}
+  {/if}
+{/snippet}
+
+{#snippet account(detail: boolean)}
+  <section class="panel panel--ledger" id="account">
+    {@render sectionHeading(detail, m.settings_account_section())}
     {#if $user}
-      <!-- Account -->
-      <section class="panel panel--ledger" id="account">
-        <h2 class="card-title">{m.settings_account_section()}</h2>
-        <form onsubmit={saveCallSign} class="settings-form">
-          <label class="field">
-            <span class="label-text">{m.settings_username_label()}</span>
-            <input type="text" value={username} class="input" disabled />
-            <span class="field-hint">{m.settings_username_locked_hint()}</span>
-          </label>
-          <div class="field">
-            <label for="settings-call-sign" class="label-text">{m.settings_call_sign_label()}</label
-            >
-            <div class="settings-input-action">
-              <input
-                id="settings-call-sign"
-                type="text"
-                bind:value={callSign}
-                class="input"
-                placeholder={m.settings_call_sign_placeholder()}
-                maxlength="32"
-              />
-              {#if callSignDirty || callSignSaving || callSignSaved}
-                <SaveButton saving={callSignSaving} saved={callSignSaved} />
-              {/if}
-            </div>
-          </div>
-          {#if callSignError}
-            <ErrorAlert message={callSignError} />
-          {/if}
-        </form>
-
-        <form onsubmit={saveEmail} class="settings-form">
-          <div class="field">
-            <label for="settings-email" class="label-text">{m.settings_email_label()}</label>
-            <div class="settings-input-action">
-              <input id="settings-email" type="email" bind:value={email} class="input" required />
-              {#if emailDirty || emailSaving || emailSaved}
-                <SaveButton saving={emailSaving} saved={emailSaved} />
-              {/if}
-            </div>
-          </div>
-          {#if emailError}
-            <ErrorAlert message={emailError} />
-          {/if}
-        </form>
-
-        <div class="settings-email-verification">
-          <p class={`settings-email-status ${emailVerified ? 'is-verified' : 'is-unverified'}`}>
-            {emailVerified
-              ? m.settings_email_verify_status_verified()
-              : m.settings_email_verify_status_unverified()}
-          </p>
-
-          {#if !emailVerified}
-            <div class="settings-input-action">
-              <button
-                type="button"
-                class="btn-primary settings-btn-compact"
-                onclick={requestEmailVerificationCode}
-                disabled={verificationSendLoading || emailDirty}
-              >
-                {verificationSendLoading
-                  ? m.settings_saving()
-                  : verificationSent
-                    ? m.settings_email_verify_code_sent()
-                    : m.settings_email_verify_send_code()}
-              </button>
-            </div>
-
-            <form
-              onsubmit={submitEmailVerification}
-              class="settings-form settings-verification-form"
-            >
-              <div class="field">
-                <label for="settings-verification-code" class="label-text"
-                  >{m.settings_email_verify_code_label()}</label
-                >
-                <div class="settings-input-action">
-                  <input
-                    id="settings-verification-code"
-                    type="text"
-                    bind:value={verificationCode}
-                    class="input"
-                    placeholder={m.settings_email_verify_code_placeholder()}
-                    inputmode="numeric"
-                    autocomplete="one-time-code"
-                  />
-                  <button
-                    type="submit"
-                    class="btn-primary settings-btn-compact"
-                    disabled={verificationCheckLoading || emailDirty}
-                  >
-                    {verificationCheckLoading
-                      ? m.settings_saving()
-                      : verificationSuccess
-                        ? m.settings_email_verify_verified()
-                        : m.settings_email_verify_confirm()}
-                  </button>
-                </div>
-              </div>
-            </form>
-          {/if}
-
-          {#if verificationSendError}
-            <ErrorAlert message={verificationSendError} />
-          {/if}
-          {#if verificationCheckError}
-            <ErrorAlert message={verificationCheckError} />
-          {/if}
-        </div>
-      </section>
-
-      {#key [username, initialEmail, emailVerified].join('|')}<EmailPreferences />{/key}
-      {#if passwordEnabled === true}
-        {#if PUBLIC_GOOGLE_CLIENT_ID && googleLinked !== null}
-          <SettingsGoogleLink
-            {username}
-            linked={googleLinked}
-            onlinked={() => (googleLinked = true)}
-          />
-        {/if}
-        <SettingsPassword />
-      {:else if passwordEnabled === false}
-        <section class="panel panel--ledger">
-          <h2 class="card-title">{m.settings_password_section()}</h2>
-          <p class="body-text">{m.google_password_notice()}</p>
-        </section>
-      {/if}
-    {/if}
-
-    <details class="settings-advanced">
-      <summary>{m.settings_advanced()}</summary>
-      <form onsubmit={savePage} class="settings-form">
-        <p class="body-text">{m.settings_lesson_preference_hint()}</p>
+      <form onsubmit={saveCallSign} class="settings-form">
         <label class="field">
-          <span class="label-text">{m.settings_current_lesson_label()}</span>
-          <input type="number" bind:value={pageLesson} min="1" max={LESSONS.length} class="input" />
+          <span class="label-text">{m.settings_username_label()}</span>
+          <input type="text" value={username} class="input" disabled />
+          <span class="field-hint">{m.settings_username_locked_hint()}</span>
         </label>
-        {#if pageError}
-          <ErrorAlert message={pageError} />
-        {/if}
-        {#if pageDirty || pageSaving || pageSaved}
-          <div class="settings-action-row">
-            <SaveButton saving={pageSaving} saved={pageSaved} />
+        <div class="field">
+          <label for="settings-call-sign" class="label-text">{m.settings_call_sign_label()}</label>
+          <div class="settings-input-action">
+            <input
+              id="settings-call-sign"
+              type="text"
+              bind:value={callSign}
+              class="input"
+              placeholder={m.settings_call_sign_placeholder()}
+              maxlength="32"
+            />
+            {#if callSignDirty || callSignSaving || callSignSaved}
+              <SaveButton saving={callSignSaving} saved={callSignSaved} />
+            {/if}
           </div>
+        </div>
+        {#if callSignError}
+          <ErrorAlert message={callSignError} />
         {/if}
       </form>
+
+      <form onsubmit={saveEmail} class="settings-form">
+        <div class="field">
+          <label for="settings-email" class="label-text">{m.settings_email_label()}</label>
+          <div class="settings-input-action">
+            <input id="settings-email" type="email" bind:value={email} class="input" required />
+            {#if emailDirty || emailSaving || emailSaved}
+              <SaveButton saving={emailSaving} saved={emailSaved} />
+            {/if}
+          </div>
+        </div>
+        {#if emailError}
+          <ErrorAlert message={emailError} />
+        {/if}
+      </form>
+
+      <div class="settings-email-verification">
+        <p class={`settings-email-status ${emailVerified ? 'is-verified' : 'is-unverified'}`}>
+          {emailVerified
+            ? m.settings_email_verify_status_verified()
+            : m.settings_email_verify_status_unverified()}
+        </p>
+
+        {#if !emailVerified}
+          <div class="settings-input-action">
+            <button
+              type="button"
+              class="btn-primary settings-btn-compact"
+              onclick={requestEmailVerificationCode}
+              disabled={verificationSendLoading || emailDirty}
+            >
+              {verificationSendLoading
+                ? m.settings_saving()
+                : verificationSent
+                  ? m.settings_email_verify_code_sent()
+                  : m.settings_email_verify_send_code()}
+            </button>
+          </div>
+
+          <form onsubmit={submitEmailVerification} class="settings-form settings-verification-form">
+            <div class="field">
+              <label for="settings-verification-code" class="label-text"
+                >{m.settings_email_verify_code_label()}</label
+              >
+              <div class="settings-input-action">
+                <input
+                  id="settings-verification-code"
+                  type="text"
+                  bind:value={verificationCode}
+                  class="input"
+                  placeholder={m.settings_email_verify_code_placeholder()}
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                />
+                <button
+                  type="submit"
+                  class="btn-primary settings-btn-compact"
+                  disabled={verificationCheckLoading || emailDirty}
+                >
+                  {verificationCheckLoading
+                    ? m.settings_saving()
+                    : verificationSuccess
+                      ? m.settings_email_verify_verified()
+                      : m.settings_email_verify_confirm()}
+                </button>
+              </div>
+            </div>
+          </form>
+        {/if}
+
+        {#if verificationSendError}
+          <ErrorAlert message={verificationSendError} />
+        {/if}
+        {#if verificationCheckError}
+          <ErrorAlert message={verificationCheckError} />
+        {/if}
+      </div>
+    {:else}
+      <GuestNotice class="body-text" />
+    {/if}
+  </section>
+
+  {#if $user}
+    {#key [username, initialEmail, emailVerified].join('|')}<EmailPreferences />{/key}
+    {#if passwordEnabled === true}
+      {#if PUBLIC_GOOGLE_CLIENT_ID && googleLinked !== null}
+        <SettingsGoogleLink
+          {username}
+          linked={googleLinked}
+          onlinked={() => (googleLinked = true)}
+        />
+      {/if}
+      <SettingsPassword />
+    {:else if passwordEnabled === false}
+      <section class="panel panel--ledger">
+        <h2 class="card-title">{m.settings_password_section()}</h2>
+        <p class="body-text">{m.google_password_notice()}</p>
+      </section>
+    {/if}
+  {/if}
+{/snippet}
+
+{#snippet data(detail: boolean)}
+  {#if $user && passwordEnabled !== null}
+    {#key accountIdentity}
+      <SettingsAccountData
+        {detail}
+        {passwordEnabled}
+        onexport={downloadAccountData}
+        onreset={resetProgress}
+        ondelete={removeAccount}
+      />
+    {/key}
+  {/if}
+{/snippet}
+
+{#snippet lessonPreferenceForm()}
+  <form onsubmit={savePage} class="settings-form">
+    <p class="body-text">{m.settings_lesson_preference_hint()}</p>
+    <label class="field">
+      <span class="label-text">{m.settings_current_lesson_label()}</span>
+      <input type="number" bind:value={pageLesson} min="1" max={LESSONS.length} class="input" />
+    </label>
+    {#if pageError}
+      <ErrorAlert message={pageError} />
+    {/if}
+    {#if pageDirty || pageSaving || pageSaved}
+      <div class="settings-action-row">
+        <SaveButton saving={pageSaving} saved={pageSaved} />
+      </div>
+    {/if}
+  </form>
+{/snippet}
+
+{#snippet advanced(detail: boolean)}
+  {#if detail}
+    <section id="advanced-preferences" class="panel panel--ledger">
+      <h1 class="page-title">{m.settings_advanced()}</h1>
+      {@render lessonPreferenceForm()}
+    </section>
+  {:else}
+    <details class="settings-advanced" id="advanced-preferences">
+      <summary>{m.settings_advanced()}</summary>
+      {@render lessonPreferenceForm()}
     </details>
   {/if}
-</div>
+{/snippet}
+
+<SettingsLayout
+  loaded={!loading && !loadError}
+  accountData={!loading && !loadError && !!$user && passwordEnabled !== null}
+  {preferences}
+  {sound}
+  {sync}
+  {evidence}
+  {account}
+  {data}
+  {advanced}
+  {status}
+/>
 
 <style>
   .evidence-import-actions {
@@ -919,46 +1024,10 @@
     padding-block: var(--space-2);
   }
 
-  .settings-page {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-  }
-  /* The flex gap owns section rhythm; the width helper must not add a second gap. */
-  .settings-page > :global(*) {
-    margin-block: 0;
-  }
   .settings-advanced summary {
     cursor: pointer;
     min-height: var(--answer-target-min);
     padding-block: var(--space-3);
-  }
-  .settings-page :global(section[id]) {
-    scroll-margin-top: 5rem;
-  }
-
-  .settings-page > .settings-sections {
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-  .settings-sections a {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--answer-target-min);
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    background: var(--bg-inset);
-    color: var(--text-primary);
-    font-size: var(--text-sm);
-  }
-  .settings-sections a:hover {
-    color: var(--accent);
-  }
-
-  .settings-heading {
-    margin-bottom: 0;
   }
   .settings-form {
     display: flex;

@@ -90,6 +90,7 @@ func (h TrainingHandler) GetChanges(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeDatabaseFailure, "Failed to download training changes"))
 		return
 	}
+	c.Header(common.TrainingEpochHeader, strconv.Itoa(state.FeedEpoch))
 	if retired {
 		c.JSON(http.StatusGone, common.NewErrorResponse(common.ErrorCodeTrainingCursorResetRequired, "Training cursor has expired; restart download"))
 		return
