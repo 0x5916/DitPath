@@ -33,8 +33,8 @@ const listeners = new SvelteSet<(state: TrainingSyncSnapshot) => void>();
 let mounts = 0;
 let disposeRuntime: (() => void) | null = null;
 let controller = new AbortController();
-let inFlight: { owner: string; generation: number; promise: Promise<void> } | null = null;
-let rerun = false;
+let inFlight: { owner: string; generation: number; promise: Promise<void>; rerun: boolean } | null =
+  null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let failures = 0;
 let mounted = false;
@@ -65,20 +65,24 @@ export function subscribeTrainingSync(listener: (state: TrainingSyncSnapshot) =>
     listeners.delete(listener);
   };
 }
-async function refreshStatus(owner: string, generation: number) {
+async function readStatus(owner: string) {
   const db = await openTrainingDb();
   try {
     const repo = createTrainingSyncRepository(db, owner);
     const [pending, rejected] = await Promise.all([repo.countPending(), repo.getFailures()]);
-    if (mounted && getAuthSession().generation === generation && getTrainingOwner() === owner)
-      publish({
-        pending,
-        error: rejected[0]?.permanentError ?? trainingSyncState.error,
-        ...(pending > 0 ? { synced: false } : {})
-      });
+    return { pending, error: rejected[0]?.permanentError ?? null };
   } finally {
     db.close();
   }
+}
+async function refreshStatus(owner: string, generation: number) {
+  const { pending, error } = await readStatus(owner);
+  if (mounted && getAuthSession().generation === generation && getTrainingOwner() === owner)
+    publish({
+      pending,
+      error: error ?? trainingSyncState.error,
+      ...(pending > 0 ? { synced: false } : {})
+    });
 }
 
 function scheduleRetry(error: unknown) {
@@ -100,17 +104,16 @@ export async function syncTrainingNow(): Promise<void> {
   const session = getAuthSession();
   const owner = getTrainingOwner();
   if (inFlight?.generation === session.generation && inFlight.owner === owner) {
-    rerun = true;
+    inFlight.rerun = true;
     return inFlight.promise;
   }
   const signal = controller.signal;
   const current = () =>
     mounted && !signal.aborted && isAuthSessionCurrent(session) && getTrainingOwner() === owner;
-  const entry = { owner, generation: session.generation, promise: Promise.resolve() };
-  entry.promise = (async () => {
-    clearTimeout(timer);
-    publish({ syncing: true });
-    let failed = false;
+  const entry = { owner, generation: session.generation, promise: Promise.resolve(), rerun: false };
+  entry.promise = Promise.resolve().then(async () => {
+    let error: string | null = null;
+    let backoff: (() => void) | undefined;
     try {
       const run = async () => {
         if (!current()) return;
@@ -135,40 +138,35 @@ export async function syncTrainingNow(): Promise<void> {
       if (navigator.locks?.request)
         await navigator.locks.request(`ditpath:training:${owner}`, { signal }, run);
       else await run();
-      if (current()) {
-        failures = 0;
-        publish({ error: null });
-      }
-    } catch (error) {
-      if (current()) {
-        failed = true;
-        publish({
-          error: error instanceof TrainingSyncError ? error.code : 'TRAINING_SYNC_FAILED',
-          synced: false
-        });
-        if (!(error instanceof TrainingSyncError && error.permanent)) scheduleRetry(error);
-      }
-    } finally {
-      if (current()) {
-        publish({ syncing: false });
-        await refreshStatus(owner, session.generation).catch(() => {
-          if (current()) publish({ error: 'TRAINING_STORAGE_FAILED' });
-        });
-        if (current() && !failed && trainingSyncState.pending === 0 && !trainingSyncState.error)
-          publish({ synced: true });
-      }
-      if (inFlight === entry) {
-        inFlight = null;
-        if (rerun && !failed && current()) {
-          rerun = false;
-          queueMicrotask(() => {
-            void syncTrainingNow();
-          });
-        }
+      if (current()) failures = 0;
+    } catch (cause) {
+      error = cause instanceof TrainingSyncError ? cause.code : 'TRAINING_SYNC_FAILED';
+      if (!(cause instanceof TrainingSyncError && cause.permanent))
+        backoff = () => scheduleRetry(cause);
+    }
+
+    const syncSucceeded = error === null;
+    let pending = trainingSyncState.pending;
+    if (current()) {
+      try {
+        const status = await readStatus(owner);
+        pending = status.pending;
+        error = status.error ?? error;
+      } catch {
+        error = 'TRAINING_STORAGE_FAILED';
       }
     }
-  })();
+    if (inFlight !== entry) return;
+    inFlight = null;
+    if (!current()) return;
+    backoff?.();
+    // An idle subscriber can retry immediately, including from inside publish().
+    publish({ pending, error, synced: pending === 0 && error === null, syncing: false });
+    if (entry.rerun && syncSucceeded && !inFlight && current()) void syncTrainingNow();
+  });
   inFlight = entry;
+  clearTimeout(timer);
+  publish({ syncing: true });
   return entry.promise;
 }
 
@@ -213,10 +211,10 @@ export function initializeTrainingSync(): () => void {
       if (session.generation === authGeneration && owner === trainingSyncState.owner) return;
       authGeneration = session.generation;
       controller.abort();
+      inFlight = null;
       controller = new AbortController();
       clearTimeout(timer);
       failures = 0;
-      rerun = false;
       publish({
         owner,
         pending: 0,

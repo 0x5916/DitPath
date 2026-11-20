@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { RequestTimeoutError } from './request-timeout';
 
 const auth = vi.hoisted(() => ({
   id: '11111111-1111-4111-8111-111111111111' as string | null,
@@ -51,18 +50,64 @@ afterEach(() => {
 describe('training sync browser lifecycle', () => {
   it('leaves timeout recovery visible and allows manual retry before automatic retry', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { RequestTimeoutError, REQUEST_TIMEOUT_MS } = await import('./request-timeout');
     auth.request.mockRejectedValueOnce(new RequestTimeoutError());
+    const idleError = Promise.withResolvers<void>();
+    const unsubscribe = runtime.subscribeTrainingSync(({ syncing, error }) => {
+      if (!syncing && error === 'TRAINING_SYNC_FAILED') idleError.resolve();
+    });
     dispose = runtime.initializeTrainingSync();
-    await vi.waitFor(() => expect(runtime.trainingSyncState.error).toBe('TRAINING_SYNC_FAILED'));
-    expect(runtime.trainingSyncState.syncing).toBe(false);
-    await vi.advanceTimersByTimeAsync(14_000);
+    await idleError.promise;
+    unsubscribe();
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1);
+    expect(runtime.trainingSyncState).toMatchObject({
+      syncing: false,
+      error: 'TRAINING_SYNC_FAILED'
+    });
     expect(auth.request).toHaveBeenCalledOnce();
     await runtime.syncTrainingNow();
     expect(runtime.trainingSyncState.synced).toBe(true);
     expect(runtime.trainingSyncState.error).toBeNull();
-    await vi.advanceTimersByTimeAsync(16_000);
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
     expect(auth.request).toHaveBeenCalledTimes(2);
   });
+
+  it('awaits a new request when a subscriber retries on the first idle error', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { RequestTimeoutError, REQUEST_TIMEOUT_MS } = await import('./request-timeout');
+    const secondRequest = Promise.withResolvers<void>();
+    const response = Promise.withResolvers<Response>();
+    auth.request.mockRejectedValueOnce(new RequestTimeoutError()).mockImplementationOnce(() => {
+      secondRequest.resolve();
+      return response.promise;
+    });
+    const retry = Promise.withResolvers<void>();
+    const unsubscribe = runtime.subscribeTrainingSync(({ syncing, error }) => {
+      if (syncing || error !== 'TRAINING_SYNC_FAILED') return;
+      unsubscribe();
+      retry.resolve(runtime.syncTrainingNow());
+    });
+    dispose = runtime.initializeTrainingSync();
+
+    let settled = false;
+    const completed = retry.promise.then(() => {
+      settled = true;
+    });
+    expect(
+      await Promise.race([
+        secondRequest.promise.then(() => 'requested'),
+        completed.then(() => 'completed')
+      ])
+    ).toBe('requested');
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    expect(settled).toBe(false);
+    expect(runtime.trainingSyncState.syncing).toBe(true);
+    response.resolve(Response.json({ changes: [], has_more: false, next_cursor: 'retried' }));
+    await completed;
+    expect(runtime.trainingSyncState).toMatchObject({ syncing: false, synced: true, error: null });
+    expect(auth.request).toHaveBeenCalledTimes(2);
+  });
+
   it('creates no network work before mount and disposes wake listeners', async () => {
     expect(auth.request).not.toHaveBeenCalled();
     dispose = runtime.initializeTrainingSync();
