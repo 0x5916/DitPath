@@ -45,3 +45,31 @@ func TestLinkChallengeScopeAndLifetime(t *testing.T) {
 		t.Fatal("accepted a bearer as a link proof")
 	}
 }
+
+func TestDeletionProofIsBoundToPurposeAccountAndExpiration(t *testing.T) {
+	key, owner, now := []byte("account-deletion-test-key"), uuid.New(), time.Now().Truncate(time.Second)
+	proof, err := NewDeletionChallenge(key, owner, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expires, err := ValidateDeletionChallenge(key, proof, owner, now)
+	if err != nil || !expires.Equal(now.Add(5*time.Minute)) {
+		t.Fatalf("unexpected expiry: %v %v", expires, err)
+	}
+	if _, err := ValidateDeletionChallenge(key, proof, uuid.New(), now); err == nil {
+		t.Fatal("proof authorized a different account")
+	}
+	if _, err := ValidateDeletionChallenge(key, proof, owner, expires); err == nil {
+		t.Fatal("expired proof authorized deletion")
+	}
+	if _, err := ValidateLinkChallenge(key, proof, owner, now); err == nil {
+		t.Fatal("deletion proof authorized identity linking")
+	}
+	link, err := NewLinkChallenge(key, owner, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ValidateDeletionChallenge(key, link, owner, now); err == nil {
+		t.Fatal("link proof authorized deletion")
+	}
+}

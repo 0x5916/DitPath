@@ -17,23 +17,28 @@ const AuthJSONMaxBytes int64 = 16 * 1024
 var errAuthBodyTooLarge = errors.New("authentication request body exceeds limit")
 
 func bindAuthJSON(c *gin.Context, input any) error {
-	if c.Request.ContentLength > AuthJSONMaxBytes {
-		return errAuthBodyTooLarge
+	body, err := readAuthBody(c)
+	if err != nil {
+		return err
 	}
-	if c.Request.Body != nil {
-		// Gin decodes just the first value. Read the complete bounded body so an
-		// oversized suffix cannot bypass the limit before account side effects.
-		body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, AuthJSONMaxBytes))
-		if err != nil {
-			var limitErr *http.MaxBytesError
-			if errors.As(err, &limitErr) {
-				return errAuthBodyTooLarge
-			}
-			return err
-		}
-		c.Request.Body = io.NopCloser(bytes.NewReader(body))
-	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
 	return c.ShouldBindJSON(input)
+}
+
+func readAuthBody(c *gin.Context) ([]byte, error) {
+	if c.Request.ContentLength > AuthJSONMaxBytes {
+		return nil, errAuthBodyTooLarge
+	}
+	if c.Request.Body == nil {
+		return nil, io.EOF
+	}
+	// Bound the complete body, including any suffix after the first JSON value.
+	body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, AuthJSONMaxBytes))
+	var limitErr *http.MaxBytesError
+	if errors.As(err, &limitErr) {
+		return nil, errAuthBodyTooLarge
+	}
+	return body, err
 }
 
 func respondAuthBindingError(c *gin.Context, err error) {

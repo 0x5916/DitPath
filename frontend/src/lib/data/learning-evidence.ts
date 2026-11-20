@@ -365,7 +365,8 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         const assignment = await reqToPromise<Meta | undefined>(
           s.meta.get(['unclaimed', 'import-owner'])
         );
-        if (assignment && assignment.value !== owner) return { count: 0, blocked: true };
+        if (assignment && assignment.value !== owner.split(':', 2).join(':'))
+          return { count: 0, blocked: true };
         let count = 0;
         const guest = await reqToPromise<Row[]>(s.records.index('owner').getAll('unclaimed'));
         for (const row of guest)
@@ -388,7 +389,7 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
         const assignment = await reqToPromise<Meta | undefined>(
           s.meta.get(['unclaimed', 'import-owner'])
         );
-        if (assignment && assignment.value !== owner)
+        if (assignment && assignment.value !== owner.split(':', 2).join(':'))
           throw new Error('Guest evidence already assigned');
         const guest = (
           await reqToPromise<Row[]>(s.records.index('owner').getAll('unclaimed'))
@@ -414,12 +415,22 @@ export function createLearningEvidenceRepository(db: IDBDatabase, owner: string)
             await reqToPromise(s.outbox.add(row));
           }
           await reqToPromise(
-            s.meta.add({ owner: 'unclaimed', key: `import:${source.id}`, value: owner })
+            s.meta.add({
+              owner: 'unclaimed',
+              key: `import:${source.id}`,
+              value: owner.split(':', 2).join(':')
+            })
           );
           imported++;
         }
         if (imported)
-          await reqToPromise(s.meta.put({ owner: 'unclaimed', key: 'import-owner', value: owner }));
+          await reqToPromise(
+            s.meta.put({
+              owner: 'unclaimed',
+              key: 'import-owner',
+              value: owner.split(':', 2).join(':')
+            })
+          );
         await reqToPromise(s.meta.put({ owner, key: 'order', value: order }));
         current();
         return imported;

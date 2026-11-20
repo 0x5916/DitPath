@@ -1,3 +1,4 @@
+import { getTrainingOwner, trainingEpoch } from './training-owner';
 import { assertAuthSessionCurrent, getAuthAccountId, getAuthSession } from '#lib/auth.ts';
 import {
   getSettings,
@@ -73,7 +74,7 @@ function writeLocalUpdatedAt(storageKey: string, isoTimestamp: string): void {
 }
 
 export function touchLocalPageSettingsUpdatedAt(isoTimestamp: string = nowIso()): void {
-  writeLocalUpdatedAt(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY, isoTimestamp);
+  writeLocalUpdatedAt(pageStorageKey(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY), isoTimestamp);
 }
 
 /**
@@ -91,6 +92,11 @@ export function applyPageLanguagePreference(
   touchLocalPageSettingsUpdatedAt();
 }
 
+function pageStorageKey(key: string) {
+  const owner = getTrainingOwner();
+  return trainingEpoch(owner) > 1 ? `${key}.${owner}` : key;
+}
+
 function touchLocalCwSettingsUpdatedAt(isoTimestamp: string = nowIso()): void {
   writeLocalUpdatedAt(accountScopedStorageKey(CW_SETTINGS_UPDATED_AT_STORAGE_KEY), isoTimestamp);
 }
@@ -98,7 +104,7 @@ function touchLocalCwSettingsUpdatedAt(isoTimestamp: string = nowIso()): void {
 /** Read the locally stored lesson number, clamped to the available lessons. */
 export function readStoredLesson(maxLesson: number): number {
   if (typeof localStorage === 'undefined') return 1;
-  const storedLessonString = localStorage.getItem(CW_STORAGE_KEYS.lesson);
+  const storedLessonString = localStorage.getItem(pageStorageKey(CW_STORAGE_KEYS.lesson));
   const parsedLesson = Number.parseInt(storedLessonString ?? '1', 10);
   return normalizeLesson(parsedLesson, maxLesson);
 }
@@ -180,7 +186,7 @@ export function applyClientPageSettings(
   const applyLanguage = options.applyLanguage ?? true;
 
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(CW_STORAGE_KEYS.lesson, String(lesson));
+    localStorage.setItem(pageStorageKey(CW_STORAGE_KEYS.lesson), String(lesson));
     if (applyLanguage) {
       localStorage.setItem(LOCALE_PREFERENCE_STORAGE_KEY, language);
     }
@@ -210,6 +216,7 @@ export async function reconcileSettingsWithServer(args: {
   if (typeof localStorage === 'undefined') return;
 
   const session = getAuthSession();
+  const owner = getTrainingOwner();
   const settings = await getSettings();
   assertAuthSessionCurrent(session);
 
@@ -235,6 +242,7 @@ export async function reconcileSettingsWithServer(args: {
     }
   }
 
+  if (owner !== getTrainingOwner()) return;
   const localPage = readClientPageSettings(
     readStoredLesson(args.maxLesson),
     args.maxLesson,
@@ -242,7 +250,9 @@ export async function reconcileSettingsWithServer(args: {
   );
 
   const serverPageUpdatedAt = parseUpdatedAt(settings.page_settings.updated_at);
-  const localPageUpdatedAt = readLocalUpdatedAt(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY);
+  const localPageUpdatedAt = readLocalUpdatedAt(
+    pageStorageKey(PAGE_SETTINGS_UPDATED_AT_STORAGE_KEY)
+  );
 
   if (localPageUpdatedAt > serverPageUpdatedAt) {
     await savePageSettings(localPage);

@@ -109,6 +109,9 @@ func (h TrainingHandler) PostSessionsBatch(c *gin.Context) {
 			if err != nil {
 				return err
 			}
+			if err := common.CheckTrainingEpoch(c, state.FeedEpoch); err != nil {
+				return err
+			}
 			for _, id := range order {
 				if _, bad := rejected[id]; bad {
 					continue
@@ -126,6 +129,9 @@ func (h TrainingHandler) PostSessionsBatch(c *gin.Context) {
 			return nil
 		})
 		if err != nil {
+			if common.RespondStaleTrainingEpoch(c, err) {
+				return
+			}
 			slog.Error("Failed to store training sessions", "user_id", user.ID, "err", err)
 			c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeTrainingIngestFailed, "Failed to store training sessions"))
 			return

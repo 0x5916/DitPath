@@ -83,6 +83,9 @@ func (h ProgressHandler) AddProgress(c *gin.Context) {
 		if err != nil {
 			return err
 		}
+		if err := common.CheckTrainingEpoch(c, state.FeedEpoch); err != nil {
+			return err
+		}
 		if err := tx.Create(&progress).Error; err != nil {
 			return err
 		}
@@ -92,6 +95,9 @@ func (h ProgressHandler) AddProgress(c *gin.Context) {
 		}
 		return training.MirrorLegacyProgress(tx, state, progress)
 	}); err != nil {
+		if common.RespondStaleTrainingEpoch(c, err) {
+			return
+		}
 		slog.Error("Failed to create progress", "user_id", user.ID, "lesson", progress.Lesson, "err", err)
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeProgressCreateFailed, "Failed to create progress"))
 		return

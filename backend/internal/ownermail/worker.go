@@ -103,24 +103,30 @@ func (w Worker) ProcessOne(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
-		var current models.OwnerRecipient
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("message_id=? AND user_id=? AND attempts=? AND status='sending'", r.MessageID, r.UserID, r.Attempts).Take(&current).Error
+		var msg models.OwnerMessage
+		err := tx.Take(&msg, "id=?", r.MessageID).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		var msg models.OwnerMessage
-		if err := tx.Take(&msg, "id=?", r.MessageID).Error; err != nil {
+		// Account erasure locks the user before deleting queued recipients.
+		// Take account and consent locks in that same order before dispatch.
+		consent, reason, err := w.eligible(tx, msg, r)
+		if err != nil {
+			return err
+		}
+		var current models.OwnerRecipient
+		err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("message_id=? AND user_id=? AND attempts=? AND status='sending'", r.MessageID, r.UserID, r.Attempts).Take(&current).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
 		finish := func(status, reason string) error {
 			return tx.Model(&r).Updates(map[string]any{"status": status, "reason": reason}).Error
-		}
-		consent, reason, err := w.eligible(tx, msg, r)
-		if err != nil {
-			return err
 		}
 		if reason != "" {
 			if ambiguous {

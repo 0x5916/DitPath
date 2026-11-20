@@ -1,6 +1,8 @@
+import { getTrainingOwner as owner, subscribeTrainingEpoch } from './training-owner';
+import { requestTrainingData } from './account-data';
 import { stopEvidenceAudio } from './audio/evidence-engine';
 import { SvelteSet } from 'svelte/reactivity';
-import { apiFetch, getAuthAccountId, getAuthSession, isAuthSessionCurrent, user } from './auth';
+import { getAuthSession, isAuthSessionCurrent, user } from './auth';
 import { createLearningEvidenceRepository, openLearningEvidenceDb } from './data/learning-evidence';
 import { subscribeTrainingDataChanges } from './data/training-data-events';
 import { retainCaptureLease, recoverInterruptedEvidence } from './learning-evidence/recovery';
@@ -53,7 +55,6 @@ export function subscribeLearningSync(fn: (s: LearningSyncSnapshot) => void) {
     listeners.delete(fn);
   };
 }
-const owner = () => (getAuthAccountId() ? `account:${getAuthAccountId()}` : 'unclaimed');
 let mounted = false,
   running: Promise<void> | null = null,
   rerun = false,
@@ -96,7 +97,7 @@ export async function syncLearningNow(): Promise<void> {
         synchronizeLearningEvidence({
           repository,
           isCurrent: active,
-          request: (path, init) => apiFetch(path, { ...init, signal })
+          request: (path, init) => requestTrainingData(expected, path, { ...init, signal })
         });
       // One checkpoint writer per account across tabs; the protocol remains idempotent
       // on browsers without Web Locks.
@@ -174,7 +175,7 @@ export function initializeLearningSync(): () => void {
   const requestSync = () => {
     if (!startupRecoveryPending) void syncLearningNow();
   };
-  const auth = user.subscribe(() => {
+  const authChanged = () => {
     const expected = owner();
     const currentGeneration = getAuthSession().generation;
     if (expected === learningSyncState.owner && generation === currentGeneration) return;
@@ -195,7 +196,9 @@ export function initializeLearningSync(): () => void {
       version: learningSyncState.version + 1
     });
     requestSync();
-  });
+  };
+  const auth = user.subscribe(authChanged);
+  const unsubscribeEpoch = subscribeTrainingEpoch(authChanged);
   const channel =
     typeof BroadcastChannel === 'undefined'
       ? null
@@ -237,6 +240,7 @@ export function initializeLearningSync(): () => void {
     abort.abort();
     clearTimeout(retry);
     auth();
+    unsubscribeEpoch();
     data();
     channel?.close();
     window.removeEventListener('offline', offline);
