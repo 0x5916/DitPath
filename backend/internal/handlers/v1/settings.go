@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"morsewell/internal/common"
 	"morsewell/internal/models"
+	"morsewell/internal/training"
 	"morsewell/internal/utils"
 	"net/http"
 
@@ -20,7 +21,10 @@ func (h SettingsHandler) GetAllSettings(c *gin.Context) {
 	user := utils.MustGetUser(c)
 
 	response := struct {
-		CWSettings   common.CWSettingsResponse   `json:"cw_settings"`
+		CWSettings struct {
+			common.CWSettingsResponse
+			TargetDailyMinutes *int `json:"target_daily_minutes,omitempty"`
+		} `json:"cw_settings"`
 		PageSettings common.PageSettingsResponse `json:"page_settings"`
 	}{}
 
@@ -38,7 +42,8 @@ func (h SettingsHandler) GetAllSettings(c *gin.Context) {
 	if user.PageSettings != nil {
 		pageSettings = *user.PageSettings
 	}
-	response.CWSettings = common.CWSettingsResponse{
+	response.CWSettings.TargetDailyMinutes = cwSettings.TargetDailyMinutes
+	response.CWSettings.CWSettingsResponse = common.CWSettingsResponse{
 		CharWPM:    cwSettings.CharWPM,
 		EffWPM:     cwSettings.EffWPM,
 		Freq:       cwSettings.Freq,
@@ -125,8 +130,20 @@ func (h SettingsHandler) UpdatePageSettings(c *gin.Context) {
 
 	user := utils.MustGetUser(c)
 	settings := models.PageSettings{UserID: user.ID}
-
-	if err := h.DB.Where(&settings).Assign(&input).FirstOrCreate(&settings).Error; err != nil {
+	err := h.DB.WithContext(c.Request.Context()).Transaction(func(tx *gorm.DB) error {
+		state, err := training.LockHistoryAccount(tx, user.ID)
+		if err != nil {
+			return err
+		}
+		if err := common.CheckTrainingEpoch(c, state.FeedEpoch); err != nil {
+			return err
+		}
+		return tx.Where(&settings).Assign(&input).FirstOrCreate(&settings).Error
+	})
+	if common.RespondStaleTrainingEpoch(c, err) {
+		return
+	}
+	if err != nil {
 		slog.Error("Failed to update settings", "user_id", user.ID, "err", err)
 		c.JSON(http.StatusInternalServerError, common.NewErrorResponse(common.ErrorCodeSettingsUpdateFailed, "Failed to update settings"))
 		return

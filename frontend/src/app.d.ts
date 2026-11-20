@@ -5,7 +5,10 @@ declare global {
     // interface Error {}
     // interface Locals {}
     // interface PageData {}
-    // interface PageState {}
+    interface PageState {
+      settingsDirectory?: { section: string; scrollY: number };
+      accountDeleted?: 'done' | 'cleanup-failed';
+    }
     // interface Platform {}
   }
 }

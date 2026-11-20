@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/netip"
+	"strings"
 	"time"
 
 	"morsewell/internal/authlimits"
@@ -43,9 +44,11 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	auth.POST("/login", middlewares.AuthRequestLimit(authlimits.Login, limiter, proxies), authHandler.Login)
 	auth.POST("/logout", authHandler.Logout)
 	auth.POST("/refresh", authHandler.Refresh)
-	registerGoogleAuthRoutes(auth, db, work, limiter, proxies, func(ctx context.Context, credential, nonce string) (googleauth.Identity, error) {
+	verifyGoogle := func(ctx context.Context, credential, nonce string) (googleauth.Identity, error) {
 		return googleauth.DefaultVerifier().Verify(ctx, configs.App.GoogleClientID, credential, nonce)
-	})
+	}
+	registerGoogleAuthRoutes(auth, db, work, limiter, proxies, verifyGoogle)
+	registerAccountDeletionRoutes(v1, db, work, limiter, proxies, verifyGoogle)
 
 	protected := v1.Group("/")
 	protected.Use(middlewares.AuthRequired())
@@ -92,6 +95,7 @@ func routerV1Setup(engine *gin.Engine, db *gorm.DB, work *utils.PasswordWork, li
 	user.PUT("/password", userHandler.UpdatePassword)
 
 	progressHandler := handlers.ProgressHandler{DB: db}
+	user.DELETE("/progress", progressHandler.Reset)
 	cwProgress := protected.Group("/cw")
 	cwProgress.GET("/progress", progressHandler.GetAllProgress)
 	cwProgress.PUT("/progress", progressHandler.AddProgress)
@@ -164,8 +168,14 @@ func CORSSetup(engine *gin.Engine) {
 		c.Header("Access-Control-Allow-Origin", origin)
 		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
-		c.Header("Access-Control-Expose-Headers", "Retry-After")
+		allow, expose := "Origin, Content-Type, Authorization", "Retry-After"
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, "/v1/training/") || strings.HasPrefix(path, "/v2/training/") || path == "/v1/cw/progress" || path == "/v1/user/progress" || path == "/v1/settings/page" {
+			allow += ", " + common.TrainingEpochHeader
+			expose += ", " + common.TrainingEpochHeader
+		}
+		c.Header("Access-Control-Allow-Headers", allow)
+		c.Header("Access-Control-Expose-Headers", expose)
 		c.Header("Vary", "Origin")
 
 		if c.Request.Method == http.MethodOptions {

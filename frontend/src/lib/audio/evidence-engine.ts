@@ -1,5 +1,5 @@
 import { createWebAudioEngine, type AudioEngine, type AudioEngineEvent } from './engine';
-import { getAuthAccountId } from '../auth';
+import { getTrainingOwner } from '../training-owner';
 import {
   createLearningEvidenceRepository,
   openLearningEvidenceDb,
@@ -48,9 +48,7 @@ export async function stopEvidenceAudio() {
 /** Every potential sound is guarded durably before it can become audible. */
 export function createEvidenceAudioEngine(options: Options): EvidenceAudioEngine {
   const base = options.base ?? createWebAudioEngine();
-  const currentOwner =
-    options.currentOwner ??
-    (() => (getAuthAccountId() ? `account:${getAuthAccountId()}` : 'unclaimed'));
+  const currentOwner = options.currentOwner ?? getTrainingOwner;
   const clock = options.clock ?? anchoredClock();
   const listeners = new Set<(event: AudioEngineEvent) => void>();
   const presentations = new Map<string, EvidencePresentation>();

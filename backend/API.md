@@ -51,6 +51,14 @@ Repeating a valid link to the same Google identity succeeds with 204. A Google i
 
 Disabled configuration returns `503 GOOGLE_SIGN_IN_DISABLED`; Origin/header protection returns `403 GOOGLE_REQUEST_REJECTED`; unsupported media types return `415 GOOGLE_JSON_REQUIRED`; invalid credentials return `401 GOOGLE_CREDENTIAL_INVALID`. Verification/key availability refusals return `503 GOOGLE_SIGN_IN_UNAVAILABLE` with `Retry-After: 1`. Existing body, quota, database, and token error envelopes remain. This reference defines precedence, identity constraints, trust policy, and acceptance requirements; [backend setup](README.md#google-sign-in) owns configuration.
 
+### Account deletion
+
+`DELETE /v1/user/me` requires a bearer token and fresh proof for the same account. Password users send a JSON object with `current_password`. A wrong or concurrently changed password returns `401 INVALID_CREDENTIALS`.
+
+Password-enabled accounts require their current password even when Google is linked. For a Google-only account, first send `{}` to `POST /v1/user/deletion-challenge` with the bearer token. Supply the returned `nonce` to the Google account chooser, then send the original `challenge` and Google `credential` to the deletion endpoint. Both requests require the Google origin, JSON and header protections described above and count toward the login quota. The five-minute challenge binds the operation to the authenticated account. The server matches the signed Google subject to the account’s active Google identity. An invalid, expired or mismatched proof returns `401 GOOGLE_CREDENTIAL_INVALID`. Password deletion also consumes a login admission and uses the shared password-work pool.
+
+Success returns `204` after a single transaction permanently deletes the account, learning records, settings, sign-in methods, tokens, verification records, email consent and queued or historical mail records associated with that account. Deleting an authored forum thread removes its replies. Authored replies in other threads are also erased. Subsequent authenticated requests for the deleted account fail, including refresh attempts. An unsubmitted mail review containing erased personal data must be generated again. See the [deletion handler](internal/handlers/v1/account_deletion.go) and [route tests](internal/server/account_deletion_test.go).
+
 ### Authentication resource admission
 
 Public login and registration use the approved password work and auth throttling policy. A source may receive 10 login admissions and 3 registration admissions in a rolling 60 seconds; both endpoints also share 60 admissions per process in that interval. The [public admission middleware](internal/middlewares/auth_rate_limit.go) resolves the source and applies the [request limiter](internal/authlimits/limiter.go) before JSON validation or account lookup. Every admission counts, including malformed bodies, successful and failed authentication, conflicts, internal failures, and a later password-capacity refusal. Source-resolution failures and request quota/store denials consume no admission; success and cancellation after admission do not refund quota. An admission exactly 60 seconds old has expired.
@@ -166,6 +174,14 @@ The [frontend synchronization engine](../frontend/src/lib/training-sync-engine.t
 The separate learning-evidence contract, approved 27 October 2026, accepts schema-1 coaching/screening plans, raw observations, exposure guards/closures, and terminal manifests. Its account-scoped immutable ledger and signed change feed are separate from existing training history. Mixed-check plans return `FEATURE_NOT_ENABLED`; server milestones and review-ladder projection remain gated. No new record appears in the old change feed, snapshot, or guided/practice counts. The current frontend coaching/screening pilot remains device-only until prospective capture and its new transport are integrated.
 
 The approved history specification retains the V2 retirement gate: supported consumers must migrate and the compatibility window/release must be approved before removing the three aliases. Existing V1 settings writers preserve the stored training daily goal when omitted.
+
+## Account export and progress reset
+
+Signed-in Settings exports a versioned JSON file using the profile, combined settings, email preferences, training snapshot, and both paginated change feeds. The history feed includes mirrored legacy progress. The browser includes learning records saved only on this device for the same account. Combined settings include `cw_settings.target_daily_minutes` when a daily goal is configured. See the [export implementation](../frontend/src/lib/data/account-export.ts).
+
+`DELETE /v1/user/progress` resets the authenticated learner to lesson 1. The [reset transaction](internal/handlers/v1/reset_progress.go) removes legacy progress, practice and lesson history, evidence, projections, and both change feeds. It preserves the account, forum content, sound, language, and email preferences. Success returns 204 and the new `X-Training-Epoch`.
+
+History and evidence change feeds return their current `X-Training-Epoch`. Event, session, evidence, legacy progress, page-settings, and reset writes check this header under the account’s sync lock. A missing header means generation 1. A stale write returns 409 with `TRAINING_EPOCH_CHANGED` and the current header. Clients discard the retired local generation before adopting the new one. A retry of an old reset cannot erase work recorded after that reset.
 
 ## Legacy progress
 

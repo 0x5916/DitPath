@@ -1,3 +1,4 @@
+import { getTrainingOwner, trainingEpoch } from './training-owner';
 import type { Cohort, OverviewReport, ReportPeriod, ReportTotals } from './admin-report';
 import {
   apiFetch,
@@ -58,9 +59,9 @@ async function throwApiError(
   throw new ApiError(extractErrorCodeFromBody(body) ?? fallback, res.status, body);
 }
 
-async function apiGetJson<T>(path: string, fallback: string): Promise<T> {
+async function apiGetJson<T>(path: string, fallback: string, scope = ''): Promise<T> {
   const session = getAuthSession();
-  const requestKey = `${session.generation}:GET:${path}`;
+  const requestKey = `${session.generation}:GET:${path}:${scope}`;
   const existing = inFlightGetRequests.get(requestKey) as Promise<T> | undefined;
   if (existing) return existing;
 
@@ -311,7 +312,7 @@ export async function saveCWSettings(settings: CWSettings): Promise<void> {
 }
 
 export async function getSettings(): Promise<CombinedSettings> {
-  return apiGetJson<CombinedSettings>('/settings/all', 'SETTINGS_FETCH_FAILED');
+  return apiGetJson<CombinedSettings>('/settings/all', 'SETTINGS_FETCH_FAILED', getTrainingOwner());
 }
 
 export async function getUserInfo(): Promise<UserInfo> {
@@ -323,21 +324,48 @@ export interface GoogleLinkChallenge {
   nonce: string;
 }
 
-function googleLinkOptions(signal: AbortSignal) {
+function googleRequestOptions(signal: AbortSignal) {
   return { headers: { 'X-OpenCW-Auth': 'google' }, signal, retryUnauthorized: false };
 }
 
-export async function requestGoogleLinkChallenge(session: AuthSession, signal: AbortSignal) {
+async function requestGoogleChallenge(path: string, session: AuthSession, signal: AbortSignal) {
   assertAuthSessionCurrent(session);
   const result = await apiSendJson<GoogleLinkChallenge>(
-    '/auth/google/link/challenge',
+    path,
     'POST',
     {},
     'GOOGLE_SIGN_IN_UNAVAILABLE',
-    googleLinkOptions(signal)
+    googleRequestOptions(signal)
   );
   if (!result?.challenge || !result.nonce) throw new Error('GOOGLE_SIGN_IN_UNAVAILABLE');
   return result;
+}
+
+export function requestGoogleLinkChallenge(session: AuthSession, signal: AbortSignal) {
+  return requestGoogleChallenge('/auth/google/link/challenge', session, signal);
+}
+
+export function requestDeletionChallenge(session: AuthSession, signal: AbortSignal) {
+  return requestGoogleChallenge('/user/deletion-challenge', session, signal);
+}
+
+export type AccountDeletionProof =
+  { current_password: string } | { challenge: string; credential: string };
+
+export async function deleteAccount(
+  session: AuthSession,
+  signal: AbortSignal,
+  proof: AccountDeletionProof
+) {
+  assertAuthSessionCurrent(session);
+  const headers = { ...JSON_HEADERS, ...('credential' in proof && { 'X-OpenCW-Auth': 'google' }) };
+  const res = await apiFetch(
+    '/user/me',
+    { method: 'DELETE', headers, body: JSON.stringify(proof), signal },
+    { retryUnauthorized: false }
+  );
+  assertAuthSessionCurrent(session);
+  if (res.status !== 204) return throwApiError(res, 'ACCOUNT_DELETION_FAILED', session);
 }
 
 export async function linkGoogleAccount(
@@ -351,12 +379,15 @@ export async function linkGoogleAccount(
     'POST',
     body,
     'GOOGLE_SIGN_IN_UNAVAILABLE',
-    googleLinkOptions(signal)
+    googleRequestOptions(signal)
   );
 }
 
 export async function savePageSettings(settings: PageSettings): Promise<void> {
-  await apiSendJson('/settings/page', 'POST', settings, 'SETTINGS_UPDATE_FAILED');
+  const epoch = trainingEpoch(getTrainingOwner());
+  await apiSendJson('/settings/page', 'POST', settings, 'SETTINGS_UPDATE_FAILED', {
+    headers: epoch > 1 ? { 'X-Training-Epoch': String(epoch) } : undefined
+  });
 }
 
 export async function updateEmail(email: string): Promise<void> {

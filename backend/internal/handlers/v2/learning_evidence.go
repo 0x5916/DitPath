@@ -93,6 +93,9 @@ func (h TrainingHandler) PostLearningEvidence(c *gin.Context) {
 			if err != nil {
 				return err
 			}
+			if err := common.CheckTrainingEpoch(c, state.FeedEpoch); err != nil {
+				return err
+			}
 			for _, id := range order {
 				if _, bad := rejected[id]; bad {
 					continue
@@ -113,6 +116,9 @@ func (h TrainingHandler) PostLearningEvidence(c *gin.Context) {
 			return nil
 		})
 		if err != nil {
+			if common.RespondStaleTrainingEpoch(c, err) {
+				return
+			}
 			slog.Error("Failed to store learning evidence", "user_id", user.ID, "err", err)
 			c.JSON(500, common.NewErrorResponse("LEARNING_EVIDENCE_INGEST_FAILED", "Failed to store learning evidence"))
 			return

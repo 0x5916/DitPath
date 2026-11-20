@@ -10,6 +10,7 @@
   import * as m from '#lib/paraglide/messages.js';
 
   let {
+    detail = false,
     owner,
     pending,
     error,
@@ -20,6 +21,7 @@
     unclaimedCount = 0,
     importing = false
   }: {
+    detail?: boolean;
     owner: string;
     pending: number;
     error: string | null;
@@ -85,7 +87,11 @@
 </script>
 
 <section id="sync-storage" class="panel panel--ledger" aria-labelledby="sync-storage-title">
-  <h2 id="sync-storage-title" class="card-title">{m.settings_sync_storage_title()}</h2>
+  <svelte:element
+    this={detail ? 'h1' : 'h2'}
+    id="sync-storage-title"
+    class={detail ? 'page-title' : 'card-title'}>{m.settings_sync_storage_title()}</svelte:element
+  >
   <TrainingSyncStatus
     expanded
     {owner}
@@ -162,10 +168,6 @@
 </section>
 
 <style>
-  #sync-storage {
-    scroll-margin-block-start: 5rem;
-  }
-
   #sync-storage > .field-hint {
     margin-block-start: var(--space-2);
   }

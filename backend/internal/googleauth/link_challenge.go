@@ -11,12 +11,13 @@ import (
 )
 
 const linkPurpose = "morsewell/google-link"
+const deletePurpose = "morsewell/delete-account"
 
-// The link proof is signed in a separate key domain from access JWTs. It can
-// only authorize a Google linking ceremony for this particular account.
-func linkKey(secret []byte) []byte {
+// Each challenge purpose has a different signing key from access JWTs and from
+// other challenges. Proof for one account operation cannot authorize another.
+func challengeKey(secret []byte, purpose string) []byte {
 	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(linkPurpose))
+	mac.Write([]byte(purpose))
 	return mac.Sum(nil)
 }
 
@@ -26,21 +27,37 @@ func LinkNonce(challenge string) string {
 }
 
 func NewLinkChallenge(secret []byte, userID uuid.UUID, now time.Time) (string, error) {
+	return newChallenge(secret, userID, now, linkPurpose)
+}
+
+func NewDeletionChallenge(secret []byte, userID uuid.UUID, now time.Time) (string, error) {
+	return newChallenge(secret, userID, now, deletePurpose)
+}
+
+func newChallenge(secret []byte, userID uuid.UUID, now time.Time, purpose string) (string, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer: linkPurpose, Subject: userID.String(), ID: id.String(),
+		Issuer: purpose, Subject: userID.String(), ID: id.String(),
 		ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
-	}).SignedString(linkKey(secret))
+	}).SignedString(challengeKey(secret, purpose))
 }
 
 func ValidateLinkChallenge(secret []byte, challenge string, userID uuid.UUID, now time.Time) (time.Time, error) {
+	return validateChallenge(secret, challenge, userID, now, linkPurpose)
+}
+
+func ValidateDeletionChallenge(secret []byte, challenge string, userID uuid.UUID, now time.Time) (time.Time, error) {
+	return validateChallenge(secret, challenge, userID, now, deletePurpose)
+}
+
+func validateChallenge(secret []byte, challenge string, userID uuid.UUID, now time.Time, purpose string) (time.Time, error) {
 	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(challenge, claims, func(*jwt.Token) (any, error) {
-		return linkKey(secret), nil
-	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer(linkPurpose), jwt.WithSubject(userID.String()),
+		return challengeKey(secret, purpose), nil
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer(purpose), jwt.WithSubject(userID.String()),
 		jwt.WithExpirationRequired(), jwt.WithTimeFunc(func() time.Time { return now }))
 	if err != nil || claims.ID == "" {
 		return time.Time{}, ErrInvalidCredential
