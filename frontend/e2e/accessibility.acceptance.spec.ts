@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from '@playwright/test';
 import de from '../messages/de.json' with { type: 'json' };
 import en from '../messages/en.json' with { type: 'json' };
-import { resetAcceptance, resetToHome, startAndType, TRAINING_DB } from './helpers';
+import { resetToHome, startAndType } from './helpers';
 
 // Firefox can report a 48px CSS box as 47.99997px because layout is fractional.
 // Keep a sub-pixel tolerance while still enforcing the intended minimum target.
@@ -104,69 +104,6 @@ test('the Practice title tip matches the Penpot heading and close treatment', as
   await close.click();
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
-});
-
-test('Profile heatmap days meet 24px and support roving keyboard navigation', async ({ page }) => {
-  await resetAcceptance(page, 'Returning learner / populated history', /\/en$/);
-  await page.evaluate(async (name) => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(name);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    try {
-      const existing = await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
-        const tx = db.transaction('owned_sessions', 'readonly');
-        const request = tx.objectStore('owned_sessions').getAll();
-        request.onsuccess = () => resolve(request.result[0]);
-        request.onerror = () => reject(request.error);
-      });
-      if (!existing) return;
-      const when = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('owned_sessions', 'readwrite');
-        tx.objectStore('owned_sessions').put({
-          ...existing,
-          id: 'fixture-heatmap-older',
-          startedAt: when,
-          completedAt: when,
-          status: 'completed'
-        });
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    } finally {
-      db.close();
-    }
-  }, TRAINING_DB);
-  await page.goto('/profile', { waitUntil: 'networkidle' });
-  const cells = page.locator('button.profile-heatmap-cell');
-  await expect(cells.first()).toBeVisible();
-  expect(await cells.count()).toBeGreaterThan(1);
-
-  const sizes = await cells.evaluateAll((nodes) =>
-    nodes.map((node) => {
-      const rect = node.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
-    })
-  );
-  expect(sizes.length).toBeGreaterThan(0);
-  expect(Math.min(...sizes.map((size) => size.width))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
-  expect(Math.min(...sizes.map((size) => size.height))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
-
-  const tabbable = page.locator('button.profile-heatmap-cell[tabindex="0"]');
-  await expect(tabbable).toHaveCount(1);
-  await tabbable.focus();
-  const before = await tabbable.getAttribute('data-date');
-  await page.keyboard.press('ArrowLeft');
-  const after = await page.evaluate(
-    () => (document.activeElement as HTMLElement | null)?.dataset.date ?? null
-  );
-  expect(after).not.toBe(before);
-  await expect(page.getByRole('tooltip')).toBeVisible();
-  await expect(page.locator('button.profile-heatmap-cell[tabindex="0"]')).toHaveCount(1);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('tooltip')).toHaveCount(0);
 });
 
 test('all locales fit at 320px in dark mode', async ({ page }) => {

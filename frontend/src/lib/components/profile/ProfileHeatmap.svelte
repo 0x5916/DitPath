@@ -25,6 +25,9 @@
   const CURRENT_YEAR = new Date().getUTCFullYear();
   let selectedYear = $state(CURRENT_YEAR);
   let heatmapScrollEl = $state<HTMLDivElement | null>(null);
+  let viewportWidth = $state(0);
+  let calendarWidth = $state(0);
+  const showScrollHint = $derived(viewportWidth > 0 && calendarWidth > viewportWidth);
   let activeDateMs = $state<number | null>(null);
   let tooltipCell = $state<HeatmapCell | null>(null);
   let tooltipPanel = $state<HTMLSpanElement>();
@@ -70,10 +73,12 @@
   const dailyCounts = $derived(progressRecordDays(records));
   let yearTotalSessions = $derived(countSessionsForYear(dailyCounts, selectedYear));
   let heatmapWeeks = $derived(
-    buildHeatmap(dailyCounts, activityRangeStart, selectedYear, {
-      todayMs: Date.now(),
-      formatMonth: (ms) => MONTH_FORMATTER.format(ms)
-    })
+    yearTotalSessions
+      ? buildHeatmap(dailyCounts, activityRangeStart, selectedYear, {
+          todayMs: Date.now(),
+          formatMonth: (ms) => MONTH_FORMATTER.format(ms)
+        })
+      : []
   );
   let heatmapWeekCount = $derived(Math.max(1, heatmapWeeks.length));
   let todayDayMs = $derived(utcDayStart(Date.now()));
@@ -243,162 +248,170 @@
 />
 
 <section class="panel">
-  <div class="profile-section-header profile-section-header--split">
-    <div class="profile-section-title-wrap">
-      <h2 class="card-title">
-        {yearTotalSessions === 1
+  <div class="profile-section-header">
+    <h2 class="card-title">
+      {dailyCounts.length === 0
+        ? m.profile_heatmap_title()
+        : yearTotalSessions === 1
           ? m.profile_sessions_in_year_one({ year: String(selectedYear) })
           : m.profile_sessions_in_year({
               count: String(yearTotalSessions),
               year: String(selectedYear)
             })}
-      </h2>
-    </div>
-    <div
-      class="segmented profile-heatmap-year-picker"
-      role="group"
-      aria-label={m.profile_heatmap_year_aria()}
-    >
-      {#each availableYears as year (year)}
-        <button
-          type="button"
-          class="segmented-item"
-          aria-pressed={year === selectedYear}
-          onclick={() => {
-            closeTooltip();
-            activeDateMs = null;
-            selectedYear = year;
-          }}
+    </h2>
+    {#if dailyCounts.length && availableYears.length > 1}
+      <div
+        class="segmented profile-heatmap-year-picker"
+        role="group"
+        aria-label={m.profile_heatmap_year_aria()}
+      >
+        {#each availableYears as year (year)}
+          <button
+            type="button"
+            class="segmented-item"
+            aria-pressed={year === selectedYear}
+            onclick={() => {
+              closeTooltip();
+              activeDateMs = null;
+              selectedYear = year;
+            }}
+          >
+            {year}
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+
+  {#if dailyCounts.length === 0}
+    <p class="body-text">{m.profile_heatmap_empty()}</p>
+  {:else if yearTotalSessions === 0}
+    <p class="body-text">{m.profile_heatmap_empty_year()}</p>
+  {:else}
+    {#if showScrollHint}
+      <p class="profile-heatmap-scroll-hint" id={`${tooltipId}-scroll-hint`}>
+        {m.profile_heatmap_scroll_hint()}
+      </p>
+    {/if}
+    <div class="profile-heatmap-layout">
+      <div class="profile-heatmap-weekdays" aria-hidden="true">
+        {#each weekdayLabels as label, idx (`${idx}-${label}`)}
+          <span>{label}</span>
+        {/each}
+      </div>
+      <div
+        class="profile-heatmap-scroll"
+        bind:this={heatmapScrollEl}
+        bind:clientWidth={viewportWidth}
+        role="region"
+        aria-label={m.profile_heatmap_image_aria({ year: String(selectedYear) })}
+        aria-describedby={showScrollHint ? `${tooltipId}-scroll-hint` : undefined}
+      >
+        <div
+          class="profile-heatmap-shell"
+          bind:offsetWidth={calendarWidth}
+          style={`--week-count:${heatmapWeekCount}`}
         >
-          {year}
-        </button>
-      {/each}
-    </div>
-  </div>
-
-  <p class="profile-heatmap-scroll-hint">{m.profile_heatmap_scroll_hint()}</p>
-  <div
-    class="profile-heatmap-scroll"
-    bind:this={heatmapScrollEl}
-    role="region"
-    aria-label={m.profile_heatmap_scroll_hint()}
-  >
-    <div
-      class="profile-heatmap-shell"
-      style={`--week-count:${heatmapWeekCount}`}
-      role="group"
-      aria-label={m.profile_heatmap_image_aria({ year: String(selectedYear) })}
-    >
-      <div class="profile-heatmap-months" aria-hidden="true">
-        <div class="profile-heatmap-months-spacer"></div>
-        <div class="profile-heatmap-months-grid">
-          {#each heatmapWeeks as week, i (week.startMs)}
-            <span class="profile-heatmap-month" style={`grid-column:${i + 1}`}
-              >{week.monthLabel}</span
-            >
-          {/each}
-        </div>
-      </div>
-
-      <div class="profile-heatmap-main">
-        <div class="profile-heatmap-weekdays" aria-hidden="true">
-          {#each weekdayLabels as label, idx (`${idx}-${label}`)}
-            <span>{label}</span>
-          {/each}
-        </div>
-
-        <div class="profile-heatmap-grid">
-          {#each heatmapWeeks as week (week.startMs)}
-            <div
-              class={`profile-heatmap-week ${
-                selectedYear === CURRENT_YEAR &&
-                week.startMs <= todayDayMs &&
-                todayDayMs < week.startMs + 7 * DAY_MS
-                  ? 'is-current-week'
-                  : ''
-              }`}
-            >
-              {#each week.cells as cell (cell.dateKey)}
-                {#if isSelectable(cell)}
-                  <button
-                    type="button"
-                    class={`profile-heatmap-cell level-${cell.level} ${selectedYear === CURRENT_YEAR && cell.dateMs === todayDayMs ? 'is-today' : ''}`}
-                    data-date={cell.dateMs}
-                    tabindex={cell.dateMs === tabDateMs ? 0 : -1}
-                    aria-label={dayDescription(cell)}
-                    aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home End"
-                    aria-describedby={tooltipCell?.dateMs === cell.dateMs ? tooltipId : undefined}
-                    aria-expanded={tooltipCell?.dateMs === cell.dateMs}
-                    onpointerenter={(event) => {
-                      if (event.pointerType !== 'touch') showTooltip(cell, event.currentTarget);
-                    }}
-                    onpointerleave={(event) => {
-                      if (event.pointerType !== 'touch') leaveTooltip();
-                    }}
-                    onfocus={(event) => {
-                      activeDateMs = cell.dateMs;
-                      focusedDateMs = cell.dateMs;
-                      showTooltip(cell, event.currentTarget);
-                    }}
-                    onblur={() => {
-                      focusedDateMs = null;
-                      if (!pinned) closeTooltip();
-                    }}
-                    onclick={(event) => {
-                      if (pinned && tooltipCell?.dateMs === cell.dateMs) closeTooltip();
-                      else {
+          <div class="profile-heatmap-months-grid" aria-hidden="true">
+            {#each heatmapWeeks as week, i (week.startMs)}
+              <span class="profile-heatmap-month" style={`grid-column:${i + 1}`}
+                >{week.monthLabel}</span
+              >
+            {/each}
+          </div>
+          <div class="profile-heatmap-grid">
+            {#each heatmapWeeks as week (week.startMs)}
+              <div
+                class={`profile-heatmap-week ${
+                  selectedYear === CURRENT_YEAR &&
+                  week.startMs <= todayDayMs &&
+                  todayDayMs < week.startMs + 7 * DAY_MS
+                    ? 'is-current-week'
+                    : ''
+                }`}
+              >
+                {#each week.cells as cell (cell.dateKey)}
+                  {#if isSelectable(cell)}
+                    <button
+                      type="button"
+                      class={`profile-heatmap-cell level-${cell.level} ${selectedYear === CURRENT_YEAR && cell.dateMs === todayDayMs ? 'is-today' : ''}`}
+                      data-date={cell.dateMs}
+                      tabindex={cell.dateMs === tabDateMs ? 0 : -1}
+                      aria-label={dayDescription(cell)}
+                      aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Home End"
+                      aria-describedby={tooltipCell?.dateMs === cell.dateMs ? tooltipId : undefined}
+                      aria-expanded={tooltipCell?.dateMs === cell.dateMs}
+                      onpointerenter={(event) => {
+                        if (event.pointerType !== 'touch') showTooltip(cell, event.currentTarget);
+                      }}
+                      onpointerleave={(event) => {
+                        if (event.pointerType !== 'touch') leaveTooltip();
+                      }}
+                      onfocus={(event) => {
+                        activeDateMs = cell.dateMs;
+                        focusedDateMs = cell.dateMs;
                         showTooltip(cell, event.currentTarget);
-                        pinned = true;
-                      }
-                    }}
-                    onkeydown={(event) => {
-                      if (event.key === 'Tab') closeTooltip();
-                      else navigateDay(event, cell);
-                    }}
-                  ></button>
-                {:else}
-                  <span
-                    class={`profile-heatmap-cell level-0 ${cell.inFuture ? 'is-future' : ''} ${cell.beforeAccount ? 'is-before-account' : ''} ${cell.outsideYear ? 'is-outside-year' : ''}`}
-                    aria-hidden="true"
-                    title={cell.outsideYear
-                      ? m.profile_heatmap_outside_year({ year: String(selectedYear) })
-                      : cell.beforeAccount
-                        ? m.profile_heatmap_before_account({
-                            date: DAY_FORMATTER.format(cell.dateMs)
-                          })
-                        : DAY_FORMATTER.format(cell.dateMs)}
-                  ></span>
-                {/if}
-              {/each}
-            </div>
-          {/each}
+                      }}
+                      onblur={() => {
+                        focusedDateMs = null;
+                        if (!pinned) closeTooltip();
+                      }}
+                      onclick={(event) => {
+                        if (pinned && tooltipCell?.dateMs === cell.dateMs) closeTooltip();
+                        else {
+                          showTooltip(cell, event.currentTarget);
+                          pinned = true;
+                        }
+                      }}
+                      onkeydown={(event) => {
+                        if (event.key === 'Tab') closeTooltip();
+                        else navigateDay(event, cell);
+                      }}
+                    ></button>
+                  {:else}
+                    <span
+                      class={`profile-heatmap-cell level-0 ${cell.inFuture ? 'is-future' : ''} ${cell.beforeAccount ? 'is-before-account' : ''} ${cell.outsideYear ? 'is-outside-year' : ''}`}
+                      aria-hidden="true"
+                      title={cell.outsideYear
+                        ? m.profile_heatmap_outside_year({ year: String(selectedYear) })
+                        : cell.beforeAccount
+                          ? m.profile_heatmap_before_account({
+                              date: DAY_FORMATTER.format(cell.dateMs)
+                            })
+                          : DAY_FORMATTER.format(cell.dateMs)}
+                    ></span>
+                  {/if}
+                {/each}
+              </div>
+            {/each}
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  {#if tooltipCell}
-    <span
-      id={tooltipId}
-      role="tooltip"
-      class="profile-heatmap-tooltip"
-      bind:this={tooltipPanel}
-      style:left={`${tooltipLeft}px`}
-      style:top={`${tooltipTop}px`}
-      onpointerenter={() => clearTimeout(leaveTimer)}
-      onpointerleave={leaveTooltip}>{dayDescription(tooltipCell)}</span
-    >
+    {#if tooltipCell}
+      <span
+        id={tooltipId}
+        role="tooltip"
+        class="profile-heatmap-tooltip"
+        bind:this={tooltipPanel}
+        style:left={`${tooltipLeft}px`}
+        style:top={`${tooltipTop}px`}
+        onpointerenter={() => clearTimeout(leaveTimer)}
+        onpointerleave={leaveTooltip}>{dayDescription(tooltipCell)}</span
+      >
+    {/if}
+
+    <div class="profile-heatmap-legend" aria-hidden="true">
+      <span>{m.profile_heatmap_less()}</span>
+      <span class="profile-heatmap-cell level-0"></span>
+      <span class="profile-heatmap-cell level-1"></span>
+      <span class="profile-heatmap-cell level-2"></span>
+      <span class="profile-heatmap-cell level-3"></span>
+      <span class="profile-heatmap-cell level-4"></span>
+      <span>{m.profile_heatmap_more()}</span>
+    </div>
   {/if}
-
-  <div class="profile-heatmap-legend" aria-hidden="true">
-    <span>{m.profile_heatmap_less()}</span>
-    <span class="profile-heatmap-cell level-0"></span>
-    <span class="profile-heatmap-cell level-1"></span>
-    <span class="profile-heatmap-cell level-2"></span>
-    <span class="profile-heatmap-cell level-3"></span>
-    <span class="profile-heatmap-cell level-4"></span>
-    <span>{m.profile_heatmap_more()}</span>
-  </div>
 </section>
 
 <style>
@@ -406,6 +419,7 @@
     /* 24px is the WCAG 2.5.8 minimum for each interactive day target. */
     --heatmap-cell-size: 1.5rem;
     --heatmap-gap: 0.25rem;
+    --heatmap-month-height: 1.5rem;
   }
   button.profile-heatmap-cell {
     padding: 0;
@@ -437,49 +451,30 @@
     overflow-wrap: anywhere;
   }
 
-  .profile-section-header--split {
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-  .profile-section-title-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex: 1 1 auto;
-    min-width: 0;
+  .profile-heatmap-layout {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-2);
   }
   .profile-heatmap-scroll {
     overflow-x: auto;
-    padding-right: 0.15rem;
-    scrollbar-gutter: stable both-edges;
-  }
-  .profile-heatmap-scroll:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    scroll-padding-inline: var(--space-1);
   }
   .profile-heatmap-scroll-hint {
-    display: none;
     margin: 0 0 var(--space-2);
     color: var(--text-muted);
     font-size: var(--text-xs);
   }
   .profile-heatmap-shell {
     width: max-content;
-  }
-  .profile-heatmap-months {
-    display: grid;
-    grid-template-columns: 2.2rem max-content;
-    align-items: center;
-    margin-bottom: 0.4rem;
-  }
-  .profile-heatmap-months-spacer {
-    width: 2.2rem;
+    padding: 0 var(--space-1) var(--space-1);
   }
   .profile-heatmap-months-grid {
     display: grid;
     grid-template-columns: repeat(var(--week-count), var(--heatmap-cell-size));
     column-gap: var(--heatmap-gap);
+    height: var(--heatmap-month-height);
+    align-items: start;
     font-size: var(--text-xs);
     color: var(--text-muted);
     line-height: 1;
@@ -487,15 +482,12 @@
   .profile-heatmap-month {
     white-space: nowrap;
   }
-  .profile-heatmap-main {
-    display: grid;
-    grid-template-columns: 2.2rem max-content;
-    gap: 0.4rem;
-  }
   .profile-heatmap-weekdays {
     display: grid;
     grid-template-rows: repeat(7, var(--heatmap-cell-size));
     row-gap: var(--heatmap-gap);
+    padding-top: var(--heatmap-month-height);
+    align-content: start;
     font-size: var(--text-xs);
     color: var(--text-muted);
     line-height: 1;
@@ -568,18 +560,16 @@
   .profile-section-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-    color: var(--text-muted);
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
   }
-  .profile-section-header :global(.card-title) {
-    width: 100%;
-    margin-bottom: 0;
+  .card-title,
+  .body-text {
+    margin: 0;
   }
-
-  @media (max-width: 900px) {
-    .profile-heatmap-scroll-hint {
-      display: block;
-    }
+  .segmented-item {
+    min-height: var(--answer-target-min);
   }
 </style>

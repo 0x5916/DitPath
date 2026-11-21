@@ -358,7 +358,7 @@
 
 <div class="page-narrow">
   <nav class="crumb-nav" aria-label={m.forum_title()}>
-    <a class="crumb-link" href={href('/forum')}>
+    <a class="crumb-link standalone-target" href={href('/forum')}>
       <ArrowLeft size={14} aria-hidden="true" />
       {m.forum_back_to_threads()}
     </a>
@@ -405,7 +405,7 @@
         <div class="thread-action-row">
           <button
             type="button"
-            class="action-quiet"
+            class="standalone-target action-quiet"
             aria-expanded={threadComposerOpen}
             bind:this={threadReplyButton}
             onclick={openThreadComposer}
@@ -417,7 +417,7 @@
           {#if isThreadAuthor}
             <button
               type="button"
-              class="action-quiet is-danger"
+              class="standalone-target action-quiet is-danger"
               disabled={deletingThread}
               onclick={deleteThread}
             >
@@ -426,7 +426,7 @@
             {#if threadDeleteArmed}
               <button
                 type="button"
-                class="action-quiet"
+                class="standalone-target action-quiet"
                 onclick={() => (threadDeleteArmed = false)}
               >
                 {m.forum_cancel()}

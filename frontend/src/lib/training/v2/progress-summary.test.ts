@@ -121,6 +121,7 @@ describe('local progress summary', () => {
     const result = summarizeProgress([], [practice], NOW);
     expect(result).toMatchObject({
       hasRecentActivity: true,
+      hasPracticeHistory: true,
       sessionCount: 1,
       guidedSessionCount: 0,
       practiceSessionCount: 1,
@@ -131,6 +132,22 @@ describe('local progress summary', () => {
     expect(
       summarizeProgress([attempt({ isCorrect: false })], [session(), practice], NOW)
     ).toMatchObject({ guidedSessionCount: 1, practiceSessionCount: 1, accuracyPercent: 0 });
+  });
+
+  it('remembers completed free practice beyond the weekly activity window', () => {
+    const oldPractice = session({
+      mode: 'practice',
+      startedAt: '2026-08-01T00:00:00.000Z',
+      completedAt: '2026-08-01T00:01:00.000Z'
+    });
+    expect(summarizeProgress([], [oldPractice], NOW)).toMatchObject({
+      practiceSessionCount: 0,
+      hasRecentActivity: false,
+      hasPracticeHistory: true
+    });
+    expect(
+      summarizeProgress([], [{ ...oldPractice, status: 'abandoned' }], NOW).hasPracticeHistory
+    ).toBe(false);
   });
 
   it('includes legacy summaries by occurrence without inventing mode or elapsed time', () => {

@@ -116,6 +116,32 @@ const project = (records: EvidenceRecord[], now = base + 10 * day) =>
     knownCharacters: ['K', 'M']
   });
 describe('unified learning projection', () => {
+  it('preserves legacy and guided character records without promoting free-practice exposure', () => {
+    const exposure = (character: string, source: string) =>
+      record(`open-${character}`, 'exposure-open', {
+        characters: [character],
+        source,
+        presentation_id: `presentation-${character}`,
+        started_at: bounds(base)
+      });
+    const practice = [
+      exposure('R', 'reference'),
+      exposure('S', 'group'),
+      exposure('T', 'word'),
+      exposure('U', 'callsign')
+    ];
+    const fresh = projectLearningSnapshot(practice, { ownerKey, profile, nowIso: iso(base) });
+    expect(new Set(fresh.knownCharacters)).toEqual(new Set(['R', 'S', 'T', 'U']));
+    expect(fresh.characters.filter((c) => c.hasGuidedRecord)).toEqual([]);
+
+    const mixed = project([...practice, exposure('S', 'guided'), exposure('A', 'coaching')]);
+    expect(
+      new Set(mixed.characters.filter((c) => c.hasGuidedRecord).map((c) => c.character))
+    ).toEqual(new Set(['K', 'M', 'S', 'A']));
+    expect(mixed.characters.find((c) => c.character === 'S')?.current.criterion).toBe(
+      'insufficient'
+    );
+  });
   it('builds provisional proficiency, current ability and review readiness from separate checks', () => {
     const records = [...check('one', base), ...check('two', base + day)];
     const snapshot = project(records, base + day + 60000);

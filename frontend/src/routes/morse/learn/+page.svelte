@@ -263,10 +263,10 @@
   {/if}
 {/snippet}
 
-<div class="lessons-page">
+<div class="lessons-page training-page">
   <div class="learn-home-container">
     <header class="learn-header">
-      <h1 class="page-title">{m.nav_learn()}</h1>
+      <h1 class="page-title training-title">{m.nav_learn()}</h1>
       {#if !loading && !errorMsg}
         <span class="path-meta">
           {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
@@ -296,11 +296,6 @@
 </div>
 
 <style>
-  .lessons-page {
-    width: 100%;
-    max-width: 70rem;
-    margin-inline: auto;
-  }
   .learn-home-container :global(.saved-sessions) {
     margin-block: 0;
   }
@@ -334,20 +329,8 @@
     gap: var(--space-2);
   }
 
-  .page-title {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
   .path-meta {
     font-size: var(--text-sm);
     color: var(--text-secondary);
-  }
-  @media (min-width: 960px) {
-    .page-title {
-      font-size: 2.5rem;
-    }
   }
 </style>

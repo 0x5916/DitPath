@@ -287,7 +287,9 @@
       </label>
     {/if}
     <details class="character-details">
-      <summary>{m.practice_character_count({ count: currentLessonChars.length })}</summary>
+      <summary class="training-disclosure"
+        >{m.practice_character_count({ count: currentLessonChars.length })}</summary
+      >
       <p>{currentLessonChars.join(' ')}</p>
     </details>
   </div>
@@ -448,7 +450,6 @@
     font-size: var(--text-sm);
   }
   .character-details summary {
-    cursor: pointer;
     min-height: var(--nav-control-height);
     padding-block: var(--space-2);
   }

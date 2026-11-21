@@ -86,6 +86,7 @@ describe('progressRecordDays', () => {
 describe('getAvailableYears', () => {
   it('lists years from the current year back to the account creation year', () => {
     expect(getAvailableYears(Date.UTC(2024, 5, 1), 2026)).toEqual([2026, 2025, 2024]);
+    expect(getAvailableYears(Date.UTC(2025, 0, 1), 2026)).toEqual([2026, 2025]);
     expect(getAvailableYears(null, 2026)).toEqual([2026]);
   });
 });
@@ -104,6 +105,27 @@ describe('countSessionsForYear', () => {
 });
 
 describe('buildHeatmap', () => {
+  it('keeps sessions, selectable days and headings in the same UTC year over New Year', () => {
+    const dates = ['2025-12-31T15:59:00-08:00', '2025-12-31T16:01:00-08:00'];
+    const days = progressRecordDays(
+      dates.map((occurredAt) => ({ occurredAt, status: 'completed' })) as HistorySessionRecord[]
+    );
+    const start = Date.parse(dates[0]);
+    const options = { todayMs: Date.parse(dates[1]), formatMonth: () => '' };
+    expect(getAvailableYears(start, 2026)).toEqual([2026, 2025]);
+    for (const [year, expectedDay] of [
+      [2025, Date.UTC(2025, 11, 31)],
+      [2026, Date.UTC(2026, 0, 1)]
+    ]) {
+      const selectable = buildHeatmap(days, start, year, options)
+        .flatMap((week) => week.cells)
+        .filter((cell) => !cell.outsideYear && !cell.beforeAccount && !cell.inFuture);
+      expect(countSessionsForYear(days, year)).toBe(1);
+      expect(selectable).toHaveLength(1);
+      expect(selectable[0]).toMatchObject({ dateMs: expectedDay, count: 1 });
+    }
+  });
+
   it('builds Monday-first weeks with bounded counts and locale labels', () => {
     const weeks = buildHeatmap(
       [

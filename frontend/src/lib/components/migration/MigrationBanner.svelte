@@ -215,8 +215,9 @@
 </script>
 
 {#snippet recoveryLink()}
-  <a class="link recovery-link" href={`${localizedHref('/settings')}#device-recovery`}
-    >{m.domain_recovery_title()}</a
+  <a
+    class="link recovery-link standalone-target"
+    href={`${localizedHref('/settings')}#device-recovery`}>{m.domain_recovery_title()}</a
   >
 {/snippet}
 
@@ -286,7 +287,9 @@
         {/if}
         {#if bannerState.kind !== 'guest-history'}
           <a
-            class={bannerState.critical && !showRetry && !showRegister ? 'btn-primary' : 'link'}
+            class={bannerState.critical && !showRetry && !showRegister
+              ? 'btn-primary'
+              : 'link standalone-target'}
             href={`${localizedHref('/settings')}#sync-storage`}>{m.migration_sync_details_cta()}</a
           >
         {/if}
@@ -298,8 +301,10 @@
         <summary>{m.migration_guest_sync_heading()}</summary>
         <p class="migration-body">{m.migration_guest_sync_steps()}</p>
         <div class="migration-actions">
-          <a class="link" href={localizedHref('/register')}>{m.migration_register_cta()}</a>
-          <a class="link" href={`${localizedHref('/settings')}#sync-storage`}
+          <a class="link standalone-target" href={localizedHref('/register')}
+            >{m.migration_register_cta()}</a
+          >
+          <a class="link standalone-target" href={`${localizedHref('/settings')}#sync-storage`}
             >{m.migration_sync_details_cta()}</a
           >
         </div>
@@ -381,17 +386,12 @@
     max-width: none;
   }
 
-  .recovery-link {
-    display: inline-block;
-    max-width: 100%;
-  }
-
   .compact .recovery-link {
     margin-inline-start: var(--space-2);
   }
   @media (max-width: 480px) {
     .compact .recovery-link {
-      display: block;
+      display: flex;
       width: fit-content;
       margin-inline-start: 0;
     }
@@ -419,9 +419,6 @@
   }
 
   .migration-actions .link {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--nav-control-height);
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }

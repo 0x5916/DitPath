@@ -142,7 +142,7 @@
       <div class="reply-actions">
         <button
           type="button"
-          class="action-quiet"
+          class="standalone-target action-quiet"
           aria-expanded={isTarget}
           bind:this={replyButton}
           onclick={() => onReply(reply)}
@@ -154,17 +154,25 @@
           {#if confirmingDelete}
             <button
               type="button"
-              class="action-quiet is-danger"
+              class="standalone-target action-quiet is-danger"
               disabled={deleting}
               onclick={handleDelete}
             >
               {m.forum_delete_confirm()}
             </button>
-            <button type="button" class="action-quiet" onclick={() => (confirmingDelete = false)}>
+            <button
+              type="button"
+              class="standalone-target action-quiet"
+              onclick={() => (confirmingDelete = false)}
+            >
               {m.forum_cancel()}
             </button>
           {:else}
-            <button type="button" class="action-quiet is-danger" onclick={handleDelete}>
+            <button
+              type="button"
+              class="standalone-target action-quiet is-danger"
+              onclick={handleDelete}
+            >
               {m.forum_delete_reply()}
             </button>
           {/if}

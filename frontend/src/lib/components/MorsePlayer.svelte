@@ -4,15 +4,7 @@
   import type { AudioEngine } from '#lib/audio/engine.ts';
   import { formatClock } from '#lib/format.ts';
   import { onDestroy, untrack } from 'svelte';
-  import {
-    Play,
-    Square,
-    Pause,
-    SlidersHorizontal,
-    SkipForward,
-    CircleAlert,
-    ChevronRight
-  } from '@lucide/svelte';
+  import { Play, Square, Pause, SlidersHorizontal, SkipForward, CircleAlert } from '@lucide/svelte';
   import {
     createPlaybackController,
     idlePlayback,
@@ -422,14 +414,13 @@
         <div class="player-settings-region">
           <details class="player-settings-menu" bind:this={settingsEl} bind:open={settingsOpen}>
             <summary
-              class="player-settings-trigger"
+              class={practiceLayout
+                ? 'audio-settings-summary training-disclosure'
+                : 'player-settings-trigger'}
               aria-label={practiceLayout ? m.practice_audio_heading() : m.trainer_label_settings()}
             >
               {#if practiceLayout}
-                <span>{m.practice_audio_heading()}</span><ChevronRight
-                  size={20}
-                  aria-hidden="true"
-                />
+                {m.practice_audio_heading()}
               {:else}
                 <SlidersHorizontal size={14} aria-hidden="true" />
                 <span>{m.trainer_label_settings()}</span>
@@ -823,23 +814,14 @@
     margin-left: 0;
     position: static;
   }
-  .practice-layout .player-settings-trigger {
+  .audio-settings-summary {
     width: fit-content;
-    justify-content: flex-start;
-    background: transparent;
-    min-height: 3rem;
-    border: 0;
-    padding-inline: 0;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-2);
     color: var(--text-primary);
     font-size: var(--text-xl);
     font-weight: 600;
-    gap: var(--space-2);
-  }
-  .practice-layout .player-settings-menu[open] .player-settings-trigger :global(svg) {
-    transform: rotate(90deg);
-  }
-  .practice-layout .player-settings-trigger span {
-    display: inline;
+    line-height: var(--leading-snug);
   }
   .practice-layout .player-settings-popover {
     order: 1;

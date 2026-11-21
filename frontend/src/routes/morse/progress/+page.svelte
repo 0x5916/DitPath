@@ -57,6 +57,22 @@
   let guidedUnlockedStep = $state(1);
   let reviewHistory = $state.raw<LearningPilotHistory[]>([]);
   let reviewHistoryError = $state(false);
+  const hasActivity = $derived(
+    summary?.hasRecentActivity ||
+      history.length > 0 ||
+      reviewHistory.length > 0 ||
+      learning.snapshot?.knownCharacters.length ||
+      learning.snapshot?.history.length ||
+      learning.snapshot?.hasProspectiveEvidence
+  );
+  const pilotCharacters = $derived(
+    recordedCharacters(reviewHistory.flatMap((review) => review.attempts))
+  );
+  const characterRecords = $derived(
+    learning.snapshot?.characters.filter(
+      (c) => c.hasGuidedRecord || pilotCharacters.includes(c.character)
+    ) ?? []
+  );
   let mounted = false;
   let loadVersion = 0;
   let loadedOwner: string | null = null;
@@ -144,10 +160,10 @@
   <title>{m.nav_progress()} · {SITE_NAME}</title>
 </svelte:head>
 
-<div class="progress-page">
+<div class="progress-page training-page">
   <div class="progress-container">
     <header class="progress-header">
-      <h1 class="page-title">{m.nav_progress()}</h1>
+      <h1 class="page-title training-title">{m.nav_progress()}</h1>
     </header>
     <nav class="section-nav" aria-label={m.nav_progress()}>
       {#each TABS as tab (tab.value)}
@@ -160,16 +176,6 @@
       {/each}
     </nav>
 
-    {#if learning.snapshot && (view === 'characters' || (view === 'overview' && learning.snapshot.knownCharacters.length >= 2) || (view === 'history' && learning.snapshot.coverage === 'partial'))}<LearningOverview
-        snapshot={learning.snapshot}
-        unlockedLesson={guidedUnlockedStep}
-        details
-        progressView={view}
-      />{/if}
-    {#if learning.failed}<p role="alert">{m.progress_load_error()}</p>
-      <button class="btn-ghost" onclick={() => learning.refresh()}>{m.progress_retry()}</button
-      >{/if}
-
     <TrainingSyncStatus
       owner={trainingSyncState.owner}
       pending={trainingSyncState.pending}
@@ -178,20 +184,32 @@
       error={trainingSyncState.error}
     />
 
-    {#if loading}
+    {#if loadError || learning.failed || (reviewHistoryError && !hasActivity)}
+      <div class="progress-section">
+        <p role="alert">{m.progress_load_error()}</p>
+        <button
+          type="button"
+          class="btn-primary"
+          onclick={() => {
+            void loadProgress();
+            void learning.refresh();
+          }}>{m.progress_retry()}</button
+        >
+      </div>
+    {:else if loading || !learning.snapshot}
       <div class="loading-card" role="status">
         <span class="sr-only">{m.common_loading()}</span>
         <div class="skeleton loading-card" aria-hidden="true"></div>
       </div>
-    {:else if loadError}
-      <div class="progress-section">
-        <p role="alert">{m.progress_load_error()}</p>
-        <button type="button" class="btn-primary" onclick={loadProgress}
-          >{m.progress_retry()}</button
-        >
-      </div>
     {:else if summary}
-      {#if view !== 'characters' && !summary.hasRecentActivity && history.length === 0 && reviewHistory.length === 0 && !learning.snapshot?.history.length}
+      {#if learning.snapshot.coverage === 'partial'}
+        <p role="status" class="progress-subtitle">{m.learning_coverage_partial()}</p>
+      {/if}
+      {#if !hasActivity && learning.snapshot.coverage === 'partial'}
+        <a class="link" href={localizedHref('/settings#learning-evidence')}
+          >{m.learning_next_history()}</a
+        >
+      {:else if !hasActivity}
         <section class="progress-section progress-empty" aria-labelledby="empty-heading">
           <h2 id="empty-heading" class="section-title">{m.progress_empty_title()}</h2>
           <p class="progress-subtitle">{m.progress_empty_description()}</p>
@@ -200,6 +218,15 @@
           >
         </section>
       {:else}
+        {#if characterRecords.length && (view === 'characters' || (view === 'overview' && learning.snapshot.knownCharacters.length >= 2))}
+          <LearningOverview
+            snapshot={learning.snapshot}
+            {characterRecords}
+            unlockedLesson={guidedUnlockedStep}
+            details
+            progressView={view}
+          />
+        {/if}
         {#if view === 'overview' && !learning.snapshot?.checks.length && (summary.confusionPairs.length > 0 || summary.slowChars.length > 0)}
           <section class="progress-section" aria-label={m.progress_attention()}>
             <ConfusionList
@@ -221,18 +248,35 @@
             accuracyPercent={summary.accuracyPercent}
           />
         {/if}
-        {#if view === 'overview' && learning.snapshot?.knownCharacters.length}
+        {#if view !== 'history' && characterRecords.length === 0}
+          <section
+            class="progress-section progress-empty"
+            aria-labelledby="character-empty-heading"
+          >
+            <h2 class="section-title" id="character-empty-heading">
+              {m.progress_no_guided_characters()}
+            </h2>
+            <p class="progress-subtitle">{m.progress_guided_characters_hint()}</p>
+            {#if summary.hasPracticeHistory}
+              <a class="link" href={localizedHref('/morse/progress?view=history')}
+                >{m.progress_view_practice_history()}</a
+              >
+            {/if}
+            <a class="btn-primary" href={localizedHref('/morse/learn')}
+              >{m.progress_return_course()}</a
+            >
+          </section>
+        {/if}
+        {#if view === 'overview' && characterRecords.length}
           <section class="recall-summary" aria-label={m.progress_tab_characters()}>
             {#each ['not-met', 'met', 'stale'] as criterion (criterion)}
               <a href={localizedHref(`/morse/progress?view=characters&status=${criterion}`)}>
                 <span>{criterionLabel(criterion)}</span>
                 <strong
-                  >{learning.snapshot.characters.filter(
-                    (c) =>
-                      learning.snapshot?.knownCharacters.includes(c.character) &&
-                      (criterion === 'stale'
-                        ? !['met', 'not-met'].includes(c.current.criterion)
-                        : c.current.criterion === criterion)
+                  >{characterRecords.filter((c) =>
+                    criterion === 'stale'
+                      ? !['met', 'not-met'].includes(c.current.criterion)
+                      : c.current.criterion === criterion
                   ).length}</strong
                 >
               </a>
@@ -341,7 +385,7 @@
         <LearningHistory entries={learning.snapshot.history} />
       </details>{/if}
 
-    {#if view === 'history' && (reviewHistory.length || reviewHistoryError)}
+    {#if view === 'history' && (reviewHistory.length || (reviewHistoryError && hasActivity))}
       <details class="progress-section ui-disclosure" open={reviewHistoryError}>
         <summary>{m.review_history_heading()}</summary>
         <p class="progress-subtitle">{m.review_local_only()}</p>
@@ -484,14 +528,6 @@
     }
   }
 
-  .progress-page {
-    max-width: 60rem;
-    margin-inline: auto;
-  }
-  .progress-header h1 {
-    font-size: 2rem;
-    margin: 0;
-  }
   .progress-empty {
     padding: var(--space-6);
     background: var(--bg-surface);
@@ -508,16 +544,6 @@
   }
   .progress-container :global(.learning-history > h2) {
     display: none;
-  }
-  @media (max-width: 639px) {
-    .progress-page {
-      padding-inline: var(--space-2);
-    }
-  }
-  @media (min-width: 960px) {
-    .progress-header h1 {
-      font-size: 2.5rem;
-    }
   }
   .progress-container {
     display: flex;

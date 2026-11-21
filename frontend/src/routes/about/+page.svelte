@@ -38,7 +38,7 @@
     <span class="card-label about-toc-label">{m.about_toc_label()}</span>
     <ul class="about-toc-list">
       {#each toc as item (item.id)}
-        <li><a class="link" href={`#${item.id}`}>{item.label()}</a></li>
+        <li><a class="link standalone-target" href={`#${item.id}`}>{item.label()}</a></li>
       {/each}
     </ul>
   </nav>
@@ -96,7 +96,7 @@
       <a class="link" href="mailto:contact@morsewell.com">contact@morsewell.com</a>
     </p>
     <p class="body-text about-links">
-      <a href={GITHUB_URL} class="link" rel="noopener noreferrer" target="_blank"
+      <a href={GITHUB_URL} class="link standalone-target" rel="noopener noreferrer" target="_blank"
         >{m.about_project_github()}</a
       >
     </p>
@@ -122,7 +122,7 @@
     <p class="body-text body-text--prose">
       {m.about_privacy_body({ importAction: m.history_import() })}
     </p>
-    <a class="link" href={href('/privacy')}>{m.privacy_title()}</a>
+    <a class="link standalone-target" href={href('/privacy')}>{m.privacy_title()}</a>
   </section>
 
   <div class="about-cta">
@@ -155,20 +155,11 @@
   .about-toc-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    /* The row gap has to clear the expanded targets below, or neighbouring rows
-       overlap and a tap landing between them is ambiguous. */
-    gap: 0.6rem 1.5rem;
+    gap: var(--space-1) var(--space-6);
     margin: 0;
     padding: 0;
     list-style: none;
     font-size: var(--text-sm);
-  }
-
-  /* Section links are bare text a single line tall. Padding grows the tap area
-     and the negative margin keeps the links aligned with the list. */
-  .about-toc-list li a {
-    padding: 0.25rem 0.375rem;
-    margin: -0.25rem -0.375rem;
   }
 
   /* Long-form, sequential content: no card chrome. Article rhythm + rules read
@@ -204,11 +195,8 @@
     margin-top: var(--space-3);
   }
 
-  /* This paragraph holds the link alone rather than inline in a sentence, so it
-     gets a real target instead of relying on the inline-text exception. */
-  .about-links .link {
-    padding: 0.25rem 0.375rem;
-    margin: -0.25rem -0.375rem;
+  .about-section > .standalone-target {
+    align-self: flex-start;
   }
 
   /* Two-peer comparison: one container, one shared edge, tinted columns. */

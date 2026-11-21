@@ -37,7 +37,9 @@
       {busy ? m.history_importing() : m.domain_recovery_action()}
     </button>
   {:else}
-    <a class="link" href={RECOVERY_ORIGIN + localizedHref('/settings') + '#device-recovery'}
+    <a
+      class="link standalone-target"
+      href={RECOVERY_ORIGIN + localizedHref('/settings') + '#device-recovery'}
       >{m.domain_recovery_action()}</a
     >
   {/if}
