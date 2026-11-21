@@ -118,8 +118,10 @@ test('a stale card cannot resurrect a checkpoint discarded in another tab', asyn
   const other = await openCheckpointInTwoTabs(page);
 
   await page.getByRole('button', { name: 'Continue saved session' }).click();
+  await expect(page.getByRole('textbox', { name: 'Your copy' })).toHaveValue('KM');
   await page.getByRole('link', { name: 'Progress' }).click();
   await page.getByRole('button', { name: 'Discard and leave' }).click();
+  await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible();
   await expect.poll(async () => readCopyCheckpoint(page)).toBeNull();
   await expect(other.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
 
