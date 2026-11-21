@@ -588,6 +588,23 @@ p .link {
   background-color: var(--accent-cta-h);
 }
 
+/* The ready action fills its setup column on phones. */
+button.training-start {
+  width: min(100%, 16.25rem);
+  min-height: 3.25rem;
+  gap: var(--space-2);
+  padding: var(--space-3) min(var(--space-6), 8%);
+  flex-wrap: wrap;
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 599px) {
+  button.training-start {
+    width: 100%;
+  }
+}
+
 /* Quiet row action: text-like controls attached to a row or post (Reply,
    Delete, Cancel). Unbordered and quiet at rest; danger only on hover/focus,
    so a destructive action never dominates until it is used. */

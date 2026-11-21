@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { user } from '#lib/auth.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
   import { migrateLegacyLocalStorage } from '#lib/data/legacy-migration.ts';
   import { createSessionRepository, type SessionRepository } from '#lib/data/session-repository.ts';
@@ -30,7 +29,6 @@
   import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
   import LessonRequirements from '#lib/components/learning/LessonRequirements.svelte';
   import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
-  import GuestNotice from '#lib/components/GuestNotice.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
 
   const learning = createLearningView();
@@ -294,10 +292,6 @@
       requirements={lessonRequirements}
       onSelectStep={handleStartLesson}
     />
-
-    {#if !$user}
-      <GuestNotice class="body-text" />
-    {/if}
   </div>
 </div>
 
@@ -320,11 +314,6 @@
   }
   .learn-home-container :global(.learning-overview h2) {
     font-size: 2rem;
-  }
-  .learn-home-container :global(.body-text) {
-    margin-top: var(--space-10);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
   }
   .learn-home-container {
     display: flex;

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import de from '../messages/de.json' with { type: 'json' };
+import en from '../messages/en.json' with { type: 'json' };
 import { readGuidedCheckpoint, resetToHome } from './helpers';
 
 async function installDeterministicAudioClock(page: Page) {
@@ -68,6 +70,72 @@ test('a locked direct lesson URL shows recovery and preserves the course gate', 
   await expect(page).toHaveURL(/\/en\/morse\/learn$/);
   await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible();
   await expect(page.getByText('1 of 39 lessons unlocked')).toBeVisible();
+});
+
+test.describe('guided-session phone header', () => {
+  test.use({ hasTouch: true });
+  for (const [locale, labels] of Object.entries({ en, de })) {
+    for (const width of [320, 390]) {
+      test(`fits labels and separates touch targets at ${width}px (${locale})`, async ({
+        page
+      }) => {
+        await page.setViewportSize({ width, height: 844 });
+        await resetToHome(page);
+        await page.goto(`/${locale}/morse/learn/session?step=1`);
+        const header = page.locator('.session-header');
+        const buttons = header.getByRole('button');
+        await expect(buttons).toHaveCount(3);
+        const save = header.getByRole('button', { name: labels.session_save_leave, exact: true });
+        const pause = header.getByRole('button', { name: labels.lesson_pause, exact: true });
+        const progress = header.getByRole('progressbar');
+        const readout = progress.locator('.progress-readout');
+        await expect(readout).toHaveText(/^\s*1\s*\/\s*[1-9]\d*\s*$/);
+        await expect(readout).toBeInViewport({ ratio: 1 });
+        const countUnobscured = await readout.locator('span').evaluateAll((parts) =>
+          parts.every((part) => {
+            const { left, top, width, height } = part.getBoundingClientRect();
+            return part.contains(document.elementFromPoint(left + width / 2, top + height / 2));
+          })
+        );
+        expect(countUnobscured).toBe(true);
+
+        const boxes = await buttons.evaluateAll((controls) =>
+          controls.map((control) => {
+            const { left, right, top, bottom, width, height } = control.getBoundingClientRect();
+            return { left, right, top, bottom, width, height };
+          })
+        );
+        for (const box of boxes) {
+          expect(box.width).toBeGreaterThanOrEqual(43.99);
+          expect(box.height).toBeGreaterThanOrEqual(43.99);
+          expect(box.left).toBeGreaterThanOrEqual(0);
+          expect(box.right).toBeLessThanOrEqual(width);
+        }
+        const [, saveBox, pauseBox] = boxes;
+        const gap = Math.max(pauseBox.left - saveBox.right, pauseBox.top - saveBox.bottom);
+        expect(gap).toBeGreaterThanOrEqual(7.99);
+        const labelInset = await save.evaluate((button) => {
+          const box = button.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          const text = range.getBoundingClientRect();
+          return Math.min(
+            text.left - box.left,
+            box.right - text.right,
+            text.top - box.top,
+            box.bottom - text.bottom
+          );
+        });
+        expect(labelInset).toBeGreaterThanOrEqual(-0.01);
+
+        await pause.tap();
+        await expect(page.getByRole('heading', { name: labels.lesson_paused })).toBeVisible();
+        await header.getByRole('button', { name: labels.lesson_resume }).tap();
+        await expect(pause).toBeVisible();
+        await expect(page.getByRole('heading', { name: labels.lesson_paused })).toHaveCount(0);
+      });
+    }
+  }
 });
 
 test('an unlocked lesson starts, saves, and restores its checkpoint', async ({ page }) => {

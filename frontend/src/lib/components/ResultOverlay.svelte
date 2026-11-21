@@ -5,7 +5,6 @@
   import { scoreGrade, type DiffToken } from '#lib/score.ts';
   import { formatPercent } from '#lib/format.ts';
   import * as m from '#lib/paraglide/messages.js';
-  import { onMount } from 'svelte';
 
   interface Props {
     result: number;
@@ -18,6 +17,7 @@
     onClose: () => void;
     onRegenerate: () => void;
     onFinish: () => void;
+    fallbackFocus: HTMLElement | null;
     persistenceStatus?: 'saving' | 'saved' | 'failed' | null;
     onRetrySave?: () => void;
   }
@@ -31,6 +31,7 @@
     onClose,
     onRegenerate,
     onFinish,
+    fallbackFocus,
     persistenceStatus = null,
     onRetrySave
   }: Props = $props();
@@ -46,34 +47,33 @@
   let pct = $derived(formatPercent(result));
   let savePending = $derived(persistenceStatus === 'saving' || persistenceStatus === 'failed');
 
-  let panelRef = $state<HTMLDivElement | null>(null);
-  let restoreFocusTo: HTMLElement | null = null;
   const titleId = $props.id();
 
   /**
    * Keep Tab inside the panel and close on Escape, returning focus to whatever
    * opened it. Native Space/Enter activation stays on the focused control.
    */
-  function onPanelKeydown(event: KeyboardEvent) {
+  function onPanelKeydown(event: KeyboardEvent & { currentTarget: HTMLDialogElement }) {
     event.stopPropagation();
-    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     if (
       event.key === 'Escape' &&
-      !event.repeat &&
-      !event.altKey &&
-      !event.ctrlKey &&
-      !event.metaKey
+      (event.repeat ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey)
     ) {
       event.preventDefault();
-      onClose();
-      return;
     }
-    if (event.key !== 'Tab' || !panelRef) return;
+    if (event.key !== 'Tab' || event.defaultPrevented || event.isComposing || event.keyCode === 229)
+      return;
+    const dialog = event.currentTarget;
     const target = dialogFocusTarget(
-      dialogFocusables(panelRef),
+      dialogFocusables(dialog),
       document.activeElement as HTMLElement | null,
       event.shiftKey,
-      panelRef
+      dialog
     );
     if (target) {
       event.preventDefault();
@@ -85,33 +85,33 @@
     if (e.target === e.currentTarget) onClose();
   }
 
-  onMount(() => {
-    restoreFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // Focus the panel itself: it is labelled by the dialog title, so screen
-    // readers announce the dialog name before the learner moves on.
-    panelRef?.focus();
-    function containFocus(event: FocusEvent) {
-      if (panelRef && event.target instanceof Node && !panelRef.contains(event.target))
-        panelRef.focus();
-    }
-    document.addEventListener('focusin', containFocus);
+  function openModal(modal: HTMLDialogElement) {
+    const opener = document.activeElement;
+    modal.showModal();
+    modal.focus();
     return () => {
-      document.removeEventListener('focusin', containFocus);
-      if (restoreFocusTo?.isConnected) restoreFocusTo.focus({ preventScroll: true });
+      modal.close();
+      const target =
+        opener instanceof HTMLElement && opener !== document.body && opener.isConnected
+          ? opener
+          : fallbackFocus;
+      target?.focus({ preventScroll: true });
     };
-  });
+  }
 </script>
 
-<div class="overlay-backdrop" onclick={handleBackdropClick} role="presentation">
-  <div
-    class="overlay-panel"
-    bind:this={panelRef}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby={titleId}
-    tabindex="-1"
-    onkeydown={onPanelKeydown}
-  >
+<dialog
+  class="overlay-backdrop"
+  {@attach openModal}
+  aria-labelledby={titleId}
+  onclick={handleBackdropClick}
+  onkeydown={onPanelKeydown}
+  oncancel={(event) => {
+    event.preventDefault();
+    onClose();
+  }}
+>
+  <div class="overlay-panel">
     <header class="overlay-head">
       <h2 id={titleId} class="overlay-title">{m.trainer_result_title()}</h2>
       <button
@@ -237,7 +237,7 @@
       >
     </footer>
   </div>
-</div>
+</dialog>
 
 <style>
   .overlay-source summary {
@@ -248,15 +248,28 @@
   }
   /* A compact panel, not a takeover: the practice surface stays visible around
      it and the scrim is flat (no blur, no glow). */
+  .overlay-backdrop::backdrop {
+    background: color-mix(in srgb, var(--bg-base) 70%, transparent);
+  }
+
   .overlay-backdrop {
     position: fixed;
     inset: 0;
-    background: color-mix(in srgb, var(--bg-base) 70%, transparent);
-    z-index: 200;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: var(--space-4);
+    border: 0;
+    color: inherit;
+    background: transparent;
+  }
+
+  .overlay-backdrop[open] {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--space-4);
   }
 
   .overlay-panel {
@@ -273,7 +286,7 @@
     box-shadow: var(--shadow-overlay);
   }
 
-  .overlay-panel:focus {
+  .overlay-backdrop:focus {
     outline: none;
   }
 

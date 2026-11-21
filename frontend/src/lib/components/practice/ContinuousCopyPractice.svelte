@@ -337,7 +337,7 @@
       </label>
     {/if}
 
-    {#if !showOverlay && result >= 0}
+    {#if result >= 0}
       <p class="result-line" aria-live="polite">
         {m.trainer_result_last({ percent: formatPercent(result) })}
         <button type="button" class="quiet-btn" onclick={() => (showOverlay = true)}>
@@ -391,6 +391,7 @@
       lessonNum={activeLesson}
       sourceText={lessonText}
       onClose={() => (showOverlay = false)}
+      fallbackFocus={answerEl}
       onFinish={() => void finishPractice()}
       onRegenerate={() => void startNewExercise()}
       {persistenceStatus}

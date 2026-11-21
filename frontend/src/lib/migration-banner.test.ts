@@ -189,8 +189,8 @@ describe('migration banner state', () => {
 describe('migration data-preservation messaging', () => {
   it('distinguishes browser recovery from account synchronization', () => {
     expect(en.migration_guest_history_body).toContain('will not transfer automatically');
-    expect(en.migration_guest_history_body).toContain('import your device history');
-    expect(en.migration_guest_history_body).toContain('confirm synchronization');
+    expect(en.migration_guest_sync_steps).toContain('import your device history');
+    expect(en.migration_guest_sync_steps).toContain('confirm synchronization');
     expect(en.migration_checkpoint_body).toContain(
       'before importing its history into your account'
     );
