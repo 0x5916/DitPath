@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resetAcceptance } from './helpers';
 
 test.describe('Morsewell migration data guidance', () => {
@@ -77,12 +77,21 @@ test.describe('Morsewell migration data guidance', () => {
     await banner.getByRole('button', { name: 'Dismiss announcement' }).click();
     await expect(page.locator('.migration-banner')).toHaveCount(0);
 
-    await page.goto('/en/about');
+    async function openReturningLessons(tab: Page) {
+      await tab.goto('/en/morse/learn');
+      // This action appears only after hydration and the learner's local history load.
+      await tab.getByRole('link', { name: 'Check K, M', exact: true }).waitFor();
+    }
+
+    await openReturningLessons(page);
     await expect(page.locator('.migration-banner')).toHaveCount(0);
 
     const freshTab = await page.context().newPage();
-    await freshTab.goto('/en/about');
-    await expect(freshTab.locator('.migration-banner[role="alert"]')).toBeVisible();
+    await openReturningLessons(freshTab);
+    const freshWarning = freshTab.locator('.migration-banner[role="alert"]');
+    await expect(freshWarning).toBeVisible();
+    await expect(freshWarning).toContainText('will not transfer automatically');
+    await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
 
   test('warns guests to complete unfinished sessions before importing their history into an account', async ({
