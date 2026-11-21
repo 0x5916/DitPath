@@ -16,6 +16,7 @@ export interface ProgressSummary {
   totalMinutes: number | null;
   accuracyPercent: number | null;
   hasRecentActivity: boolean;
+  hasPracticeHistory: boolean;
 }
 
 /** Native completion is the occurrence time until its server occurrence is downloaded. */
@@ -117,6 +118,9 @@ export function summarizeProgress(
           (scored7Days.filter((attempt) => attempt.isCorrect).length / scored7Days.length) * 100
         )
       : null,
-    hasRecentActivity: recent.length > 0 || completed.length > 0
+    hasRecentActivity: recent.length > 0 || completed.length > 0,
+    hasPracticeHistory: sessions.some(
+      (session) => session.mode === 'practice' && session.status === 'completed'
+    )
   };
 }

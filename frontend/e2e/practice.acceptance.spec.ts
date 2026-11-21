@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   pageAlert,
   readCopyCheckpoint,
@@ -9,12 +9,24 @@ import {
   startAndType
 } from './helpers';
 
-async function createCheckpoint(page: import('@playwright/test').Page) {
+async function createCheckpoint(page: Page) {
   await resetToHome(page);
-  await page.goto('/morse/practice');
+  await page.goto('/en/morse/practice');
   await startAndType(page);
   await expect.poll(async () => (await readCopyCheckpoint(page)) !== null).toBe(true);
   await saveAndLeave(page);
+}
+
+async function openCheckpointInTwoTabs(page: Page) {
+  await createCheckpoint(page);
+  // Follow the saved-session link once Home has loaded the checkpoint.
+  await page.getByRole('link', { name: 'Complete saved session' }).click();
+  await expect(page.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
+
+  const other = await page.context().newPage();
+  await other.goto(page.url());
+  await expect(other.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
+  return other;
 }
 
 test('Save & leave opens Home in a fresh document and keeps the latest copy', async ({ page }) => {
@@ -75,15 +87,8 @@ test('rapid continue clicks do not strand the resumed session', async ({ page })
   await expect(pageAlert(page)).toHaveCount(0);
 });
 
-test('a second tab cannot resume while the first tab holds the session', async ({
-  context,
-  page
-}) => {
-  await createCheckpoint(page);
-  const other = await context.newPage();
-  await Promise.all([page.goto('/morse/practice'), other.goto('/morse/practice')]);
-  await expect(page.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
-  await expect(other.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
+test('a second tab cannot resume while the first tab holds the session', async ({ page }) => {
+  const other = await openCheckpointInTwoTabs(page);
 
   await Promise.all([
     page.getByRole('button', { name: 'Continue saved session' }).click(),
@@ -109,19 +114,14 @@ test('a second tab cannot resume while the first tab holds the session', async (
   await expect(loser.getByRole('textbox', { name: 'Your copy' })).toHaveValue('KM');
 });
 
-test('a stale card cannot resurrect a checkpoint discarded in another tab', async ({
-  context,
-  page
-}) => {
-  await createCheckpoint(page);
-  const other = await context.newPage();
-  await Promise.all([page.goto('/morse/practice'), other.goto('/morse/practice')]);
-  await expect(page.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
-  await expect(other.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
+test('a stale card cannot resurrect a checkpoint discarded in another tab', async ({ page }) => {
+  const other = await openCheckpointInTwoTabs(page);
 
   await page.getByRole('button', { name: 'Continue saved session' }).click();
+  await expect(page.getByRole('textbox', { name: 'Your copy' })).toHaveValue('KM');
   await page.getByRole('link', { name: 'Progress' }).click();
   await page.getByRole('button', { name: 'Discard and leave' }).click();
+  await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible();
   await expect.poll(async () => readCopyCheckpoint(page)).toBeNull();
   await expect(other.getByRole('button', { name: 'Continue saved session' })).toBeVisible();
 
@@ -225,7 +225,7 @@ test('retrying a failed practice save records exactly one session', async ({ pag
   await expect.poll(async () => readCopyCheckpoint(page)).toBeNull();
 });
 
-async function waitForClientRouting(page: import('@playwright/test').Page) {
+async function waitForClientRouting(page: Page) {
   const trigger = page.getByRole('button', { name: 'About Practice' });
   await expect(trigger).toBeVisible();
   await expect

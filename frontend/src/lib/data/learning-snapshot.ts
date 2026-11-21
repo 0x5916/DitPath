@@ -47,6 +47,8 @@ import type {
 export interface LearningCharacter {
   character: string;
   exposure: 'recorded' | 'unknown';
+  /** Guided progress can exist before a scored check or milestone. */
+  hasGuidedRecord: boolean;
   current: CharacterEvidence['current'] & { counts: Counts | null };
   proficiency: Attainment | null;
   retention: Attainment | null;
@@ -317,10 +319,18 @@ export function projectLearningSnapshot(
       issues.push(`terminal-manifest-mismatch:${plan.id}`);
     } else checks.push(check);
   }
-  const seen = new Set(options.knownCharacters ?? []);
+  // The training repository supplies characters from legacy guided attempts.
+  const guided = new Set(options.knownCharacters ?? []);
+  const seen = new Set(guided);
   for (const record of records) {
-    if (record.kind === 'exposure-open')
-      for (const character of strings(record.characters)) seen.add(character);
+    if (record.kind !== 'exposure-open') continue;
+    const inGuidedSession = ['guided', 'coaching', 'screening', 'mixed-check'].includes(
+      text(record.source)
+    );
+    for (const character of strings(record.characters)) {
+      seen.add(character);
+      if (inGuidedSession) guided.add(character);
+    }
   }
   const knownCharacters = [...LESSONS.join('')].filter((character) => seen.has(character));
   const claims = claimsFromWire(records, options.ownerKey);
@@ -397,6 +407,7 @@ export function projectLearningSnapshot(
     return {
       character,
       exposure: seen.has(character) ? ('recorded' as const) : ('unknown' as const),
+      hasGuidedRecord: guided.has(character) || !!currentCheck || evidence.historical.length > 0,
       current: { ...evidence.current, counts },
       proficiency,
       retention,

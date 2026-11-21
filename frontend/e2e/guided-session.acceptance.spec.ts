@@ -4,7 +4,7 @@ import { readGuidedCheckpoint, readOwnedAttempts, readOwnedSessions, resetToHome
 /**
  * Headless Firefox on Linux has no audio device: AudioContext.resume() never
  * resolves and the introduction would remain on “Listening…” forever. This
- * test exercises guided session transitions, while audio.acceptance.spec.ts
+ * test exercises guided session transitions, while audio.preview.spec.ts
  * keeps real Web Audio lifecycle coverage.
  */
 async function installDeterministicAudioClock(page: Page) {
@@ -26,7 +26,11 @@ async function installDeterministicAudioClock(page: Page) {
       disconnect() {}
       start() {}
       stop(when = 0) {
-        setTimeout(() => this.onended?.(), Math.max(0, when * 1000));
+        if (this.onended && document.documentElement.hasAttribute('data-hold-test-audio')) {
+          window.addEventListener('finish-test-audio', () => this.onended?.(), { once: true });
+        } else {
+          setTimeout(() => this.onended?.(), Math.max(0, when * 1000));
+        }
       }
     }
     class FakeAudioContext {
@@ -60,6 +64,7 @@ async function installDeterministicAudioClock(page: Page) {
 }
 
 type GuidedPrompt = {
+  id: string;
   spec: { kind: string; expectedText: string };
 };
 
@@ -71,7 +76,69 @@ type GuidedCheckpoint = {
   };
 };
 
-test('a guided lesson completes once and records one completed session', async ({ page }) => {
+/** Hold the simulated tone long enough to inspect what the user sees during playback. */
+async function holdAudio(page: Page) {
+  await page.evaluate(() => document.documentElement.setAttribute('data-hold-test-audio', ''));
+}
+
+async function finishAudio(page: Page) {
+  await page.evaluate(() => {
+    document.documentElement.removeAttribute('data-hold-test-audio');
+    window.dispatchEvent(new Event('finish-test-audio'));
+  });
+}
+
+async function checkRecall(page: Page, expected: string, touch: boolean) {
+  const prompt = page.locator('.recognition');
+  const play = prompt.getByRole('button', { name: 'Play sound', exact: true });
+  const replay = prompt.getByRole('button', { name: 'Replay sound', exact: true });
+  const input = prompt.getByRole('textbox', { name: 'Type your answer' });
+  const instruction = prompt.getByText(
+    'Type one character. Your answer is submitted automatically.'
+  );
+  const listening = prompt.getByText('Listening…', { exact: true }).filter({ visible: true });
+  const playHint = prompt.getByText('Press Space or the play button to hear the sound.');
+  const replayHint = prompt.getByText('Press Space to replay.');
+  await expect(play).toBeEnabled();
+  await expect(prompt.getByRole('heading', { name: 'Listen', exact: true })).toBeVisible();
+  await expect(instruction).toBeHidden();
+  await expect(prompt.getByRole('textbox', { disabled: false })).toHaveCount(0);
+  if (!touch) await expect(playHint).toBeVisible();
+  await expect(replayHint).toBeHidden();
+  const decoded = new RegExp(`\\b${expected}\\b|[.·•−–-]{2,}`);
+  for (const control of [play, replay]) {
+    await holdAudio(page);
+    if (touch) await control.tap();
+    else await page.keyboard.press('Space');
+    await expect(listening).toHaveCount(1);
+    await expect(input).toBeDisabled();
+    await expect(instruction).toBeHidden();
+    await expect(playHint).toBeHidden();
+    await expect(replayHint).toBeHidden();
+    await expect(prompt.getByRole('textbox', { disabled: false })).toHaveCount(0);
+    await expect(prompt.locator('[aria-keyshortcuts~="Space"]')).toHaveCount(0);
+    await expect(prompt).not.toContainText(decoded);
+    await finishAudio(page);
+    await expect(input).toBeEnabled();
+    await expect(prompt.getByRole('heading', { name: 'Now type what you hear' })).toBeVisible();
+    await expect(instruction).toBeVisible();
+    await expect(replay).toBeEnabled();
+    await expect(listening).toHaveCount(0);
+    if (!touch) await expect(replayHint).toBeVisible();
+    await expect(playHint).toBeHidden();
+    await expect(prompt).not.toContainText(decoded);
+    if (!touch) await expect(input).toBeFocused();
+  }
+  await input.fill(expected);
+  const proceed = prompt.getByRole('button', { name: 'Continue', exact: true });
+  await expect(proceed).toBeEnabled();
+  await expect(replayHint).toBeHidden();
+  await expect(proceed).toHaveAttribute('aria-keyshortcuts', 'Enter');
+  if (touch) await proceed.tap();
+  else await page.keyboard.press('Enter');
+}
+
+async function completeGuidedLesson(page: Page, touch: boolean) {
   test.setTimeout(120_000);
   await resetToHome(page);
   await installDeterministicAudioClock(page);
@@ -82,16 +149,28 @@ test('a guided lesson completes once and records one completed session', async (
     .toBe(true);
   const checkpoint = (await readGuidedCheckpoint(page)) as GuidedCheckpoint;
   const prompts = checkpoint.state.prompts;
-  expect(prompts.length).toBeGreaterThan(0);
+  const firstRecall = prompts.findIndex((prompt) => prompt.spec.kind === 'recall');
+  expect(firstRecall).toBeGreaterThan(0);
 
   for (const [index, prompt] of prompts.entries()) {
     const { kind, expectedText: expected } = prompt.spec;
     if (kind === 'introduction') {
       const listen = page.getByRole('button', { name: `Listen to ${expected}` });
-      if (await listen.isVisible().catch(() => false)) await listen.click();
+      if (index === 0) {
+        await holdAudio(page);
+        if (touch) await listen.tap();
+        else await listen.press('Enter');
+        await expect(
+          page.getByText('Listening…', { exact: true }).filter({ visible: true })
+        ).toHaveCount(1);
+        await expect(page.locator('.introduction [aria-keyshortcuts]')).toHaveCount(0);
+        await finishAudio(page);
+      } else if (await listen.isVisible()) await listen.click();
       const proceed = page.getByRole('button', { name: 'Continue' });
       await expect(proceed).toBeVisible({ timeout: 10_000 });
       await proceed.click();
+    } else if (index === firstRecall) {
+      await checkRecall(page, expected, touch);
     } else {
       const play = page.getByRole('button', { name: 'Play sound' });
       if (await play.isVisible().catch(() => false)) await play.click();
@@ -135,6 +214,9 @@ test('a guided lesson completes once and records one completed session', async (
   expect(attempts.length).toBeGreaterThan(0);
   expect(new Set(attempts.map((attempt) => attempt.id)).size).toBe(attempts.length);
   expect(attempts.every((attempt) => attempt.sessionId === guided[0].id)).toBe(true);
+  expect(attempts.filter((attempt) => attempt.promptId === prompts[firstRecall].id)).toEqual([
+    expect.objectContaining({ replayCount: 1, isCorrect: true })
+  ]);
 
   await expect(page.getByRole('button', { name: 'Finish for today' })).toHaveCount(1);
   await page.getByRole('button', { name: 'Finish for today' }).click();
@@ -142,4 +224,18 @@ test('a guided lesson completes once and records one completed session', async (
   expect(
     (await readOwnedSessions(page)).filter((session) => session.mode === 'guided')
   ).toHaveLength(1);
+}
+
+test('a guided lesson completes once with phase-specific playback cues and keyboard replay', async ({
+  page
+}) => {
+  await completeGuidedLesson(page, false);
+});
+
+test.describe('guided playback on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, colorScheme: 'dark' });
+
+  test('tapping Play, Replay and Continue completes the guided lesson once', async ({ page }) => {
+    await completeGuidedLesson(page, true);
+  });
 });

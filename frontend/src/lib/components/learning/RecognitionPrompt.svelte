@@ -54,6 +54,7 @@
   }: Props = $props();
   let feedback = $derived(phase === 'feedback');
   let playing = $derived(phase === 'playing');
+  let canPlay = $derived(phase === 'ready' || phase === 'answering');
   function focusHeading(heading: HTMLElement) {
     heading.focus();
   }
@@ -65,7 +66,12 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.code === 'Space' && !event.shiftKey && acceptsSessionShortcut(event)) {
+    if (
+      (canPlay || feedback) &&
+      event.code === 'Space' &&
+      !event.shiftKey &&
+      acceptsSessionShortcut(event)
+    ) {
       event.preventDefault();
       play();
     }
@@ -127,7 +133,7 @@
   {:else}
     <header>
       <h1 tabindex="-1" {@attach focusHeading}>
-        {assessment && phase !== 'answering'
+        {phase !== 'answering'
           ? m.check_listen()
           : firstRecall
             ? m.lesson_recall_start()
@@ -138,9 +144,9 @@
     {#if !assessment || !playing}<button
         type="button"
         class={assessment ? 'btn-ghost' : phase === 'ready' ? 'btn-primary' : 'btn-ghost'}
-        aria-disabled={playing}
-        aria-busy={playing}
-        aria-keyshortcuts="Space"
+        aria-disabled={!canPlay}
+        aria-live={assessment ? undefined : 'polite'}
+        aria-keyshortcuts={canPlay ? 'Space' : undefined}
         onclick={play}
       >
         {#if playing}<Volume2 size={20} aria-hidden="true" /> {m.lesson_listening()}
@@ -168,17 +174,13 @@
     {#if audioError && !assessment}<p class="notice" role="alert">
         {m.lesson_feedback_audio_error()}
       </p>{/if}
-    <p class="reassurance" role="status">
-      {playing
-        ? m.lesson_listening()
-        : scored || coaching || assessment
-          ? ''
-          : m.lesson_warmup_hint()}
-    </p>
+    {#if canPlay && !scored && !coaching && !assessment}
+      <p class="reassurance">{m.lesson_warmup_hint()}</p>
+    {/if}
     {#if assessment && phase === 'ready'}<p>
         {audioError ? m.lesson_feedback_audio_error() : m.check_audio_tap()}
       </p>{/if}
-    {#if !assessment}<footer>
+    {#if !assessment && canPlay}<footer class="keyboard-hint">
         <p>{phase === 'answering' ? m.lesson_hint_replay() : m.lesson_hint_play()}</p>
       </footer>{:else if phase === 'answering'}<p class="keyboard-hint">
         {m.check_space_replay()}
@@ -302,9 +304,6 @@
   }
   .assessment :global(.input-instruction) {
     font-size: var(--text-sm);
-  }
-  .assessment .reassurance {
-    display: none;
   }
   .keyboard-hint {
     font-size: var(--text-sm);

@@ -127,7 +127,7 @@ function contributionLevel(count: number, maxCount: number): 0 | 1 | 2 | 3 | 4 {
 
 /** Years the account has history for, newest first. */
 export function getAvailableYears(createdAtMs: number | null, currentYear: number): number[] {
-  const startYear = createdAtMs === null ? currentYear : new Date(createdAtMs).getFullYear();
+  const startYear = createdAtMs === null ? currentYear : new Date(createdAtMs).getUTCFullYear();
 
   const years: number[] = [];
   for (let year = currentYear; year >= startYear; year -= 1) {

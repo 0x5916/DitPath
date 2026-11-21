@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { user } from '#lib/auth.ts';
   import { createAttemptRepository } from '#lib/data/attempt-repository.ts';
   import { migrateLegacyLocalStorage } from '#lib/data/legacy-migration.ts';
   import { createSessionRepository, type SessionRepository } from '#lib/data/session-repository.ts';
@@ -30,7 +29,6 @@
   import LearningOverview from '#lib/components/learning/LearningOverview.svelte';
   import LessonRequirements from '#lib/components/learning/LessonRequirements.svelte';
   import SavedSessions from '#lib/components/learning/SavedSessions.svelte';
-  import GuestNotice from '#lib/components/GuestNotice.svelte';
   import TrainingSyncStatus from '#lib/components/TrainingSyncStatus.svelte';
 
   const learning = createLearningView();
@@ -265,10 +263,10 @@
   {/if}
 {/snippet}
 
-<div class="lessons-page">
+<div class="lessons-page training-page">
   <div class="learn-home-container">
     <header class="learn-header">
-      <h1 class="page-title">{m.nav_learn()}</h1>
+      <h1 class="page-title training-title">{m.nav_learn()}</h1>
       {#if !loading && !errorMsg}
         <span class="path-meta">
           {m.learn_path_unlocked({ count: currentStep, total: LESSONS.length })}
@@ -294,19 +292,10 @@
       requirements={lessonRequirements}
       onSelectStep={handleStartLesson}
     />
-
-    {#if !$user}
-      <GuestNotice class="body-text" />
-    {/if}
   </div>
 </div>
 
 <style>
-  .lessons-page {
-    width: 100%;
-    max-width: 70rem;
-    margin-inline: auto;
-  }
   .learn-home-container :global(.saved-sessions) {
     margin-block: 0;
   }
@@ -320,11 +309,6 @@
   }
   .learn-home-container :global(.learning-overview h2) {
     font-size: 2rem;
-  }
-  .learn-home-container :global(.body-text) {
-    margin-top: var(--space-10);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
   }
   .learn-home-container {
     display: flex;
@@ -345,20 +329,8 @@
     gap: var(--space-2);
   }
 
-  .page-title {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
   .path-meta {
     font-size: var(--text-sm);
     color: var(--text-secondary);
-  }
-  @media (min-width: 960px) {
-    .page-title {
-      font-size: 2.5rem;
-    }
   }
 </style>

@@ -104,7 +104,7 @@
     autocapitalize="characters"
     spellcheck="false"
     aria-label={m.lesson_answer_label()}
-    aria-describedby={`${inputId}-instruction`}
+    aria-describedby={disabled ? undefined : `${inputId}-instruction`}
     oninput={handleInput}
     onkeydown={handleKeydown}
     oncompositionstart={() => (composing = true)}
@@ -113,7 +113,7 @@
       handleInput(event);
     }}
   />
-  <div class="input-instruction" id={`${inputId}-instruction`}>
+  <div class="input-instruction" id={`${inputId}-instruction`} hidden={disabled}>
     {instruction ??
       (inputLength === 1 ? m.lesson_type_character() : m.lesson_type_group({ count: inputLength }))}
   </div>

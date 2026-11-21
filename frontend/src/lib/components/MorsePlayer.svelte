@@ -4,15 +4,7 @@
   import type { AudioEngine } from '#lib/audio/engine.ts';
   import { formatClock } from '#lib/format.ts';
   import { onDestroy, untrack } from 'svelte';
-  import {
-    Play,
-    Square,
-    Pause,
-    SlidersHorizontal,
-    SkipForward,
-    CircleAlert,
-    ChevronRight
-  } from '@lucide/svelte';
+  import { Play, Square, Pause, SlidersHorizontal, SkipForward, CircleAlert } from '@lucide/svelte';
   import {
     createPlaybackController,
     idlePlayback,
@@ -93,6 +85,7 @@
 
   let started = $derived(playback.started);
   let paused = $derived(playback.paused);
+  const practiceStart = $derived(practiceLayout && !started && playTone === 'primary');
   let progress = $derived(playback.progress);
   let timer = $derived(playback.timer);
   let rafId = 0;
@@ -380,11 +373,11 @@
         {/if}
         <button
           type="button"
-          class={started && !paused
-            ? 'btn-primary player-play-btn'
-            : playTone === 'quiet'
-              ? 'btn-ghost player-play-btn'
-              : 'btn-primary player-play-btn'}
+          class={[
+            'player-play-btn',
+            (started && !paused) || playTone === 'primary' ? 'btn-primary' : 'btn-ghost',
+            practiceStart && 'training-start'
+          ]}
           onclick={() => transport.toggle(text)}
           bind:this={playButton}
           disabled={playback.busy}
@@ -393,7 +386,7 @@
           {#if started && !paused}
             <Pause size={16} />
           {:else}
-            <Play size={16} />
+            <Play size={practiceStart ? 18 : 16} />
           {/if}
           <span class="player-play-label">
             {#each reservedPlayLabels as reservedLabel (reservedLabel)}
@@ -421,14 +414,13 @@
         <div class="player-settings-region">
           <details class="player-settings-menu" bind:this={settingsEl} bind:open={settingsOpen}>
             <summary
-              class="player-settings-trigger"
+              class={practiceLayout
+                ? 'audio-settings-summary training-disclosure'
+                : 'player-settings-trigger'}
               aria-label={practiceLayout ? m.practice_audio_heading() : m.trainer_label_settings()}
             >
               {#if practiceLayout}
-                <span>{m.practice_audio_heading()}</span><ChevronRight
-                  size={20}
-                  aria-hidden="true"
-                />
+                {m.practice_audio_heading()}
               {:else}
                 <SlidersHorizontal size={14} aria-hidden="true" />
                 <span>{m.trainer_label_settings()}</span>
@@ -623,7 +615,7 @@
     min-width: 0;
   }
 
-  .player-media-controls button {
+  .player-media-controls button:not(.training-start) {
     min-width: var(--player-control-height);
     min-height: var(--player-control-height);
   }
@@ -643,7 +635,6 @@
   .player-play-btn {
     flex: 0 0 auto;
     max-width: 100%;
-    padding-inline: var(--space-4);
   }
 
   .player-play-label {
@@ -823,23 +814,14 @@
     margin-left: 0;
     position: static;
   }
-  .practice-layout .player-settings-trigger {
+  .audio-settings-summary {
     width: fit-content;
-    justify-content: flex-start;
-    background: transparent;
-    min-height: 3rem;
-    border: 0;
-    padding-inline: 0;
+    min-height: var(--answer-target-min);
+    padding-block: var(--space-2);
     color: var(--text-primary);
     font-size: var(--text-xl);
     font-weight: 600;
-    gap: var(--space-2);
-  }
-  .practice-layout .player-settings-menu[open] .player-settings-trigger :global(svg) {
-    transform: rotate(90deg);
-  }
-  .practice-layout .player-settings-trigger span {
-    display: inline;
+    line-height: var(--leading-snug);
   }
   .practice-layout .player-settings-popover {
     order: 1;
@@ -861,11 +843,14 @@
     grid-column: 1;
     grid-row: 4;
     margin-inline: var(--practice-card-padding, var(--space-6));
+    gap: var(--space-2);
+  }
+  .practice-layout .player-play-btn:not(.training-start) {
+    padding-inline: min(var(--space-2), 3%);
     flex-wrap: wrap;
   }
-  .practice-layout .player-play-btn {
-    min-height: 3.25rem;
-    min-width: min(100%, 16.25rem);
+  .practice-layout .player-play-label {
+    overflow-wrap: anywhere;
   }
   .practice-layout .player-error {
     grid-column: 1;

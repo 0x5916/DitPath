@@ -33,6 +33,8 @@
     onResume = () => {},
     onDiscardResume = () => {}
   }: Props = $props();
+
+  const actionClass = $derived(['btn-cta', embedded ? 'training-start' : 'hero-btn']);
 </script>
 
 {#snippet activeHeading(heading: string, characters: string, status: string)}
@@ -58,7 +60,7 @@
   </h2>
   {#if showInstruction}<p class="hero-desc">{m.learn_new_description()}</p>{/if}
   <div class="hero-actions">
-    <button type="button" class="btn-cta hero-btn" onclick={() => onStart(lessonStep)}>
+    <button type="button" class={actionClass} onclick={() => onStart(lessonStep)}>
       <Play size={18} /><span>{m.learn_start_action({ step: lessonStep })}</span>
     </button>
   </div>
@@ -94,7 +96,7 @@
     <div class="hero-actions">
       <button
         type="button"
-        class="btn-cta hero-btn"
+        class={actionClass}
         disabled={sessionActionPending}
         onclick={() => onResume(resumableSessionId)}
       >
@@ -123,7 +125,7 @@
     {/if}
     <p class="hero-desc">{m.learn_review_description()}</p>
     <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(step)}>
+      <button type="button" class={actionClass} onclick={() => onStart(step)}>
         <RotateCcw size={18} />
         <span>{m.learn_review_action({ step })}</span>
       </button>
@@ -133,7 +135,7 @@
     <h2 class="hero-title">{m.learn_complete_title()}</h2>
     <p class="hero-desc">{m.learn_complete_description({ count: LESSONS.join('').length })}</p>
     <div class="hero-actions">
-      <button type="button" class="btn-cta hero-btn" onclick={() => onStart(LESSONS.length)}>
+      <button type="button" class={actionClass} onclick={() => onStart(LESSONS.length)}>
         <Play size={18} />
         <span>{m.learn_complete_action()}</span>
       </button>
@@ -301,17 +303,11 @@
   .is-embedded .hero-actions {
     width: 100%;
   }
-  .is-embedded .hero-btn {
-    min-height: 3.25rem;
-    width: 16.25rem;
-    max-width: 100%;
-  }
   @media (max-width: 599px) {
     .is-embedded .hero-title {
       font-size: 1.625rem;
     }
-    .hero-actions,
-    .is-embedded .hero-btn {
+    .hero-actions {
       width: 100%;
     }
   }

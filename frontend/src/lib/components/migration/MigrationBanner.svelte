@@ -86,7 +86,9 @@
     )
   );
 
-  const showSyncDetails = $derived(Boolean(bannerState && bannerState.kind !== 'guest-empty'));
+  const compact = $derived(
+    bannerState?.kind === 'guest-empty' || bannerState?.kind === 'signed-in-empty'
+  );
   const showRegister = $derived(
     Boolean(
       bannerState &&
@@ -212,10 +214,17 @@
   });
 </script>
 
+{#snippet recoveryLink()}
+  <a
+    class="link recovery-link standalone-target"
+    href={`${localizedHref('/settings')}#device-recovery`}>{m.domain_recovery_title()}</a
+  >
+{/snippet}
+
 {#if visible && bannerState && context}
   <aside
     class="migration-banner"
-    class:compact={bannerState.kind === 'guest-empty' || bannerState.kind === 'signed-in-empty'}
+    class:compact
     class:warning={bannerState.tone === 'warning'}
     class:danger={bannerState.tone === 'danger'}
     role={bannerState.critical ? 'alert' : 'status'}
@@ -225,80 +234,82 @@
       ? 'migration-banner-body migration-banner-checkpoint'
       : 'migration-banner-body'}
   >
-    <div class="migration-icon" aria-hidden="true">
-      {#if bannerState.kind === 'sync-pending'}
-        <CloudUpload size={20} />
-      {:else if bannerState.kind === 'sync-failed'}
-        <CircleAlert size={20} />
-      {:else if bannerState.kind === 'signed-in-ok'}
-        <CloudCheck size={20} />
-      {:else if bannerState.kind === 'guest-history' || bannerState.kind === 'signed-in-unclaimed'}
-        <HardDrive size={20} />
-      {:else}
-        <Megaphone size={20} />
+    <h2 id="migration-banner-title">
+      {#if !compact}
+        <span class="migration-icon" aria-hidden="true">
+          {#if bannerState.kind === 'sync-pending'}
+            <CloudUpload size={20} />
+          {:else if bannerState.kind === 'sync-failed'}
+            <CircleAlert size={20} />
+          {:else if bannerState.kind === 'signed-in-ok'}
+            <CloudCheck size={20} />
+          {:else if bannerState.kind === 'guest-history' || bannerState.kind === 'signed-in-unclaimed'}
+            <HardDrive size={20} />
+          {:else}
+            <Megaphone size={20} />
+          {/if}
+        </span>
       {/if}
-    </div>
+      {titleFor(bannerState.kind)}
+    </h2>
 
-    <div class="migration-copy">
-      <h2 id="migration-banner-title">{titleFor(bannerState.kind)}</h2>
-      {#if bannerState.kind === 'guest-empty'}
-        <p id="migration-banner-body" class="migration-body">
-          {m.migration_guest_empty_body()}
-          <a class="link" href={localizedHref('/register')}>{m.migration_register_cta()}</a>
-        </p>
-      {:else if bannerState.kind === 'signed-in-empty'}
-        <p id="migration-banner-body" class="migration-body">
-          {m.migration_signed_in_empty_body()}
-          <a class="link" href={`${localizedHref('/settings')}#sync-storage`}
+    <p id="migration-banner-body" class="migration-body">
+      {bodyFor(bannerState.kind)}
+      {#if showRegister && bannerState.kind !== 'guest-history'}
+        <a class="link" href={localizedHref('/register')}>{m.migration_register_cta()}</a>
+      {:else if compact}
+        <a class="link" href={`${localizedHref('/settings')}#sync-storage`}
+          >{m.migration_sync_details_cta()}</a
+        >
+      {/if}
+      {#if compact}{@render recoveryLink()}{/if}
+    </p>
+
+    {#if bannerState.showCheckpoint}
+      <p id="migration-banner-checkpoint" class="migration-body">{m.migration_checkpoint_body()}</p>
+    {/if}
+    {#if !compact}
+      <div class="migration-actions">
+        {#if showFinishSaved && context.checkpointHref}
+          <a class="btn-primary" href={localizedHref(context.checkpointHref)}>
+            {m.migration_finish_saved_cta()}
+          </a>
+        {/if}
+        {#if showRetry}
+          <button
+            type="button"
+            class="btn-primary"
+            disabled={retrying || trainingSyncState.syncing || learningSyncState.syncing}
+            onclick={retrySync}
+          >
+            {m.migration_retry_sync_cta()}
+          </button>
+        {/if}
+        {#if bannerState.kind !== 'guest-history'}
+          <a
+            class={bannerState.critical && !showRetry && !showRegister
+              ? 'btn-primary'
+              : 'link standalone-target'}
+            href={`${localizedHref('/settings')}#sync-storage`}>{m.migration_sync_details_cta()}</a
+          >
+        {/if}
+        {@render recoveryLink()}
+      </div>
+    {/if}
+    {#if bannerState.kind === 'guest-history'}
+      <details class="migration-sync">
+        <summary>{m.migration_guest_sync_heading()}</summary>
+        <p class="migration-body">{m.migration_guest_sync_steps()}</p>
+        <div class="migration-actions">
+          <a class="link standalone-target" href={localizedHref('/register')}
+            >{m.migration_register_cta()}</a
+          >
+          <a class="link standalone-target" href={`${localizedHref('/settings')}#sync-storage`}
             >{m.migration_sync_details_cta()}</a
           >
-        </p>
-      {:else}
-        <p id="migration-banner-body" class="migration-body">{bodyFor(bannerState.kind)}</p>
-        {#if bannerState.showCheckpoint}
-          <p id="migration-banner-checkpoint" class="migration-body">
-            {m.migration_checkpoint_body()}
-          </p>
-        {/if}
-
-        <div class="migration-actions">
-          {#if showRegister}
-            <a
-              class={showFinishSaved ? 'btn-ghost' : 'btn-primary'}
-              href={localizedHref('/register')}
-            >
-              {m.migration_register_cta()}
-            </a>
-          {/if}
-          {#if showRetry}
-            <button
-              type="button"
-              class="btn-primary"
-              disabled={retrying || trainingSyncState.syncing || learningSyncState.syncing}
-              onclick={() => void retrySync()}
-            >
-              {m.migration_retry_sync_cta()}
-            </button>
-          {/if}
-          {#if showFinishSaved && context.checkpointHref}
-            <a class="btn-primary" href={localizedHref(context.checkpointHref)}>
-              {m.migration_finish_saved_cta()}
-            </a>
-          {/if}
-          {#if showSyncDetails}
-            <a
-              class={showRegister || showRetry || showFinishSaved ? 'btn-ghost' : 'btn-primary'}
-              href={`${localizedHref('/settings')}#sync-storage`}
-            >
-              {m.migration_sync_details_cta()}
-            </a>
-          {/if}
         </div>
-      {/if}
-      <a class="link" href={`${localizedHref('/settings')}#device-recovery`}
-        >{m.domain_recovery_title()}</a
-      >
-    </div>
+      </details>
+    {/if}
 
     <button
       type="button"
@@ -314,122 +325,112 @@
 
 <style>
   .migration-banner {
-    position: relative;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-3) var(--space-4);
-    align-items: start;
-    margin: 0 0 var(--section-gap);
-    padding: var(--space-4) calc(var(--space-4) + var(--nav-control-height)) var(--space-4)
-      var(--space-4);
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-1) var(--space-2);
+    margin: 0 0 var(--space-4);
+    padding: var(--space-3);
     border: 1px solid var(--border-card);
     border-radius: var(--radius-md);
-    background-color: var(--bg-surface);
+    background: var(--bg-surface);
     color: var(--text-primary);
   }
 
-  .migration-banner.compact {
-    gap: var(--space-3);
-    padding-block: var(--space-3);
+  .compact {
+    padding: 0 0 var(--space-2);
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
   }
 
-  .migration-banner.compact .migration-icon {
-    width: 2rem;
-    height: 2rem;
+  .warning {
+    --notice-accent: var(--status-ok);
+    border-color: var(--notice-accent);
+    background: var(--status-ok-tint);
   }
 
-  .migration-banner.compact h2 {
-    font-size: var(--text-base);
-  }
-
-  .migration-banner.compact .migration-body {
-    max-width: none;
-    margin-top: var(--space-1);
-  }
-
-  .migration-banner.warning {
-    border-color: var(--status-ok);
-    background-color: var(--status-ok-tint);
-  }
-
-  .migration-banner.danger {
-    border-color: var(--status-bad);
-    background-color: var(--status-bad-tint);
-  }
-
-  .migration-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    color: var(--accent);
-  }
-
-  .migration-banner.warning .migration-icon {
-    color: var(--status-ok);
-  }
-
-  .migration-banner.danger .migration-icon {
-    color: var(--status-bad);
-  }
-
-  .migration-copy {
-    min-width: 0;
+  .danger {
+    --notice-accent: var(--status-bad);
+    border-color: var(--notice-accent);
+    background: var(--status-bad-tint);
   }
 
   h2 {
+    grid-area: 1 / 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin: 0;
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
+    font-weight: 600;
     line-height: var(--leading-snug);
-    text-wrap: balance;
+  }
+
+  .migration-icon {
+    flex: none;
+    color: var(--notice-accent, var(--accent));
   }
 
   .migration-body {
+    grid-column: 1 / -1;
     max-width: 70ch;
-    margin: var(--space-2) 0 0;
+    margin: 0;
     color: var(--text-secondary);
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
   }
 
+  .compact .migration-body {
+    grid-column: 1;
+    max-width: none;
+  }
+
+  .compact .recovery-link {
+    margin-inline-start: var(--space-2);
+  }
+  @media (max-width: 480px) {
+    .compact .recovery-link {
+      display: flex;
+      width: fit-content;
+      margin-inline-start: 0;
+    }
+  }
+
+  .migration-sync {
+    grid-column: 1 / -1;
+    font-size: var(--text-sm);
+  }
+  .migration-sync summary {
+    width: fit-content;
+    min-height: var(--nav-control-height);
+    padding-block: var(--space-2);
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+
   .migration-actions {
+    grid-column: 1 / -1;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-3);
-    margin-top: var(--space-4);
+    gap: var(--space-1) var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .migration-actions .link {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
   }
 
   .migration-dismiss {
-    position: absolute;
-    top: var(--space-2);
-    right: var(--space-2);
-    width: 2.75rem;
-    height: 2.75rem;
+    grid-area: 1 / 2;
+    align-self: start;
+    width: var(--nav-control-height);
+    height: var(--nav-control-height);
   }
 
-  @media (max-width: 480px) {
-    .migration-banner.compact {
-      grid-template-columns: minmax(0, 1fr);
-      padding: var(--space-3) calc(var(--space-2) + var(--nav-control-height)) var(--space-3)
-        var(--space-3);
-      margin-bottom: var(--space-3);
-    }
-    .migration-banner.compact .migration-icon {
-      display: none;
-    }
-    .migration-banner.compact h2 {
-      text-wrap: wrap;
-    }
-
-    .migration-actions {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .migration-actions :is(.btn-primary, .btn-ghost) {
-      width: 100%;
-    }
+  .compact .migration-dismiss {
+    grid-row: 1 / 3;
   }
 </style>

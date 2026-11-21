@@ -287,7 +287,9 @@
       </label>
     {/if}
     <details class="character-details">
-      <summary>{m.practice_character_count({ count: currentLessonChars.length })}</summary>
+      <summary class="training-disclosure"
+        >{m.practice_character_count({ count: currentLessonChars.length })}</summary
+      >
       <p>{currentLessonChars.join(' ')}</p>
     </details>
   </div>
@@ -337,7 +339,7 @@
       </label>
     {/if}
 
-    {#if !showOverlay && result >= 0}
+    {#if result >= 0}
       <p class="result-line" aria-live="polite">
         {m.trainer_result_last({ percent: formatPercent(result) })}
         <button type="button" class="quiet-btn" onclick={() => (showOverlay = true)}>
@@ -391,6 +393,7 @@
       lessonNum={activeLesson}
       sourceText={lessonText}
       onClose={() => (showOverlay = false)}
+      fallbackFocus={answerEl}
       onFinish={() => void finishPractice()}
       onRegenerate={() => void startNewExercise()}
       {persistenceStatus}
@@ -447,7 +450,6 @@
     font-size: var(--text-sm);
   }
   .character-details summary {
-    cursor: pointer;
     min-height: var(--nav-control-height);
     padding-block: var(--space-2);
   }

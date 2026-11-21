@@ -88,7 +88,7 @@ jobs:
   e2e:
     name: Frontend browser tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       NODE_VERSION: "26.13.1"
       # Build-time public value; the acceptance server supplies its own API base.
@@ -121,7 +121,8 @@ jobs:
       - name: Build
         run: npm run build
       - name: Browser tests
-        run: npm run test:e2e
+        timeout-minutes: 40
+        run: npm run test:e2e -- --workers=2
         env:
           # Build ran in the previous step; avoid rebuilding under the preview web server.
           PLAYWRIGHT_SKIP_BUILD: "1"

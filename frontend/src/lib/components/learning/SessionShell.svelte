@@ -125,7 +125,7 @@
     };
   }}
 >
-  <header class="session-header">
+  <header class="session-header" class:guided-controls={!assessment && !complete && onSaveLeave}>
     {#if !assessment}<button
         type="button"
         class="btn-icon"
@@ -223,7 +223,6 @@
     overflow-y: auto;
   }
   .assessment .session-header {
-    gap: var(--space-2);
     border-bottom: 0;
   }
   .assessment .session-progress-container {
@@ -305,6 +304,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--space-2);
     padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
     padding-right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
     padding-bottom: var(--space-3);
@@ -372,10 +372,9 @@
   }
 
   @container (width < 18rem) {
-    .session-header {
+    .session-header:not(.guided-controls) {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: var(--space-2);
     }
     .session-header button {
       justify-self: start;
@@ -387,6 +386,24 @@
     .session-progress-container {
       grid-row: 2;
       grid-column: 1 / -1;
+      max-width: none;
+      margin: 0;
+    }
+  }
+
+  @container (width < 30rem) {
+    .guided-controls {
+      flex-wrap: wrap;
+    }
+    .guided-controls .btn-ghost {
+      margin-inline-start: auto;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+    .guided-controls .session-progress-container {
+      display: block;
+      order: 1;
+      flex-basis: 100%;
       max-width: none;
       margin: 0;
     }

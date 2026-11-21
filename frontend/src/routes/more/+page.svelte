@@ -2,7 +2,6 @@
   import { onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import {
-    BookOpen,
     ChevronRight,
     Cloud,
     Info,
@@ -12,7 +11,6 @@
     Settings,
     ShieldUser,
     SlidersHorizontal,
-    User,
     UserPlus,
     Radio
   } from '@lucide/svelte';
@@ -20,6 +18,7 @@
   import { createSessionScope } from '#lib/session-scope.ts';
   import { logout, user } from '#lib/auth.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { MorseTableIcon, ProfileIcon } from '#lib/navigation-icons.ts';
   import * as m from '#lib/paraglide/messages.js';
 
   const adminMail = getAdminMailSession();
@@ -30,7 +29,7 @@
       label: m.more_app_section,
       links: [
         { path: '/morse/learn', label: m.nav_learn, icon: Radio },
-        { path: '/morse', label: m.morse_title, icon: BookOpen }
+        { path: '/morse', label: m.morse_title, icon: MorseTableIcon }
       ]
     },
     {
@@ -43,7 +42,7 @@
     {
       label: m.more_personal_section,
       links: [
-        { path: '/profile', label: m.nav_profile, icon: User },
+        { path: '/profile', label: m.nav_profile, icon: ProfileIcon },
         ...(adminMail.owner ? [{ path: '/admin', label: m.admin_title, icon: ShieldUser }] : []),
         { path: '/settings', label: m.nav_settings, icon: Settings },
         {

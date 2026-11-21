@@ -20,7 +20,9 @@
     <h2 class="section-title">{m.privacy_google_title()}</h2>
     <p>{m.privacy_google_button()}</p>
     <p>{m.privacy_google_identity()}</p>
-    <a class="link" href="https://policies.google.com/privacy">{m.privacy_google_policy()}</a>
+    <a class="link standalone-target" href="https://policies.google.com/privacy"
+      >{m.privacy_google_policy()}</a
+    >
   </section>
 
   <section>
@@ -33,15 +35,17 @@
     <h2 class="section-title">{m.privacy_choices_title()}</h2>
     <p>{m.privacy_local_controls()}</p>
     <p>{m.privacy_google_controls()}</p>
-    <a class="link" href="https://myaccount.google.com/linkedapps">{m.privacy_google_links()}</a>
+    <a class="link standalone-target" href="https://myaccount.google.com/linkedapps"
+      >{m.privacy_google_links()}</a
+    >
   </section>
 
   <section>
     <h2 class="section-title">{m.privacy_contact_title()}</h2>
     <p>{m.privacy_contact_body()}</p>
-    <a class="link" href="mailto:privacy@morsewell.com">privacy@morsewell.com</a>
+    <a class="link standalone-target" href="mailto:privacy@morsewell.com">privacy@morsewell.com</a>
     <p>{m.privacy_contact_routing()}</p>
-    <a class="link" href={`mailto:${supportGroup}`}>{supportGroup}</a>
+    <a class="link standalone-target" href={`mailto:${supportGroup}`}>{supportGroup}</a>
     <p>{m.privacy_retention_body()}</p>
   </section>
 </article>

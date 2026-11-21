@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/lib/components/learning/LearnHero.svelte"
+        ],
+        "createdAt": "2026-11-21T07:21:11.419Z",
+        "reason": "Agent review: the sole LearnHero caller uses the embedded variant, which sets border to 0. The flagged standalone border predates packet 2."
+      }
+    ]
+  }
+}

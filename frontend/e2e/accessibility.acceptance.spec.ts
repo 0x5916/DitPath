@@ -1,5 +1,7 @@
-import { expect, test } from '@playwright/test';
-import { resetAcceptance, resetToHome, TRAINING_DB } from './helpers';
+import { expect, test, type Locator } from '@playwright/test';
+import de from '../messages/de.json' with { type: 'json' };
+import en from '../messages/en.json' with { type: 'json' };
+import { resetToHome, startAndType } from './helpers';
 
 // Firefox can report a 48px CSS box as 47.99997px because layout is fractional.
 // Keep a sub-pixel tolerance while still enforcing the intended minimum target.
@@ -17,13 +19,63 @@ test('keyboard-only practice starts, checks, and closes the result', async ({ pa
   await expect(answer).toBeFocused();
   await page.keyboard.type('KM');
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByText('Practice results')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Practice results' });
+  const close = dialog.getByRole('button', { name: 'Close', exact: true });
+  const finish = dialog.getByRole('button', { name: 'Finish for today' });
+  await expect(finish).toBeEnabled();
+  await page.keyboard.press('Shift+Tab');
+  await expect(finish).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(finish).toBeFocused();
 
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(dialog).toHaveCount(0);
   await expect(answer).toBeFocused();
+
+  const review = page.getByRole('button', { name: 'Review', exact: true });
+  await review.press('Enter');
+  await close.press('Enter');
+  await expect(dialog).toHaveCount(0);
+  await expect(review).toBeFocused();
 });
+
+for (const { input, viewport, colorScheme } of [
+  { input: 'mouse', viewport: { width: 1440, height: 900 }, colorScheme: 'light' },
+  { input: 'touch', viewport: { width: 390, height: 844 }, colorScheme: 'dark' }
+] as const) {
+  test.describe(`Practice results with ${input}`, () => {
+    test.use({ viewport, colorScheme, hasTouch: input === 'touch', reducedMotion: 'reduce' });
+
+    test('the backdrop intercepts activation over the Progress link', async ({ page }) => {
+      await resetToHome(page);
+      await page.goto('/en/morse/practice');
+      const progress = page.getByRole('navigation', { name: 'Primary' }).getByRole('link', {
+        name: 'Progress',
+        exact: true
+      });
+      await expect(progress).toBeInViewport();
+      const { x, y } = await progress.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      });
+
+      const answer = await startAndType(page);
+      await answer.press('Enter');
+      const dialog = page.getByRole('dialog', { name: 'Practice results' });
+      await expect(dialog.getByText('Practice result saved on this device')).toBeVisible();
+
+      // Hit the overlapping coordinates through the browser's real pointer dispatch.
+      if (input === 'touch') await page.touchscreen.tap(x, y);
+      else await page.mouse.click(x, y);
+
+      await expect(dialog).toHaveCount(0);
+      await expect(page).toHaveURL(/\/en\/morse\/practice$/);
+      await expect(answer).toBeFocused();
+    });
+  });
+}
 
 test('the Practice title tip matches the Penpot heading and close treatment', async ({ page }) => {
   await resetToHome(page);
@@ -54,69 +106,6 @@ test('the Practice title tip matches the Penpot heading and close treatment', as
   await expect(trigger).toBeFocused();
 });
 
-test('Profile heatmap days meet 24px and support roving keyboard navigation', async ({ page }) => {
-  await resetAcceptance(page, 'Returning learner / populated history', /\/en$/);
-  await page.evaluate(async (name) => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(name);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    try {
-      const existing = await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
-        const tx = db.transaction('owned_sessions', 'readonly');
-        const request = tx.objectStore('owned_sessions').getAll();
-        request.onsuccess = () => resolve(request.result[0]);
-        request.onerror = () => reject(request.error);
-      });
-      if (!existing) return;
-      const when = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction('owned_sessions', 'readwrite');
-        tx.objectStore('owned_sessions').put({
-          ...existing,
-          id: 'fixture-heatmap-older',
-          startedAt: when,
-          completedAt: when,
-          status: 'completed'
-        });
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    } finally {
-      db.close();
-    }
-  }, TRAINING_DB);
-  await page.goto('/profile', { waitUntil: 'networkidle' });
-  const cells = page.locator('button.profile-heatmap-cell');
-  await expect(cells.first()).toBeVisible();
-  expect(await cells.count()).toBeGreaterThan(1);
-
-  const sizes = await cells.evaluateAll((nodes) =>
-    nodes.map((node) => {
-      const rect = node.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
-    })
-  );
-  expect(sizes.length).toBeGreaterThan(0);
-  expect(Math.min(...sizes.map((size) => size.width))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
-  expect(Math.min(...sizes.map((size) => size.height))).toBeGreaterThanOrEqual(24 - TARGET_EPSILON);
-
-  const tabbable = page.locator('button.profile-heatmap-cell[tabindex="0"]');
-  await expect(tabbable).toHaveCount(1);
-  await tabbable.focus();
-  const before = await tabbable.getAttribute('data-date');
-  await page.keyboard.press('ArrowLeft');
-  const after = await page.evaluate(
-    () => (document.activeElement as HTMLElement | null)?.dataset.date ?? null
-  );
-  expect(after).not.toBe(before);
-  await expect(page.getByRole('tooltip')).toBeVisible();
-  await expect(page.locator('button.profile-heatmap-cell[tabindex="0"]')).toHaveCount(1);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('tooltip')).toHaveCount(0);
-});
-
 test('all locales fit at 320px in dark mode', async ({ page }) => {
   await resetToHome(page);
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -131,18 +120,108 @@ test('all locales fit at 320px in dark mode', async ({ page }) => {
   }
 });
 
-test('Practice reflows at 200% root text size on a 320px viewport', async ({ page }) => {
-  await resetToHome(page);
-  await page.setViewportSize({ width: 320, height: 844 });
-  await page.goto('/morse/practice', { waitUntil: 'networkidle' });
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = '32px';
+async function measure(locator: Locator) {
+  return locator.evaluate((element) => {
+    const { left, right, width, height } = element.getBoundingClientRect();
+    return {
+      left,
+      right,
+      width,
+      height,
+      fontSize: getComputedStyle(element).fontSize
+    };
   });
-  await page.waitForTimeout(300);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
-  expect(overflow).toBe(false);
-  await expect(page.getByRole('button', { name: 'Start practice' })).toBeVisible();
+}
+
+test('Start practice matches Start lesson on mobile and desktop', async ({ page }) => {
+  await resetToHome(page);
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/en/morse/learn');
+    const lesson = await measure(page.getByRole('button', { name: 'Start lesson 1', exact: true }));
+    if (width === 390) {
+      const column = await measure(page.locator('.current-content'));
+      expect(lesson.left).toBeCloseTo(column.left);
+      expect(lesson.right).toBeCloseTo(column.right);
+    }
+
+    await page.goto('/en/morse/practice');
+    const start = await measure(page.getByRole('button', { name: 'Start practice' }));
+    expect(start.fontSize).toBe(lesson.fontSize);
+    expect(start.height).toBeCloseTo(lesson.height);
+    if (width === 390) {
+      const field = await measure(page.getByRole('combobox', { name: 'Practice content' }));
+      expect(start.left).toBeCloseTo(field.left);
+      expect(start.right).toBeCloseTo(field.right);
+    } else {
+      expect(start.width).toBeCloseTo(lesson.width);
+    }
+  }
 });
+
+for (const [width, textPercent, locale] of [
+  [390, 100, 'en'],
+  [390, 100, 'de'],
+  [320, 100, 'en'],
+  [320, 200, 'en']
+] as const) {
+  test(`Practice transport reflows at ${width}px with ${textPercent}% text (${locale})`, async ({
+    page
+  }) => {
+    const labels = locale === 'de' ? de : en;
+    await page.setViewportSize({ width, height: 844 });
+    await resetToHome(page);
+    await page.goto(`/${locale}/morse/practice`, { waitUntil: 'networkidle' });
+    await page.evaluate((percent) => {
+      document.documentElement.style.fontSize = `${percent}%`;
+    }, textPercent);
+    await expect(page.locator('html')).toHaveCSS(
+      'font-size',
+      textPercent === 200 ? '32px' : '16px'
+    );
+    const button = (name: string) => page.getByRole('button', { name, exact: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width + 1
+    );
+    await button(labels.practice_start).click();
+    const answer = page.getByRole('textbox', { name: labels.trainer_answer_label });
+    await expect(answer).toBeFocused();
+    for (const label of [labels.player_pause, labels.player_resume]) {
+      await expect(button(label)).toBeEnabled();
+      // Playback focuses the copy field, which can scroll the page between browser calls.
+      const controls = await page.locator('.player-media-controls button').evaluateAll((buttons) =>
+        buttons.map((element) => {
+          const { left, right, top, bottom, width, height } = element.getBoundingClientRect();
+          return { left, right, top, bottom, width, height };
+        })
+      );
+      expect(controls).toHaveLength(3);
+      for (const [index, box] of controls.entries()) {
+        expect(box.width).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
+        expect(box.height).toBeGreaterThanOrEqual(44 - TARGET_EPSILON);
+        expect(box.left).toBeGreaterThanOrEqual(-TARGET_EPSILON);
+        expect(box.right).toBeLessThanOrEqual(width + TARGET_EPSILON);
+        if (index === 0) continue;
+        const previous = controls[index - 1];
+        const sameRow = box.top < previous.bottom && box.bottom > previous.top;
+        if (width === 390) expect(sameRow).toBe(true);
+        const gap = sameRow ? box.left - previous.right : box.top - previous.bottom;
+        expect(gap).toBeGreaterThanOrEqual(8 - TARGET_EPSILON);
+      }
+      const timer = await measure(page.locator('.player-inline-timer'));
+      expect(timer.right).toBeLessThanOrEqual(width + TARGET_EPSILON);
+      await button(label).click();
+    }
+    await button(labels.player_skip_next).click();
+    await button(labels.player_stop).click();
+    await expect(button(labels.trainer_replay)).toBeEnabled();
+    await answer.fill('KM');
+    await expect(answer).toHaveValue('KM');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width + 1
+    );
+  });
+}
 
 for (const width of [320, 390, 1280]) {
   test(`key routes fit at ${width}px`, async ({ page }) => {

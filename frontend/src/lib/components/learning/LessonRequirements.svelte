@@ -14,7 +14,7 @@
 </script>
 
 <details class="unlock-checks">
-  <summary>{unlockTitle}</summary>
+  <summary class="training-disclosure">{unlockTitle}</summary>
   <p class="unlock-hint">{m.learn_unlock_checks_hint()}</p>
   <ul class="mastery-checks" role="list">
     {#each checks as { character, mastery } (character)}
@@ -51,12 +51,6 @@
     color: var(--text-secondary);
     font-size: var(--text-sm);
     font-weight: 500;
-    cursor: pointer;
-  }
-
-  .unlock-checks summary:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
   }
 
   .unlock-hint {

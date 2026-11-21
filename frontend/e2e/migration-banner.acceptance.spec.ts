@@ -1,7 +1,52 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resetAcceptance } from './helpers';
 
 test.describe('Morsewell migration data guidance', () => {
+  test.describe('phone Lessons', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+    test('keeps the returning guest recommendation fully visible and tappable above the tabs', async ({
+      page
+    }) => {
+      await resetAcceptance(page, 'Returning learner / populated history', /\/en$/);
+      await page.goto('/en/morse/learn');
+      const banner = page.locator('.migration-banner[role="alert"]');
+      await expect(banner).toBeVisible();
+      await expect(banner.getByText(/will not transfer automatically/)).toBeVisible();
+      await expect(banner.getByRole('link', { name: 'Create account' })).toHaveCount(0);
+      const recommendation = page.getByRole('link', { name: 'Check K, M', exact: true });
+      await expect(recommendation).toBeInViewport({ ratio: 1 });
+      const tabs = await page.locator('nav.bottom-nav').boundingBox();
+      const action = await recommendation.boundingBox();
+      expect(tabs).toBeTruthy();
+      expect(action).toBeTruthy();
+      expect(action!.y + action!.height).toBeLessThanOrEqual(tabs!.y);
+      expect(await page.evaluate(() => scrollY)).toBe(0);
+      // A coordinate tap cannot scroll the target into view like locator.tap() can.
+      await page.touchscreen.tap(action!.x + action!.width / 2, action!.y + action!.height / 2);
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === '/en/morse/learn/session' && url.searchParams.get('check') === 'KM'
+      );
+    });
+
+    test('keeps the new guest sync guidance in the notice and opens device recovery', async ({
+      page
+    }) => {
+      await resetAcceptance(page, 'New learner / empty history', /\/en$/);
+      await page.goto('/en/morse/learn');
+      const banner = page.locator('.migration-banner[role="status"]');
+      await expect(banner.getByText(/Progress saves in this browser/)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Start lesson 1' })).toBeVisible();
+      await expect(page.locator('.lessons-page a[href="/en/register"]')).toHaveCount(0);
+      await banner.getByRole('link', { name: 'Recover history from the previous site' }).tap();
+      await expect(page).toHaveURL(/\/en\/settings#device-recovery$/);
+      await expect(
+        page.getByRole('heading', { name: 'Recover history from the previous site' })
+      ).toBeVisible();
+    });
+  });
+
   test('warns guests with browser-local history and keeps critical dismissal session-only', async ({
     page
   }) => {
@@ -11,8 +56,11 @@ test.describe('Morsewell migration data guidance', () => {
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('OpenCW is now Morsewell!');
     await expect(banner).toContainText('will not transfer automatically');
-    await expect(banner).toContainText('import your device history');
-    await expect(banner).toContainText('confirm synchronization');
+    const syncOptions = banner.getByText('How to sync your history', { exact: true });
+    await syncOptions.press('Enter');
+    await expect(
+      banner.getByText(/import your device history, and confirm synchronization/)
+    ).toBeVisible();
     await expect(banner.getByRole('link', { name: 'Create account' })).toHaveAttribute(
       'href',
       '/en/register'
@@ -21,11 +69,28 @@ test.describe('Morsewell migration data guidance', () => {
       'href',
       '/en/settings#sync-storage'
     );
+    await banner.getByRole('link', { name: 'Sync & storage' }).click();
+    await expect(page).toHaveURL(/\/en\/settings#sync-storage$/);
+    await expect(page.getByRole('heading', { name: 'Sync & storage', exact: true })).toBeVisible();
+    await page.goBack();
 
     await banner.getByRole('button', { name: 'Dismiss announcement' }).click();
     await expect(page.locator('.migration-banner')).toHaveCount(0);
 
-    await page.goto('/en/about');
+    async function openReturningLessons(tab: Page) {
+      await tab.goto('/en/morse/learn');
+      // This action appears only after hydration and the learner's local history load.
+      await tab.getByRole('link', { name: 'Check K, M', exact: true }).waitFor();
+    }
+
+    await openReturningLessons(page);
+    await expect(page.locator('.migration-banner')).toHaveCount(0);
+
+    const freshTab = await page.context().newPage();
+    await openReturningLessons(freshTab);
+    const freshWarning = freshTab.locator('.migration-banner[role="alert"]');
+    await expect(freshWarning).toBeVisible();
+    await expect(freshWarning).toContainText('will not transfer automatically');
     await expect(page.locator('.migration-banner')).toHaveCount(0);
   });
 
@@ -45,6 +110,7 @@ test.describe('Morsewell migration data guidance', () => {
       'href',
       '/en/morse/practice'
     );
+    await banner.getByText('How to sync your history', { exact: true }).click();
     await expect(banner.getByRole('link', { name: 'Create account' })).toHaveAttribute(
       'href',
       '/en/register'

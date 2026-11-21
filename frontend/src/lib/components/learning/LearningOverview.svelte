@@ -1,7 +1,7 @@
 <script lang="ts">
   import { armCheckStart } from '#lib/check-start-intent.ts';
   import { LEARNING_POLICY } from '#lib/training/learning-policy/policy.ts';
-  import type { LearningSnapshot } from '../../data/learning-snapshot';
+  import type { LearningCharacter, LearningSnapshot } from '../../data/learning-snapshot';
   import { learningRecommendationHref } from '../../data/learning-snapshot';
   import { recommendationTitle, criterionLabel } from './recommendation-copy';
   import { isRecommendationLessonLocked } from '#lib/training/v2/lesson-access.ts';
@@ -11,6 +11,7 @@
   import * as m from '#lib/paraglide/messages.js';
   let {
     snapshot,
+    characterRecords = [],
     details = false,
     compact = false,
     progressView = null,
@@ -18,6 +19,7 @@
     onAction
   }: {
     snapshot: LearningSnapshot;
+    characterRecords?: LearningCharacter[];
     details?: boolean;
     compact?: boolean;
     progressView?: string | null;
@@ -39,12 +41,13 @@
       ? page.url.searchParams.get('status')!
       : 'all'
   );
-  async function changeFilter(value: string) {
+  async function changeFilter(value: string, focusFilter = false) {
     const url = new URL(page.url.href);
     url.searchParams.set('view', 'characters');
     url.searchParams.set('status', value);
-    await goto(url, { shallow: true, reset: false });
+    await goto(url, { reset: false });
     await tick();
+    if (focusFilter) filterControl?.focus({ preventScroll: true });
     scrollRegion?.scrollTo({ top: 0 });
     if (filterControl && filterControl.getBoundingClientRect().top < 0)
       filterControl.scrollIntoView({ block: 'start' });
@@ -85,11 +88,8 @@
           (event.currentTarget as HTMLAnchorElement).search
       );
   }
-  const known = $derived(
-    snapshot.characters.filter((c) => snapshot.knownCharacters.includes(c.character))
-  );
   const filtered = $derived(
-    known.filter(
+    characterRecords.filter(
       (c) =>
         filter === 'all' ||
         (filter === 'stale'
@@ -142,7 +142,7 @@
         <p>{m.mixed_gap_hint()}</p>
       </details>{/if}
   {/if}
-  {#if !compact && snapshot.coverage === 'partial'}<p role="status">
+  {#if !compact && !progressView && snapshot.coverage === 'partial'}<p role="status">
       {m.learning_coverage_partial()}
     </p>
   {:else if !compact && !progressView && snapshot.coverage === 'local-only'}<p class="supporting">
@@ -193,77 +193,79 @@
           <option value="stale">{m.learning_current_stale()}</option>
         </select>
       </label>
-      <!-- Keyboard users must be able to scroll this named region. -->
-      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <div
-        bind:this={scrollRegion}
-        class="character-scroll"
-        role="region"
-        tabindex="0"
-        aria-label={m.progress_tab_characters()}
-      >
-        <ul>
-          {#if !filtered.length}<li class="empty-records">
-              <p>{m.progress_no_characters()}</p>
-              {#if filter !== 'all'}<button
-                  class="btn-ghost"
-                  onclick={() => void changeFilter('all')}>{m.history_all()}</button
-                >{/if}
-            </li>{/if}
-          {#each filtered as character (character.character)}
-            <li>
-              <details class="character-evidence">
-                <summary>
-                  <strong>{character.character}</strong>
-                  <span>{criterionLabel(character.current.criterion)}</span>
-                  <ChevronDown size={20} aria-hidden="true" />
-                </summary>
-                <div class="evidence-details">
-                  {#if character.current.counts && character.current.counts.eligible > 0}<p>
-                      {m.mixed_count({
-                        character: character.character,
-                        correct: character.current.counts.unassistedCorrect,
-                        total: character.current.counts.eligible
-                      })}
-                    </p>{/if}
-                  <h3>{m.progress_past_milestones()}</h3>
-                  <dl>
-                    <div>
-                      <dt>{m.learning_proficiency()}</dt>
-                      <dd>{award(character.proficiency)}</dd>
-                    </div>
-                    <div>
-                      <dt>{m.learning_retention()}</dt>
-                      <dd>{award(character.retention)}</dd>
-                    </div>
-                  </dl>
-                  {#if character.evidence.revalidation.length || character.evidence.historical.some((a) => a.status === 'unverified')}<p
+      {#if filtered.length === 0}
+        <div class="empty-records">
+          <p>{m.progress_no_characters()}</p>
+          <button type="button" class="btn-ghost" onclick={() => void changeFilter('all', true)}>
+            {m.progress_show_all_characters()}
+          </button>
+        </div>
+      {:else}
+        <!-- Keyboard users must be able to scroll this named region. -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div
+          bind:this={scrollRegion}
+          class="character-scroll"
+          role="region"
+          tabindex="0"
+          aria-label={m.progress_tab_characters()}
+        >
+          <ul>
+            {#each filtered as character (character.character)}
+              <li>
+                <details class="character-evidence">
+                  <summary>
+                    <strong>{character.character}</strong>
+                    <span>{criterionLabel(character.current.criterion)}</span>
+                    <ChevronDown size={20} aria-hidden="true" />
+                  </summary>
+                  <div class="evidence-details">
+                    {#if character.current.counts && character.current.counts.eligible > 0}<p>
+                        {m.mixed_count({
+                          character: character.character,
+                          correct: character.current.counts.unassistedCorrect,
+                          total: character.current.counts.eligible
+                        })}
+                      </p>{/if}
+                    <h3>{m.progress_past_milestones()}</h3>
+                    <dl>
+                      <div>
+                        <dt>{m.learning_proficiency()}</dt>
+                        <dd>{award(character.proficiency)}</dd>
+                      </div>
+                      <div>
+                        <dt>{m.learning_retention()}</dt>
+                        <dd>{award(character.retention)}</dd>
+                      </div>
+                    </dl>
+                    {#if character.evidence.revalidation.length || character.evidence.historical.some((a) => a.status === 'unverified')}<p
+                      >
+                        {m.learning_claim_uncertain()}
+                      </p>{/if}
+                    {#if character.review}<p>
+                        {character.review.ready
+                          ? m.learning_review_due()
+                          : character.review.reason === 'upcoming'
+                            ? m.learning_review_on({
+                                date: formatDateTime(character.review.dueAt)
+                              })
+                            : m.learning_review_wait()}
+                      </p>{/if}
+                    <a
+                      class="link"
+                      onclick={prepareCheck}
+                      href={localizedHref(
+                        `/morse/learn/session?check=${encodeURIComponent(character.character)}`
+                      )}>{m.learning_check({ character: character.character })}</a
                     >
-                      {m.learning_claim_uncertain()}
-                    </p>{/if}
-                  {#if character.review}<p>
-                      {character.review.ready
-                        ? m.learning_review_due()
-                        : character.review.reason === 'upcoming'
-                          ? m.learning_review_on({
-                              date: formatDateTime(character.review.dueAt)
-                            })
-                          : m.learning_review_wait()}
-                    </p>{/if}
-                  <a
-                    class="link"
-                    onclick={prepareCheck}
-                    href={localizedHref(
-                      `/morse/learn/session?check=${encodeURIComponent(character.character)}`
-                    )}>{m.learning_check({ character: character.character })}</a
-                  >
-                </div>
-              </details>
-            </li>
-          {/each}
-        </ul>
-      </div>
-      <p class="record-note">{m.learning_history_hint()}</p>
+                  </div>
+                </details>
+              </li>
+            {/each}
+          </ul>
+        </div>
+        <p class="record-note">{m.learning_history_hint()}</p>
+      {/if}
     </div>
   {/if}
 </section>
@@ -278,8 +280,10 @@
     font-size: var(--text-sm);
   }
   .empty-records {
-    padding: var(--space-4);
-    align-items: flex-start;
+    display: grid;
+    justify-items: start;
+    gap: var(--space-3);
+    padding-block: var(--space-4);
   }
   .evidence-details h3 {
     margin: 0;

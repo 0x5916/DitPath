@@ -63,7 +63,7 @@
 {:else if postingStatus === 'unverified'}
   <div class="notice gate-notice">
     <p class="gate-note">{m.forum_email_unverified_notice()}</p>
-    <a class="link" href={href('/settings')}>{m.nav_settings()}</a>
+    <a class="link standalone-target" href={href('/settings')}>{m.nav_settings()}</a>
   </div>
 {:else if postingStatus === 'ready'}
   <form class="composer-form is-inline" bind:this={formEl} onsubmit={onSubmit}>

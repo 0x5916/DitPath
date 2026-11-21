@@ -381,6 +381,16 @@ body {
   margin: 0;
 }
 
+.training-title {
+  font-size: 2rem;
+}
+
+@media (min-width: 960px) {
+  .training-title {
+    font-size: 2.5rem;
+  }
+}
+
 /* Small label above a page/section title. The 2px rule is the timing-line
    motif that runs through the trainer and the forum mastheads. */
 .eyebrow {
@@ -588,6 +598,23 @@ p .link {
   background-color: var(--accent-cta-h);
 }
 
+/* The ready action fills its setup column on phones. */
+button.training-start {
+  width: min(100%, 16.25rem);
+  min-height: 3.25rem;
+  gap: var(--space-2);
+  padding: var(--space-3) min(var(--space-6), 8%);
+  flex-wrap: wrap;
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 599px) {
+  button.training-start {
+    width: 100%;
+  }
+}
+
 /* Quiet row action: text-like controls attached to a row or post (Reply,
    Delete, Cancel). Unbordered and quiet at rest; danger only on hover/focus,
    so a destructive action never dominates until it is used. */
@@ -624,6 +651,15 @@ p .link {
 .action-quiet:disabled {
   cursor: progress;
   opacity: 0.6;
+}
+
+.standalone-target {
+  display: inline-flex;
+  align-items: center;
+  min-inline-size: var(--nav-control-height);
+  min-block-size: var(--nav-control-height);
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* Segmented picker: one current option among a few (heatmap years, trainer
@@ -1184,6 +1220,16 @@ summary:focus-visible,
 }
 
 /* Optional information uses the same native keyboard/touch disclosure. */
+.training-disclosure {
+  display: list-item;
+  list-style-position: inside;
+  cursor: pointer;
+}
+.training-disclosure::marker {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
 .ui-disclosure > summary {
   min-height: var(--answer-target-min);
   padding-block: var(--space-3);
@@ -1217,13 +1263,14 @@ summary:focus-visible,
   }
 }
 
-/* Lessons shares the application shell, with room for the course beside the action. */
-.page-content:has(.lessons-page) {
-  max-width: var(--max-width-wide);
-  padding-inline: 1.5rem;
+/* One shell aligns the heading, announcement and content at each training width. */
+.page-content:has(> .training-page) {
+  max-width: calc(var(--training-width, 70rem) + 2 * var(--space-6));
+  padding-inline: var(--space-6);
 }
-
-.page-content:has(.practice-page) {
-  max-width: var(--max-width-wide);
-  padding-inline: 1.5rem;
+.page-content:has(> .practice-page) {
+  --training-width: 40.625rem;
+}
+.page-content:has(> .progress-page) {
+  --training-width: 60rem;
 }

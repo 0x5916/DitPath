@@ -219,9 +219,9 @@
   <title>{m.nav_practice()} · {SITE_NAME}</title>
 </svelte:head>
 
-<div class="practice-page">
+<div class="practice-page training-page">
   <header class="practice-header">
-    <h1 class="page-title">{m.nav_practice()}</h1>
+    <h1 class="page-title training-title">{m.nav_practice()}</h1>
     <InfoTip
       heading
       label={m.common_tip_label({ topic: m.nav_practice() })}
@@ -292,23 +292,9 @@
     margin-bottom: var(--space-8);
     --tip-trigger-size: 48px;
   }
-  .practice-page {
-    max-width: 40.625rem;
-    margin-inline: auto;
-  }
-  .practice-header h1 {
-    margin: 0;
-    font-size: 2rem;
-    line-height: 1.3;
-  }
   .practice-page :global(.saved-sessions) {
     padding: var(--space-6);
     background: var(--bg-surface);
     border-radius: var(--radius-lg);
-  }
-  @media (min-width: 960px) {
-    .practice-header h1 {
-      font-size: 2.5rem;
-    }
   }
 </style>

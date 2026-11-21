@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { createSessionScope } from '#lib/session-scope.ts';
   import { afterNavigate, goto } from '$app/navigation';
   import { user, getAuthSession } from '#lib/auth.ts';
@@ -21,7 +21,6 @@
   import { authorLabel, formatDate } from '#lib/format.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
   import ErrorAlert from '#lib/components/ErrorAlert.svelte';
-  import GuestNotice from '#lib/components/GuestNotice.svelte';
   import LoadingSpinner from '#lib/components/LoadingSpinner.svelte';
   import { Plus } from '@lucide/svelte';
   import { SITE_NAME } from '#lib/seo.ts';
@@ -41,6 +40,8 @@
   let loadToken = 0;
 
   let composerOpen = $state(false);
+  let newThreadButton = $state<HTMLButtonElement>();
+  let composerHeading = $state<HTMLHeadingElement>();
   let postingStatus = $state<PostingStatus | null>(null);
   let composerCategory = $state<ForumCategoryValue>('general');
   let composerTitle = $state('');
@@ -87,8 +88,6 @@
       composerSubmitting = false;
       resetComposer();
     }
-    if (filterInitialized) void loadFirstPage(filter);
-
     const current = scope.capture();
     let cancelled = false;
     postingStatus = null;
@@ -98,6 +97,13 @@
     return () => {
       cancelled = true;
     };
+  });
+
+  $effect(() => {
+    // A change of account or category refreshes the list. Changing categories
+    // keeps the current posting permission and form fields in place.
+    void $user;
+    if (filterInitialized) void loadFirstPage(filter);
   });
 
   async function loadFirstPage(category: ForumCategoryValue | null): Promise<void> {
@@ -154,9 +160,17 @@
     void goto(path, { reset: false });
   }
 
-  function closeComposer(): void {
+  async function openComposer(): Promise<void> {
+    composerOpen = true;
+    await tick();
+    composerHeading?.focus();
+  }
+
+  async function closeComposer(): Promise<void> {
     composerOpen = false;
     composerError = '';
+    await tick();
+    newThreadButton?.focus();
   }
 
   function resetComposer(): void {
@@ -191,8 +205,8 @@
       const createdCategory = composerCategory;
       await createForumThread(createdCategory, title, body);
       if (!current()) return;
-      composerOpen = false;
       resetComposer();
+      void closeComposer();
       // Make the new thread visible: jump to its category when the active
       // filter would hide it, otherwise refresh the list the visitor sees.
       if (filter !== null && filter !== createdCategory) {
@@ -219,15 +233,17 @@
       <div class="masthead-text">
         <h1 class="page-title">{m.forum_title()}</h1>
       </div>
-      <button
-        type="button"
-        class="btn-primary"
-        aria-expanded={composerOpen}
-        onclick={() => (composerOpen ? closeComposer() : (composerOpen = true))}
-      >
-        <Plus size={16} aria-hidden="true" />
-        {m.forum_new_thread()}
-      </button>
+      {#if !composerOpen}
+        <button
+          type="button"
+          class="btn-primary"
+          bind:this={newThreadButton}
+          onclick={openComposer}
+        >
+          <Plus size={16} aria-hidden="true" />
+          {m.forum_new_thread()}
+        </button>
+      {/if}
     </div>
   </header>
 
@@ -257,31 +273,22 @@
   </nav>
 
   {#if composerOpen}
-    <section class="panel composer">
-      <h2 class="card-title">{m.forum_new_thread_heading()}</h2>
+    <section class="panel composer" aria-labelledby="composer-heading">
+      <h2 id="composer-heading" class="card-title" tabindex="-1" bind:this={composerHeading}>
+        {m.forum_new_thread_heading()}
+      </h2>
 
       {#if postingStatus === 'guest'}
-        <GuestNotice class="body-text" message={m.forum_guest_notice()} />
-        <div class="composer-actions">
-          <button type="button" class="btn-ghost" onclick={closeComposer}>
-            {m.forum_cancel()}
-          </button>
-        </div>
+        <p class="body-text">{m.forum_guest_notice()}</p>
       {:else if postingStatus === 'unverified'}
         <div class="notice gate-notice">
           <p class="gate-note">{m.forum_email_unverified_notice()}</p>
-          <a class="link" href={href('/settings')}>{m.nav_settings()}</a>
-        </div>
-        <div class="composer-actions">
-          <button type="button" class="btn-ghost" onclick={closeComposer}>
-            {m.forum_cancel()}
-          </button>
         </div>
       {:else if postingStatus === 'ready'}
-        <form class="composer-form" onsubmit={submitThread}>
+        <form id="forum-thread-form" class="composer-form" onsubmit={submitThread}>
           <label class="field">
             <span class="label-text">{m.forum_thread_category_label()}</span>
-            <select class="select" bind:value={composerCategory}>
+            <select class="select" bind:value={composerCategory} disabled={composerSubmitting}>
               {#each FORUM_CATEGORIES as category (category)}
                 <option value={category}>{forumCategoryLabel(category)}</option>
               {/each}
@@ -296,6 +303,7 @@
               maxlength="200"
               placeholder={m.forum_thread_title_placeholder()}
               bind:value={composerTitle}
+              readonly={composerSubmitting}
             />
           </label>
 
@@ -305,25 +313,42 @@
               class="textarea composer-textarea"
               maxlength="10000"
               placeholder={m.forum_thread_body_placeholder()}
-              bind:value={composerBody}></textarea>
+              bind:value={composerBody}
+              readonly={composerSubmitting}></textarea>
           </label>
 
           {#if composerError}
             <ErrorAlert message={composerError} />
           {/if}
-
-          <div class="composer-actions">
-            <button type="submit" class="btn-primary" disabled={composerSubmitting}>
-              {composerSubmitting ? m.common_saving() : m.forum_thread_submit()}
-            </button>
-            <button type="button" class="btn-ghost" onclick={closeComposer}>
-              {m.forum_cancel()}
-            </button>
-          </div>
         </form>
       {:else}
         <LoadingSpinner />
       {/if}
+      <div class="composer-actions">
+        {#if postingStatus === 'ready'}
+          <button
+            type="submit"
+            form="forum-thread-form"
+            class="btn-primary"
+            disabled={composerSubmitting}
+          >
+            {composerSubmitting ? m.common_saving() : m.forum_thread_submit()}
+          </button>
+        {:else if postingStatus === 'guest'}
+          <a class="btn-primary" href={href('/login')}>{m.nav_login()}</a>
+          <a class="link standalone-target" href={href('/register')}>{m.nav_register()}</a>
+        {:else if postingStatus === 'unverified'}
+          <a class="btn-primary" href={href('/settings')}>{m.nav_settings()}</a>
+        {/if}
+        <button
+          type="button"
+          class="btn-ghost"
+          onclick={closeComposer}
+          disabled={composerSubmitting}
+        >
+          {m.forum_cancel()}
+        </button>
+      </div>
     </section>
   {/if}
 
@@ -352,7 +377,7 @@
           : m.forum_threads_empty_title()}
       </h2>
       {#if filter}
-        <a class="link" href="?">{m.forum_category_all()}</a>
+        <a class="link standalone-target" href="?">{m.forum_category_all()}</a>
       {/if}
     </section>
   {:else}
@@ -424,9 +449,10 @@
   }
 
   .filter-link {
-    position: relative;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
     min-height: 2.75rem;
     padding: 0.15rem 0 0.45rem;
     color: var(--text-secondary);
@@ -434,15 +460,6 @@
     font-weight: 500;
     line-height: var(--leading-snug);
     text-decoration: none;
-  }
-
-  /* A short label like "All" is only as wide as its text. The link is already
-     44px tall; this overlay grows only the horizontal pointer target without
-     moving the chip or stretching the active rule. */
-  .filter-link::after {
-    content: '';
-    position: absolute;
-    inset: 0 -0.45rem;
   }
 
   .filter-link:hover {
@@ -472,13 +489,6 @@
     align-items: center;
     margin-inline: auto;
     text-align: center;
-  }
-
-  .forum-empty .link {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--answer-target-min);
-    padding-inline: var(--space-3);
   }
 
   .composer {
@@ -562,17 +572,11 @@
 
   @media (max-width: 639px) {
     .forum-filters {
-      gap: 0.25rem;
+      gap: var(--space-2);
     }
 
     .filter-link {
       padding: 0.25rem 0.3rem;
-    }
-
-    /* Phones pack the chips 4px apart, so the overlay would only overlap
-       neighbouring targets. The 44px height floor already does the work. */
-    .filter-link::after {
-      display: none;
     }
   }
 </style>
