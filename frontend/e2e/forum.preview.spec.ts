@@ -36,9 +36,13 @@ async function checkTargets(...controls: Locator[]) {
     const targets = await locator.all();
     expect(targets.length).toBeGreaterThan(0);
     for (const target of targets) {
-      const box = await target.boundingBox();
-      expect(box?.width ?? 0, target.toString()).toBeGreaterThanOrEqual(44);
-      expect(box?.height ?? 0, target.toString()).toBeGreaterThanOrEqual(44);
+      // Firefox can round the top and bottom coordinates of a 44px target differently.
+      const { width, height } = await target.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      });
+      expect(width, target.toString()).toBeGreaterThanOrEqual(44);
+      expect(height, target.toString()).toBeGreaterThanOrEqual(44);
     }
   }
 }
