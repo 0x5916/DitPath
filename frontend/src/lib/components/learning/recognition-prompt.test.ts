@@ -32,3 +32,16 @@ describe('choice assessment context', () => {
     }
   );
 });
+
+it('keeps a mixed check sound-first until playback finishes', () => {
+  const check = { ...props, typed: true, scored: true, assessment: true };
+  const playing = render(RecognitionPrompt, { props: { ...check, phase: 'playing' } }).body;
+  expect(playing).toContain('Playing sound…');
+  expect(playing).toContain('Type your answer when the sound finishes.');
+  expect(playing).not.toMatch(/Listening…|Press Space|aria-keyshortcuts="Space"|<input/);
+
+  const answering = render(RecognitionPrompt, { props: { ...check, phase: 'answering' } }).body;
+  expect(answering).toContain('Replay sound');
+  expect(answering).toContain('Type one character to submit.');
+  expect(answering).not.toContain('Playing sound…');
+});

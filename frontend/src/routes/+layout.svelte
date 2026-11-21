@@ -22,7 +22,6 @@
     Dumbbell,
     Ellipsis,
     House,
-    LayoutDashboard,
     LogIn,
     LogOut,
     Menu,
@@ -45,6 +44,7 @@
   import MigrationBanner from '#lib/components/migration/MigrationBanner.svelte';
   import { applyTheme, readStoredTheme } from '#lib/theme.svelte.ts';
   import { navigationDestination } from '#lib/navigation.ts';
+  import { ProfileIcon, ProgressIcon } from '#lib/navigation-icons.ts';
   import * as m from '#lib/paraglide/messages.js';
 
   let { children, data } = $props();
@@ -58,7 +58,7 @@
   const TAB_NAV = [
     { path: '/', label: m.nav_home, icon: House },
     { path: '/morse/practice', label: m.nav_practice, icon: Dumbbell },
-    { path: '/morse/progress', label: m.nav_progress, icon: LayoutDashboard },
+    { path: '/morse/progress', label: m.nav_progress, icon: ProgressIcon },
     { path: '/more', label: m.nav_more, icon: Ellipsis }
   ];
   const isHome = $derived(page.route.id === '/' && page.status < 400);
@@ -270,7 +270,7 @@
                 {/snippet}
                 {#snippet menu()}
                   <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
-                    ><LayoutDashboard size={14} /> {m.nav_profile()}</a
+                    ><ProfileIcon size={14} aria-hidden="true" /> {m.nav_profile()}</a
                   >
                   {#if adminMail.owner}
                     <a href={href('/admin')} class="user-dropdown-item" role="menuitem"
@@ -296,7 +296,7 @@
                 {/snippet}
                 {#snippet menu()}
                   <a href={href('/profile')} class="user-dropdown-item" role="menuitem"
-                    ><LayoutDashboard size={14} /> {m.nav_profile()}</a
+                    ><ProfileIcon size={14} aria-hidden="true" /> {m.nav_profile()}</a
                   >
                   <a href={href('/settings')} class="user-dropdown-item" role="menuitem"
                     ><Settings size={14} /> {m.nav_settings()}</a

@@ -6,8 +6,7 @@
     CircleAlert,
     CircleCheck,
     Dumbbell,
-    Radio,
-    Wrench
+    Radio
   } from '@lucide/svelte';
   import { page } from '$app/state';
   import { user } from '#lib/auth.ts';
@@ -19,6 +18,7 @@
   import { loadHomeDashboard, type HomeDashboard } from '#lib/data/home-dashboard.ts';
   import { closeTrainingDb, openTrainingDb } from '#lib/data/training-db.ts';
   import { localizedHref as href } from '#lib/i18n.svelte.ts';
+  import { MorseTableIcon } from '#lib/navigation-icons.ts';
   import { createLearningView } from '#lib/learning-view.svelte.ts';
   import * as m from '#lib/paraglide/messages.js';
   import {
@@ -156,7 +156,7 @@
         </li>
       </ul>
       <a class="reference-link" href={href('/morse')}>
-        <Wrench size={20} aria-hidden="true" />
+        <MorseTableIcon size={20} aria-hidden="true" />
         <span>
           <strong>{m.morse_title()}</strong>
         </span>

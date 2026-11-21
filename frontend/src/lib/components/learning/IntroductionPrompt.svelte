@@ -50,6 +50,7 @@
       class:unheard={!hasPlayed}
       aria-hidden={!hasPlayed}
       disabled={!hasPlayed || !canPlay}
+      aria-keyshortcuts={canContinue ? 'Space' : undefined}
       onclick={onPlay}
     >
       <RotateCcw size={20} aria-hidden="true" />
@@ -60,12 +61,10 @@
       class="btn-primary"
       aria-disabled={!canPlay}
       aria-busy={isPlaying}
-      aria-keyshortcuts={canContinue ? 'Enter' : 'Space'}
+      aria-keyshortcuts={canPlay ? (canContinue ? 'Enter' : 'Space') : undefined}
       onclick={activate}
     >
-      {#if isPlaying}
-        {m.lesson_listening()}
-      {:else if canContinue}
+      {#if isPlaying || canContinue}
         {m.lesson_continue()}
       {:else}
         <Play size={20} aria-hidden="true" /> {m.lesson_listen_character({ character })}
